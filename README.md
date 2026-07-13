@@ -1,4 +1,3 @@
-# athlete-dashboard
 # Athlete Platform
 
 Personal AI platform for endurance training, health and recovery.
