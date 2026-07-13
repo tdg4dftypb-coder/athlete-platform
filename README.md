@@ -18,4 +18,20 @@ The goal is to build an AI Coach that understands long-term trends and provides 
 - Blood Tests
 - Blood Donations
 
-## Architecture
+## ArchitectureData Sources
+│
+▼
+Collectors
+│
+▼
+Database
+│
+▼
+Analyzers
+│
+▼
+Coach AI
+
+## Project Status
+
+🚧 Early development
