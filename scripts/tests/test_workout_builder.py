@@ -1,15 +1,10 @@
 from pathlib import Path
 
 from athlete.state_builder import AthleteStateBuilder
-
 from decision.engine import DecisionEngine
-
 from engines.context_builder import ContextBuilder
-
 from performance.engine import PerformanceEngine
-
 from recovery.engine import RecoveryEngine
-
 from repositories.health_repository import HealthRepository
 
 from training.parsers.fit_parser import FitParser
@@ -89,7 +84,6 @@ def main():
     )
 
     print()
-
     print("=" * 60)
     print("WORKOUT")
     print("=" * 60)
@@ -100,6 +94,16 @@ def main():
     print("Duration   :", workout.duration, "min")
     print("Target TSS :", workout.target_tss)
     print("Target IF  :", workout.target_if)
+
+    #
+    # REST DAY
+    #
+
+    if not workout.blocks:
+
+        print()
+        print("Rest day.")
+        return
 
     print()
     print("Blocks")

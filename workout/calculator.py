@@ -11,6 +11,40 @@ class WorkoutCalculator:
         workout: Workout,
     ) -> WorkoutMetrics:
 
+        #
+        # Rest day
+        #
+
+        if not workout.blocks:
+
+            return WorkoutMetrics(
+
+                duration=0,
+
+                expected_if=0,
+
+                expected_np=0,
+
+                expected_tss=0,
+
+                estimated_calories=0,
+
+                z1=0,
+
+                z2=0,
+
+                z3=0,
+
+                z4=0,
+
+                z5=0,
+
+                z6=0,
+
+                z7=0,
+
+            )
+
         seconds = 0
 
         weighted_power = 0
@@ -58,6 +92,36 @@ class WorkoutCalculator:
 
                 z7 += duration
 
+        if seconds == 0:
+
+            return WorkoutMetrics(
+
+                duration=0,
+
+                expected_if=0,
+
+                expected_np=0,
+
+                expected_tss=0,
+
+                estimated_calories=0,
+
+                z1=0,
+
+                z2=0,
+
+                z3=0,
+
+                z4=0,
+
+                z5=0,
+
+                z6=0,
+
+                z7=0,
+
+            )
+
         avg_if = weighted_power / seconds
 
         np = avg_if * FTP
@@ -99,4 +163,5 @@ class WorkoutCalculator:
             z6=z6,
 
             z7=z7,
+
         )

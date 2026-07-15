@@ -1,8 +1,9 @@
 from collections import defaultdict
 from datetime import datetime
 
-from builders.health_daily_builder import HealthDailyBuilder
 from core.database import Database
+from core.models import HealthDaily
+
 from sleep.sleep_builder import SleepBuilder
 from sleep.sleep_repository import SleepRepository
 
@@ -12,7 +13,6 @@ class HealthRepository:
     def __init__(self):
 
         self.db = Database()
-        self.builder = HealthDailyBuilder()
 
         sessions = SleepBuilder().build_sessions(
             SleepRepository().load_records()
@@ -30,9 +30,7 @@ class HealthRepository:
             SELECT
 
                 split_part(start_date, ' ', 1) AS date,
-
                 record_type,
-
                 numeric_value
 
             FROM health_records
@@ -40,21 +38,13 @@ class HealthRepository:
             WHERE record_type IN (
 
                 'HKQuantityTypeIdentifierHeartRateVariabilitySDNN',
-
                 'HKQuantityTypeIdentifierRestingHeartRate',
-
                 'HKQuantityTypeIdentifierBodyMass',
-
                 'HKQuantityTypeIdentifierStepCount',
-
                 'HKQuantityTypeIdentifierActiveEnergyBurned',
-
                 'HKQuantityTypeIdentifierBasalEnergyBurned',
-
                 'HKQuantityTypeIdentifierRespiratoryRate',
-
                 'HKQuantityTypeIdentifierOxygenSaturation',
-
                 'HKQuantityTypeIdentifierAppleSleepingWristTemperature'
 
             )
@@ -65,32 +55,87 @@ class HealthRepository:
 
         grouped = defaultdict(list)
 
-        for date, record_type, value in rows:
+        for day, record_type, value in rows:
 
-            grouped[date].append(
-                {
-                    "date": date,
-                    "record_type": record_type,
-                    "value": value,
-                }
+            grouped[day].append(
+                (record_type, value)
             )
 
-        days = []
+        history = []
 
-        for date_str, records in grouped.items():
+        for day, records in grouped.items():
+
+            values = {
+                record_type: value
+                for record_type, value in records
+            }
 
             sleep = self.sleep_sessions.get(
                 datetime.strptime(
-                    date_str,
+                    day,
                     "%Y-%m-%d"
                 ).date()
             )
 
-            days.append(
-                self.builder.build(
-                    records,
-                    sleep=sleep,
+            history.append(
+
+                HealthDaily(
+
+                    date=datetime.strptime(
+                        day,
+                        "%Y-%m-%d"
+                    ).date(),
+
+                    weight=values.get(
+                        "HKQuantityTypeIdentifierBodyMass"
+                    ),
+
+                    sleep_duration=(
+                        sleep.duration
+                        if sleep
+                        else None
+                    ),
+
+                    sleep_score=(
+                        round(sleep.efficiency)
+                        if sleep and sleep.efficiency is not None
+                        else None
+                    ),
+
+                    hrv=values.get(
+                        "HKQuantityTypeIdentifierHeartRateVariabilitySDNN"
+                    ),
+
+                    resting_hr=values.get(
+                        "HKQuantityTypeIdentifierRestingHeartRate"
+                    ),
+
+                    active_energy=values.get(
+                        "HKQuantityTypeIdentifierActiveEnergyBurned"
+                    ),
+
+                    resting_energy=values.get(
+                        "HKQuantityTypeIdentifierBasalEnergyBurned"
+                    ),
+
+                    steps=values.get(
+                        "HKQuantityTypeIdentifierStepCount"
+                    ),
+
+                    respiratory_rate=values.get(
+                        "HKQuantityTypeIdentifierRespiratoryRate"
+                    ),
+
+                    spo2=values.get(
+                        "HKQuantityTypeIdentifierOxygenSaturation"
+                    ),
+
+                    wrist_temperature=values.get(
+                        "HKQuantityTypeIdentifierAppleSleepingWristTemperature"
+                    ),
+
                 )
+
             )
 
-        return days
+        return history
