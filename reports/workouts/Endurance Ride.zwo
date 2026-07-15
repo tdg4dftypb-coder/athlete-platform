@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<workout_file><author>Athlete Platform</author><name>Endurance Ride</name><description>Rozwój wytrzymałości tlenowej.</description><sportType>bike</sportType><workout><Warmup Duration="600" PowerLow="0.45" PowerHigh="0.60" /><SteadyState Duration="4500" Power="0.68" /><Cooldown Duration="300" PowerLow="0.40" PowerHigh="0.45" /></workout></workout_file>

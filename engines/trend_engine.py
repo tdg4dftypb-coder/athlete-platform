@@ -6,9 +6,6 @@ from typing import List, Optional
 class TrendMetric:
     """
     Uniwersalny model trendu.
-
-    Każda metryka (HRV, RHR, sen, masa itd.)
-    będzie reprezentowana dokładnie tak samo.
     """
 
     today: Optional[float]
@@ -24,23 +21,31 @@ class TrendEngine:
 
     @staticmethod
     def average(values: List[float]) -> Optional[float]:
+
+        values = [v for v in values if v is not None]
+
         if not values:
             return None
 
         return sum(values) / len(values)
 
     @staticmethod
-    def build(today: float,
-              last_7: List[float],
-              last_30: List[float]) -> TrendMetric:
+    def build(
+        today: Optional[float],
+        last_7: List[Optional[float]],
+        last_30: List[Optional[float]],
+    ) -> TrendMetric:
 
         avg7 = TrendEngine.average(last_7)
         avg30 = TrendEngine.average(last_30)
 
-        if avg7 is None:
+        if today is None or avg7 is None:
+
             delta = None
             delta_percent = None
+
         else:
+
             delta = today - avg7
 
             if avg7 == 0:

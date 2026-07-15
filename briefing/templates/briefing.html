@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+
+<html lang="pl">
+
+<head>
+
+<meta charset="UTF-8">
+
+<title>Athlete Platform</title>
+
+<link rel="stylesheet" href="../briefing/static/style.css">
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="header">
+
+        <div class="title">
+
+            🚴 Athlete Platform
+
+        </div>
+
+        <div class="date">
+
+            {{ briefing.date }}
+
+        </div>
+
+    </div>
+
+    <div class="grid">
+
+        <div class="card">
+
+            <div class="label">
+
+                Recovery
+
+            </div>
+
+            <div class="value">
+
+                {{ briefing.recovery_score }}
+
+            </div>
+
+            <div>
+
+                {{ briefing.recovery_status }}
+
+            </div>
+
+        </div>
+
+        <div class="card">
+
+            <div class="label">
+
+                Sleep
+
+            </div>
+
+            <div class="value">
+
+                {{ briefing.sleep_minutes }}
+
+            </div>
+
+            <div>
+
+                min
+
+            </div>
+
+        </div>
+
+        <div class="card">
+
+            <div class="label">
+
+                HRV
+
+            </div>
+
+            <div class="value">
+
+                {{ briefing.hrv }}
+
+            </div>
+
+            <div>
+
+                ms
+
+            </div>
+
+        </div>
+
+        <div class="card">
+
+            <div class="label">
+
+                Workout
+
+            </div>
+
+            <div class="value">
+
+                {{ briefing.workout_duration // 60 }}
+
+            </div>
+
+            <div>
+
+                min
+
+            </div>
+
+        </div>
+
+        <div class="card big">
+
+            <h2>
+
+                🤖 Coach
+
+            </h2>
+
+            <h3>
+
+                {{ briefing.recommendation.title }}
+
+            </h3>
+
+            <p>
+
+                {{ briefing.recommendation.message }}
+
+            </p>
+
+            <h4>
+
+                Recommendation
+
+            </h4>
+
+            <p>
+
+                <strong>
+
+                    {{ briefing.recommendation.workout_type }}
+
+                </strong>
+
+            </p>
+
+        </div>
+
+        <div class="card">
+
+            <h2>
+
+                Yesterday Workout
+
+            </h2>
+
+            <table>
+
+                <tr>
+
+                    <td>Duration</td>
+
+                    <td>
+
+                        {{ briefing.workout_duration // 60 }} min
+
+                    </td>
+
+                </tr>
+
+                <tr>
+
+                    <td>Average Power</td>
+
+                    <td>
+
+                        {{ briefing.workout_avg_power }} W
+
+                    </td>
+
+                </tr>
+
+                <tr>
+
+                    <td>Normalized Power</td>
+
+                    <td>
+
+                        {{ briefing.workout_np }} W
+
+                    </td>
+
+                </tr>
+
+                <tr>
+
+                    <td>Average HR</td>
+
+                    <td>
+
+                        {{ briefing.workout_avg_hr }} bpm
+
+                    </td>
+
+                </tr>
+
+            </table>
+
+        </div>
+
+        <div class="card big">
+
+            <h2>
+
+                Today's Metrics
+
+            </h2>
+
+            <table>
+
+                <tr>
+
+                    <td>HRV</td>
+
+                    <td>
+
+                        {{ briefing.hrv }}
+
+                    </td>
+
+                </tr>
+
+                <tr>
+
+                    <td>Resting HR</td>
+
+                    <td>
+
+                        {{ briefing.resting_hr }}
+
+                    </td>
+
+                </tr>
+
+                <tr>
+
+                    <td>Sleep</td>
+
+                    <td>
+
+                        {{ briefing.sleep_minutes }} min
+
+                    </td>
+
+                </tr>
+
+                <tr>
+
+                    <td>Steps</td>
+
+                    <td>
+
+                        {{ briefing.steps }}
+
+                    </td>
+
+                </tr>
+
+            </table>
+
+        </div>
+
+        <div class="card big">
+
+            <h2>
+
+                Reasons
+
+            </h2>
+
+            <ul>
+
+                {% for reason in briefing.recommendation.reasons %}
+
+                <li class="reason">
+
+                    {{ reason }}
+
+                </li>
+
+                {% endfor %}
+
+            </ul>
+
+        </div>
+
+        <div class="card big">
+
+            <h2>
+
+                📈 Coming Soon
+
+            </h2>
+
+            <p>
+
+                HRV Trend (7 / 30 dni)
+
+            </p>
+
+            <hr>
+
+            <p>
+
+                Recovery Trend
+
+            </p>
+
+            <hr>
+
+            <p>
+
+                Training Load
+
+            </p>
+
+        </div>
+
+    </div>
+
+</div>
+
+</body>
+
+</html>
