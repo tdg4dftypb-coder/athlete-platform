@@ -57,18 +57,35 @@ class HealthRepository:
 
         for day, record_type, value in rows:
 
-            grouped[day].append(
-                (record_type, value)
-            )
+            grouped[day].append((record_type, value))
 
         history = []
 
         for day, records in grouped.items():
 
-            values = {
-                record_type: value
-                for record_type, value in records
-            }
+            values = {}
+
+            #
+            # Sum cumulative metrics.
+            #
+
+            values["HKQuantityTypeIdentifierStepCount"] = 0
+            values["HKQuantityTypeIdentifierActiveEnergyBurned"] = 0
+            values["HKQuantityTypeIdentifierBasalEnergyBurned"] = 0
+
+            for record_type, value in records:
+
+                if record_type in (
+                    "HKQuantityTypeIdentifierStepCount",
+                    "HKQuantityTypeIdentifierActiveEnergyBurned",
+                    "HKQuantityTypeIdentifierBasalEnergyBurned",
+                ):
+
+                    values[record_type] += value
+
+                else:
+
+                    values[record_type] = value
 
             sleep = self.sleep_sessions.get(
                 datetime.strptime(

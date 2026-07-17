@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Optional
 
 from training.calculations.power_zones import PowerZones
 
@@ -58,7 +59,27 @@ class WorkoutSummary:
     max_cadence: int
 
     #
+    # Advanced Metrics
+    #
+
+    efficiency_factor: Optional[float] = None
+
+    hr_drift: Optional[float] = None
+
+    aerobic_decoupling: Optional[float] = None
+
+    training_load_ratio: Optional[float] = None
+
+    average_speed: Optional[float] = None
+
+    average_pace: Optional[float] = None
+
+    elevation_gain: Optional[float] = None
+
+    elevation_loss: Optional[float] = None
+
+    #
     # Zones
     #
 
-    zones: PowerZones
+    zones: PowerZones = None

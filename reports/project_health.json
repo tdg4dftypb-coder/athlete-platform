@@ -1,0 +1,15 @@
+{
+    "compile": {
+        "status": true,
+        "errors": []
+    },
+    "architecture": {
+        "status": true,
+        "missing": []
+    },
+    "layer_dependencies": {
+        "status": true,
+        "violations": []
+    },
+    "health_score": 100
+}

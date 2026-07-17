@@ -8,47 +8,54 @@ from training.history.workout_history_builder import (
 
 class PerformanceEngine:
 
+    ATL_DAYS = 7
+    CTL_DAYS = 42
+
     def __init__(self):
 
         self.history = WorkoutHistoryBuilder()
 
+    def _build_load(self, period):
+
+        average_daily = (
+            period.total_tss / period.period_days
+            if period.period_days
+            else 0
+        )
+
+        average_workout = (
+            period.total_tss / period.count
+            if period.count
+            else 0
+        )
+
+        return TrainingLoad(
+
+            total_tss=period.total_tss,
+
+            average_tss=average_workout,
+
+            workouts=period.count,
+
+            average_daily_tss=average_daily,
+
+            period_days=period.period_days,
+
+        )
+
     def analyze(self) -> PerformanceState:
 
-        weekly = self.history.last_days(7)
+        weekly = self.history.last_days(self.ATL_DAYS)
 
-        monthly = self.history.last_days(42)
+        monthly = self.history.last_days(self.CTL_DAYS)
 
-        weekly_load = TrainingLoad(
+        weekly_load = self._build_load(weekly)
 
-            total_tss=weekly.total_tss,
+        monthly_load = self._build_load(monthly)
 
-            average_tss=(
-                weekly.total_tss / weekly.count
-                if weekly.count
-                else 0
-            ),
+        atl = weekly_load.average_daily_tss
 
-            workouts=weekly.count,
-
-        )
-
-        monthly_load = TrainingLoad(
-
-            total_tss=monthly.total_tss,
-
-            average_tss=(
-                monthly.total_tss / monthly.count
-                if monthly.count
-                else 0
-            ),
-
-            workouts=monthly.count,
-
-        )
-
-        atl = weekly_load.average_tss
-
-        ctl = monthly_load.average_tss
+        ctl = monthly_load.average_daily_tss
 
         tsb = ctl - atl
 
@@ -63,5 +70,11 @@ class PerformanceEngine:
             ctl=ctl,
 
             tsb=tsb,
+
+            fatigue=atl,
+
+            fitness=ctl,
+
+            freshness=tsb,
 
         )

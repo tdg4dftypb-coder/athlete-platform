@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 
 from core.database import Database
-
 from training.analysis.workout_summary import WorkoutSummary
 
 
@@ -10,6 +9,10 @@ class WorkoutRepository:
     def __init__(self):
 
         self.db = Database()
+
+    #
+    # SAVE
+    #
 
     def save(
         self,
@@ -98,6 +101,10 @@ class WorkoutRepository:
             ],
         )
 
+    #
+    # READ
+    #
+
     def all(self):
 
         return self.db.connection.execute(
@@ -152,6 +159,10 @@ class WorkoutRepository:
 
         return value > 0
 
+    #
+    # DELETE
+    #
+
     def delete_all(self):
 
         self.db.connection.execute(
@@ -159,6 +170,10 @@ class WorkoutRepository:
             DELETE FROM workouts
             """
         )
+
+    #
+    # QUERIES
+    #
 
     def between(
         self,
@@ -189,3 +204,76 @@ class WorkoutRepository:
         start = end - timedelta(days=days)
 
         return self.between(start, end)
+
+    def by_sport(
+        self,
+        sport: str,
+    ):
+
+        return self.db.connection.execute(
+            """
+            SELECT *
+
+            FROM workouts
+
+            WHERE sport = ?
+
+            ORDER BY start_time DESC
+            """,
+            [sport],
+        ).fetchall()
+
+    def by_tss(
+        self,
+        minimum: float,
+        maximum: float,
+    ):
+
+        return self.db.connection.execute(
+            """
+            SELECT *
+
+            FROM workouts
+
+            WHERE tss BETWEEN ? AND ?
+
+            ORDER BY start_time DESC
+            """,
+            [minimum, maximum],
+        ).fetchall()
+
+    def latest(
+        self,
+        limit: int,
+    ):
+
+        return self.db.connection.execute(
+            """
+            SELECT *
+
+            FROM workouts
+
+            ORDER BY start_time DESC
+
+            LIMIT ?
+            """,
+            [limit],
+        ).fetchall()
+
+    def since(
+        self,
+        start: datetime,
+    ):
+
+        return self.db.connection.execute(
+            """
+            SELECT *
+
+            FROM workouts
+
+            WHERE start_time >= ?
+
+            ORDER BY start_time
+            """,
+            [start],
+        ).fetchall()

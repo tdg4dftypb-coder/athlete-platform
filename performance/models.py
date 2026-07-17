@@ -15,3 +15,9 @@ class PerformanceState:
     ctl: float
 
     tsb: float
+
+    fatigue: float
+
+    fitness: float
+
+    freshness: float

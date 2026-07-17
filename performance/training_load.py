@@ -9,3 +9,7 @@ class TrainingLoad:
     average_tss: float
 
     workouts: int
+
+    average_daily_tss: float
+
+    period_days: int

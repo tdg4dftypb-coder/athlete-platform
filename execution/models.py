@@ -2,16 +2,22 @@ from dataclasses import dataclass
 
 
 @dataclass
-class WorkoutExecution:
+class ExecutionState:
 
-    execution_score: float
+    planned_duration: int
 
-    power_score: float
+    executed_duration: int
 
-    cadence_score: float
+    duration_score: float
 
-    hr_score: float
+    planned_tss: float
 
-    completion: float
+    executed_tss: float
 
-    comment: str
+    tss_score: float
+
+    overall_score: float
+
+    completed: bool
+
+    reasons: list[str]

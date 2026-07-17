@@ -31,9 +31,7 @@ class WorkoutHistoryBuilder:
                     #
 
                     start=row[1],
-
                     end=row[2],
-
                     sport=row[3],
 
                     #
@@ -41,9 +39,7 @@ class WorkoutHistoryBuilder:
                     #
 
                     duration=row[4],
-
                     distance=row[5],
-
                     calories=row[6],
 
                     #
@@ -51,13 +47,9 @@ class WorkoutHistoryBuilder:
                     #
 
                     average_power=row[7],
-
                     normalized_power=row[8],
-
                     max_power=row[9],
-
                     intensity_factor=row[10],
-
                     tss=row[11],
 
                     #
@@ -65,7 +57,6 @@ class WorkoutHistoryBuilder:
                     #
 
                     average_hr=row[12],
-
                     max_hr=row[13],
 
                     #
@@ -73,7 +64,6 @@ class WorkoutHistoryBuilder:
                     #
 
                     average_cadence=row[14],
-
                     max_cadence=row[15],
 
                     #
@@ -96,4 +86,10 @@ class WorkoutHistoryBuilder:
 
             )
 
-        return WorkoutHistory(workouts)
+        return WorkoutHistory(
+
+            workouts=workouts,
+
+            period_days=days,
+
+        )
