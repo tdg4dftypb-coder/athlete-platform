@@ -1,3 +1,9 @@
+from application.athlete_assessment import (
+    AthleteAssessment,
+    AthleteAssessmentBuilder,
+    AthleteAssessmentReason,
+    AthleteAssessmentStatus,
+)
 from application.knowledge_context import (
     AthleteKnowledgeContext,
     AthleteKnowledgeContextBuilder,
@@ -14,6 +20,10 @@ from application.training_assessment import (
 from application.weekly_review import WeeklyReviewWorkflow
 
 __all__ = [
+    "AthleteAssessment",
+    "AthleteAssessmentBuilder",
+    "AthleteAssessmentReason",
+    "AthleteAssessmentStatus",
     "AthleteKnowledgeContext",
     "AthleteKnowledgeContextBuilder",
     "PostWorkoutRecordingResult",
