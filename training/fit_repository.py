@@ -1,6 +1,6 @@
 from training.training_database import TrainingDatabase
 from training.analysis.workout_summary import WorkoutSummary
-from training.raw_activity import RawActivity
+from training.activity import Activity
 
 
 class FitRepository:
@@ -13,7 +13,7 @@ class FitRepository:
 
     def save(
         self,
-        activity: RawActivity,
+        activity: Activity,
         workout: WorkoutSummary,
     ):
 

@@ -1,4 +1,4 @@
-from execution.block_models import BlockExecution
+from execution.result import BlockExecutionResult
 
 from execution.timeline_matcher import TimelineMatcher
 
@@ -17,7 +17,7 @@ class BlockAnalyzer:
 
         activity: Activity,
 
-    ) -> BlockExecution:
+    ) -> BlockExecutionResult:
 
         records = TimelineMatcher().match(
 
@@ -27,45 +27,37 @@ class BlockAnalyzer:
 
         )
 
+
         if not records:
 
-            return BlockExecution(
+            return BlockExecutionResult(
 
                 name=block.name,
 
-                planned_start=block.start,
+                planned_duration=block.duration,
 
-                planned_end=block.end,
+                executed_duration=0,
 
-                actual_start=0,
+                completion_score=0,
 
-                actual_end=0,
+                power_score=None,
 
-                planned_power_from=block.power_from,
+                cadence_score=None,
 
-                planned_power_to=block.power_to,
-
-                actual_power=0,
-
-                planned_cadence_from=block.cadence_from,
-
-                planned_cadence_to=block.cadence_to,
-
-                actual_cadence=0,
-
-                completion=0,
-
-                power_score=0,
-
-                cadence_score=0,
+                heart_rate_score=None,
 
                 execution_score=0,
 
-                comment="Block not completed.",
+                deviations=[
+
+                    "Block not completed.",
+
+                ],
 
             )
 
-        avg_power = sum(
+
+        power_values = [
 
             r.power
 
@@ -73,9 +65,23 @@ class BlockAnalyzer:
 
             if r.power is not None
 
-        ) / len(records)
+        ]
 
-        cadence = [
+
+        avg_power = (
+
+            sum(power_values)
+
+            / len(power_values)
+
+            if power_values
+
+            else None
+
+        )
+
+
+        cadence_values = [
 
             r.cadence
 
@@ -85,112 +91,188 @@ class BlockAnalyzer:
 
         ]
 
+
         avg_cadence = (
 
-            sum(cadence) / len(cadence)
+            sum(cadence_values)
 
-            if cadence
+            / len(cadence_values)
+
+            if cadence_values
+
+            else None
+
+        )
+
+
+        power_score = None
+
+
+        if avg_power is not None:
+
+            target = (
+
+                block.power_from
+
+                +
+
+                block.power_to
+
+            ) / 2
+
+
+            if target > 0:
+
+                power_score = max(
+
+                    0,
+
+                    100
+
+                    -
+
+                    abs(
+
+                        1
+
+                        -
+
+                        avg_power / target
+
+                    )
+
+                    * 100,
+
+                )
+
+
+        cadence_score = None
+
+
+        if avg_cadence is not None:
+
+            cadence_score = 100
+
+
+            if avg_cadence < block.cadence_from:
+
+                cadence_score -= (
+
+                    block.cadence_from
+
+                    -
+
+                    avg_cadence
+
+                )
+
+
+            elif avg_cadence > block.cadence_to:
+
+                cadence_score -= (
+
+                    avg_cadence
+
+                    -
+
+                    block.cadence_to
+
+                )
+
+
+            cadence_score = max(
+
+                0,
+
+                cadence_score,
+
+            )
+
+
+        available_scores = [
+
+            score
+
+            for score in (
+
+                power_score,
+
+                cadence_score,
+
+            )
+
+            if score is not None
+
+        ]
+
+
+        execution_score = (
+
+            sum(available_scores)
+
+            /
+
+            len(available_scores)
+
+            if available_scores
 
             else 0
 
         )
 
-        target = (
 
-            block.power_from +
-
-            block.power_to
-
-        ) / 2
-
-        ratio = avg_power / target
-
-        power_score = max(
-
-            0,
-
-            100 - abs(1 - ratio) * 100,
-
-        )
-
-        completion = (
-
-            len(records) /
-
-            block.duration
-
-        ) * 100
-
-        cadence_score = 100
-
-        if avg_cadence < block.cadence_from:
-
-            cadence_score -= (
-
-                block.cadence_from -
-
-                avg_cadence
-
-            )
-
-        elif avg_cadence > block.cadence_to:
-
-            cadence_score -= (
-
-                avg_cadence -
-
-                block.cadence_to
-
-            )
-
-        cadence_score = max(
-
-            0,
-
-            cadence_score,
-
-        )
-
-        execution = (
-
-            power_score * 0.7 +
-
-            cadence_score * 0.3
-
-        )
-
-        return BlockExecution(
+        return BlockExecutionResult(
 
             name=block.name,
 
-            planned_start=block.start,
+            planned_duration=block.duration,
 
-            planned_end=block.end,
+            executed_duration=round(
 
-            actual_start=records[0].elapsed_time,
+                records[-1].elapsed_time
 
-            actual_end=records[-1].elapsed_time,
+                -
 
-            planned_power_from=block.power_from,
+                records[0].elapsed_time
 
-            planned_power_to=block.power_to,
+            ),
 
-            actual_power=avg_power,
+            completion_score=min(
 
-            planned_cadence_from=block.cadence_from,
+                100,
 
-            planned_cadence_to=block.cadence_to,
+                round(
 
-            actual_cadence=avg_cadence,
+                    len(records)
 
-            completion=completion,
+                    /
+
+                    block.duration
+
+                    *
+
+                    100,
+
+                    1,
+
+                ),
+
+            ),
 
             power_score=power_score,
 
             cadence_score=cadence_score,
 
-            execution_score=execution,
+            heart_rate_score=None,
 
-            comment="OK",
+            execution_score=round(
+
+                execution_score,
+
+                1,
+
+            ),
+
+            deviations=[],
 
         )

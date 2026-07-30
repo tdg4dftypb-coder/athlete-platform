@@ -9,14 +9,11 @@ from performance.models import PerformanceState
 
 from recovery.models import RecoveryResult
 
-from decision.models import DecisionState
-
 from training.analysis.workout_summary import WorkoutSummary
 
 
 @dataclass
 class AthleteState:
-
     #
     # Long-term
     #
@@ -33,6 +30,5 @@ class AthleteState:
 
     performance: PerformanceState
 
-    decision: Optional[DecisionState] = None
-
     last_workout: Optional[WorkoutSummary] = None
+    

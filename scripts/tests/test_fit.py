@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from training.factories.activity_factory import ActivityFactory
 from training.parsers.fit_parser import FitParser
 from training.analysis.workout_analyzer import WorkoutAnalyzer
 
@@ -13,7 +14,9 @@ def main():
 
     file = sorted(ACTIVITIES.glob("*.fit"))[-1]
 
-    activity = FitParser().parse(str(file))
+    parsed_activity = FitParser().parse(str(file))
+
+    activity = ActivityFactory().create(parsed_activity)
 
     workout = WorkoutAnalyzer().analyze(activity)
 

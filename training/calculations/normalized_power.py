@@ -1,18 +1,25 @@
-from training.raw_activity import RawActivity
+from training.activity import Activity
 
 
 class NormalizedPower:
 
     @staticmethod
-    def calculate(activity: RawActivity) -> float:
+    def calculate(
+        activity: Activity,
+    ) -> float:
 
         power = [
+
             r.power if r.power is not None else 0
+
             for r in activity.records
+
         ]
 
         if len(power) < 30:
+
             return 0
+
 
         #
         # 30-second rolling average
@@ -22,15 +29,26 @@ class NormalizedPower:
 
         for i in range(29, len(power)):
 
-            avg = sum(power[i - 29:i + 1]) / 30
+            avg = sum(
+
+                power[i - 29:i + 1]
+
+            ) / 30
 
             rolling.append(avg)
+
 
         #
         # Fourth power
         #
 
-        fourth = [p ** 4 for p in rolling]
+        fourth = [
+
+            p ** 4
+
+            for p in rolling
+
+        ]
 
         mean = sum(fourth) / len(fourth)
 

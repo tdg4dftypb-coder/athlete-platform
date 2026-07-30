@@ -1,12 +1,12 @@
 from training.ftp import FTP
 from training.calculations.normalized_power import NormalizedPower
-from training.raw_activity import RawActivity
+from training.activity import Activity
 
 
 class IntensityFactor:
 
     @staticmethod
-    def calculate(activity: RawActivity) -> float:
+    def calculate(activity: Activity) -> float:
 
         if FTP == 0:
             return 0

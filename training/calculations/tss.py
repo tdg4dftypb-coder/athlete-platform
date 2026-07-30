@@ -1,27 +1,57 @@
 from training.ftp import FTP
 from training.calculations.intensity_factor import IntensityFactor
 from training.calculations.normalized_power import NormalizedPower
-from training.raw_activity import RawActivity
+from training.activity import Activity
 
 
 class TSS:
 
     @staticmethod
-    def calculate(activity: RawActivity) -> float:
+    def calculate(
+        activity: Activity,
+    ) -> float:
 
         if FTP == 0:
+
             return 0
 
-        duration = len(activity.records)
 
-        np = NormalizedPower.calculate(activity)
+        duration = activity.duration
 
-        intensity = IntensityFactor.calculate(activity)
+
+        np = NormalizedPower.calculate(
+
+            activity,
+
+        )
+
+
+        intensity = IntensityFactor.calculate(
+
+            activity,
+
+        )
+
 
         tss = (
+
             duration
-            * np
-            * intensity
+
+            *
+
+            np
+
+            *
+
+            intensity
+
         ) / (FTP * 3600) * 100
 
-        return round(tss, 1)
+
+        return round(
+
+            tss,
+
+            1,
+
+        )

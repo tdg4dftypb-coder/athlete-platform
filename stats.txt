@@ -1,3 +1,10 @@
+       0 ./analyzers/__init__.py
+       0 ./athlete/history/__init__.py
+       0 ./athlete/history/factories/__init__.py
+       0 ./athlete/states/__init__.py
+       0 ./briefing/__init__.py
+       0 ./briefing/formatters.py
+       0 ./briefing/renderers/__init__.py
        0 ./coach/__init__.py
        0 ./coach/recommendations.py
        0 ./collectors/__init__.py
@@ -7,118 +14,263 @@
        0 ./core/exceptions.py
        0 ./core/logger.py
        0 ./core/trend/__init__.py
+       0 ./domain/diagnosis/models/athlete_diagnosis.py
+       0 ./domain/prescription/models/training_prescription.py
        0 ./engines/recommendation_engine.py
-       0 ./scripts/test_block_execution.py
+       0 ./execution/__init__.py
+       0 ./health/__init__.py
+       0 ./optimizer/__init__.py
+       0 ./pipeline/__init__.py
+       0 ./planner/__init__.py
+       0 ./planner/catalog/domain.py
+       0 ./planner/composer/__init__.py
+       0 ./planner/composer/engine.py
+       0 ./planner/converters/__init__.py
+       0 ./planner/dsl/__init__.py
+       0 ./planner/dsl/workouts/sprint.py
+       0 ./planning/__init__.py
+       0 ./renderers/__init__.py
+       0 ./renderers/week_renderer.py
+       0 ./renderers/workout_renderer.py
+       0 ./scripts/debug/__init__.py
+       0 ./scripts/imports/__init__.py
+       0 ./scripts/maintenance/__init__.py
+       0 ./scripts/reports/__init__.py
+       0 ./scripts/tests/__init__.py
+       0 ./scripts/tests/test_block_execution.py
        0 ./services/activity_service.py
        0 ./services/athlete_service.py
        0 ./services/workout_service.py
+       0 ./simulator/__init__.py
+       0 ./training/analysis/__init__.py
+       0 ./training/calculations/__init__.py
        0 ./training/ftp.py
+       0 ./training/history/__init__.py
+       0 ./training/parsers/__init__.py
+       0 ./workout/builders/__init__.py
+       0 ./workout/exporters/__init__.py
+       0 ./workout/exporters/zwo_exporter.py
        1 ./recovery/analyzer.py
+       4 ./analyzers/readiness/__init__.py
+       4 ./decision/diagnosis/__init__.py
+       4 ./decision/pipeline/__init__.py
+       4 ./decision/prescription/__init__.py
+       4 ./decision/selection/__init__.py
+       4 ./decision/selection/models/__init__.py
+       4 ./planner/selection/__init__.py
+       4 ./workout/__init__.py
+       5 ./training/factories/__init__.py
+       6 ./decision/diagnosis/models/risk.py
+       6 ./decision/prescription/models/__init__.py
+       6 ./scripts/bootstrap.py
+       8 ./athlete/states/calendar.py
+       8 ./athlete/states/goals.py
+       8 ./athlete/states/health.py
+       8 ./athlete/states/performance.py
+       8 ./athlete/states/recovery.py
+       8 ./decision/diagnosis/models/__init__.py
+       8 ./decision/diagnosis/models/readiness.py
+       8 ./decision/models/__init__.py
+       8 ./domain/prescription/models/__init__.py
        8 ./training/workout_generator.py
+       8 ./workout/enums.py
+       9 ./decision/models/rule_result.py
+       9 ./training/ingestion/__init__.py
        9 ./training/repository.py
-      10 ./performance/training_load.py
-      10 ./recovery/models.py
-      11 ./scripts/reset_workouts.py
+      10 ./athlete/states/blood.py
+      10 ./athlete/states/body.py
+      10 ./planner/dsl/workouts/__init__.py
+      11 ./scripts/maintenance/reset_workouts.py
+      12 ./athlete/states/equipment.py
       12 ./coach/models.py
       12 ./config/settings.py
-      13 ./scripts/import_health.py
-      13 ./scripts/init_database.py
+      13 ./athlete/history/models.py
+      13 ./decision/sports.py
+      13 ./scripts/imports/import_health.py
+      13 ./scripts/maintenance/init_database.py
       13 ./training/load_engine.py
-      14 ./decision/models.py
-      14 ./scripts/test_history.py
-      15 ./training/intensity_factor.py
-      16 ./execution/models.py
-      16 ./performance/models.py
-      16 ./scripts/show_days.py
+      14 ./athlete/history/event.py
+      14 ./athlete/states/nutrition.py
+      14 ./performance/training_load.py
+      14 ./planner/catalog/prescription.py
+      14 ./scripts/tests/test_history.py
+      16 ./decision/diagnosis/models/athlete_diagnosis.py
+      16 ./decision/workout_template.py
+      16 ./health/models.py
+      16 ./planner/catalog/analytics.py
+      16 ./scripts/reports/show_days.py
+      16 ./tests/decision/test_decision_engine.py
+      16 ./training/calculations/intensity_factor.py
+      17 ./briefing/models.py
       17 ./collectors/apple_health/collector.py
-      18 ./athlete/models.py
+      17 ./execution/context.py
+      18 ./decision/prescription/models/training_prescription.py
+      18 ./planner/composer/templates.py
+      18 ./planning/models.py
+      19 ./planner/catalog/identity.py
+      20 ./planner/catalog/__init__.py
+      20 ./planner/catalog/models.py
+      21 ./athlete/history/builder.py
+      21 ./decision/prescription/models/training_objective.py
       22 ./core/database.py
-      22 ./scripts/show_stats.py
-      23 ./athlete/state_builder.py
-      23 ./scripts/initialize_database.py
-      23 ./scripts/show_sleep_stats.py
-      23 ./scripts/show_workouts.py
-      24 ./scripts/show_sleep_sessions.py
+      22 ./execution/models.py
+      22 ./performance/models.py
+      22 ./scripts/reports/show_stats.py
+      23 ./athlete/history/repository.py
+      23 ./scripts/maintenance/initialize_database.py
+      23 ./scripts/reports/show_sleep_stats.py
+      23 ./scripts/reports/show_workouts.py
+      24 ./scripts/reports/show_sleep_sessions.py
+      25 ./decision/engine.py
       25 ./execution/block_matcher.py
       25 ./scripts/build_daily_health.py
       26 ./collectors/apple_health/parser.py
-      26 ./scripts/test_decision.py
+      26 ./scripts/tests/test_decision.py
       26 ./sleep/sleep_models.py
       26 ./sleep/sleep_session.py
-      26 ./training/tss.py
+      28 ./planner/catalog/aggregate.py
+      28 ./planner/dsl/workouts/endurance.py
+      28 ./planner/dsl/workouts/recovery.py
       28 ./workout/metrics.py
+      29 ./briefing/engine.py
+      30 ./decision/models/decision_result.py
       30 ./scripts/build_sleep_sessions.py
+      31 ./athlete/engine.py
+      31 ./athlete/state_builder.py
+      31 ./recovery/models.py
+      31 ./tests/ingestion/test_parsed_activity.py
       32 ./core/context.py
-      32 ./training/raw_activity.py
+      32 ./simulator/models.py
       32 ./workout/models.py
+      33 ./athlete/models.py
       33 ./execution/timeline_matcher.py
-      33 ./scripts/test_performance.py
+      33 ./scripts/tests/test_performance.py
+      34 ./athlete/history/factories/workout_factory.py
       34 ./core/results.py
+      34 ./health/engine.py
+      34 ./planner/models.py
       34 ./timeline/models.py
+      35 ./decision/pipeline/engine.py
+      35 ./training/ingestion/parsed_activity.py
       36 ./execution/block_models.py
       36 ./training/activity.py
-      36 ./training/normalized_power.py
+      37 ./briefing/renderers/console_renderer.py
+      37 ./planner/catalog/selection.py
       37 ./schema/sleep_schema.py
-      37 ./scripts/debug_workouts.py
+      37 ./scripts/debug/debug_workouts.py
+      38 ./decision/matrix.py
+      38 ./execution/adapter.py
       38 ./execution/block_execution.py
       38 ./training/models.py
       39 ./sleep/sleep_repository.py
+      40 ./planner/dsl/parser.py
+      41 ./analyzers/readiness/analyzer.py
+      41 ./planner/selection/models.py
       41 ./sleep/sleep_session_writer.py
-      43 ./scripts/test_athlete.py
-      44 ./training/fit_parser.py
-      45 ./scripts/test_fit.py
+      43 ./planner/selection/engine.py
+      43 ./scripts/tests/test_athlete.py
+      44 ./tests/diagnosis/test_diagnosis_engine.py
+      45 ./scripts/planner_demo.py
       48 ./briefing/html_formatter.py
+      48 ./training/parsers/fit_parser.py
       49 ./core/trend/engine.py
-      49 ./scripts/debug_power.py
+      49 ./planner/catalog/enums.py
+      49 ./scripts/tests/test_fit.py
       49 ./workout/validator.py
-      50 ./scripts/morning.py
-      50 ./scripts/test_sleep.py
+      50 ./planner/dsl/workouts/tempo.py
+      50 ./scripts/tests/test_sleep.py
+      51 ./planner/converters/workout_converter.py
       51 ./schema/training_schema.py
+      52 ./optimizer/engine.py
+      52 ./scripts/debug/debug_power.py
       52 ./workout/templates.py
-      53 ./training/power_zones.py
+      53 ./tests/execution/test_execution_adapter.py
+      54 ./training/calculations/normalized_power.py
+      54 ./training/calculations/power_zones.py
+      56 ./execution/result.py
+      56 ./training/calculations/tss.py
+      58 ./planner/dsl/workouts/threshold.py
+      58 ./planner/dsl/workouts/vo2.py
+      60 ./planner/dsl/models.py
       61 ./engines/trend_engine.py
-      62 ./scripts/test_activity.py
-      63 ./performance/engine.py
+      61 ./tests/dsl/test_dsl_builders.py
+      62 ./planner/dsl/compiler.py
+      62 ./scripts/week.py
+      62 ./tests/factories/test_activity_factory.py
+      63 ./scripts/tests/test_activity.py
       63 ./timeline/builder.py
-      63 ./training/workout_summary.py
-      64 ./briefing/models.py
+      64 ./decision/models/workout_plan.py
+      65 ./pipeline/engine.py
+      65 ./planning/engine.py
       65 ./schema/health_schema.py
-      67 ./training/workout_history.py
-      69 ./training/fit_repository.py
-      69 ./training/workout_analyzer.py
-      70 ./scripts/import_workouts.py
-      74 ./training/metrics.py
+      68 ./planner/catalog/registry.py
+      69 ./planner/engine.py
+      70 ./training/fit_repository.py
+      72 ./scripts/morning.py
+      72 ./workout/builders/workout_builder.py
+      73 ./training/factories/activity_factory.py
       76 ./coach/morning_briefing.py
+      76 ./decision/selection/engine.py
+      76 ./planner/catalog/stimulus.py
+      76 ./scripts/imports/import_workouts.py
+      76 ./tests/platform/test_coach_scenarios.py
       78 ./scripts/demo.py
+      79 ./performance/engine.py
+      79 ./scripts/timeline_demo.py
       80 ./execution/analyzer.py
       80 ./workout/blocks.py
       81 ./engines/context_builder.py
-      85 ./training/activity_builder.py
+      83 ./planner/catalog/factory.py
+      83 ./tests/platform/test_platform_engine.py
+      85 ./simulator/engine.py
+      86 ./decision/workouts.py
       86 ./execution/scoring.py
+      86 ./training/analysis/workout_summary.py
+      88 ./scripts/platform_demo.py
+      88 ./scripts/tests/test_execution.py
       91 ./collectors/apple_health/importer.py
+      91 ./planner/composer/library.py
       92 ./briefing/builder.py
       93 ./tests/test_readiness.py
-      95 ./repositories/health_repository.py
+      94 ./training/history/workout_history_builder.py
+      96 ./tests/execution/test_execution_result.py
+      97 ./planner/selection/filter.py
       97 ./workout/export/zwo_exporter.py
       99 ./execution/block_metrics.py
-     100 ./training/workout_history_builder.py
-     101 ./workout/calculator.py
-     102 ./scripts/export_workout.py
+     102 ./tests/execution/test_execution_engine.py
      103 ./briefing/formatter.py
-     104 ./scripts/test_execution.py
-     109 ./decision/engine.py
+     103 ./scripts/tests/test_execution_v2.py
+     106 ./scripts/export_workout.py
+     107 ./training/history/workout_history.py
      112 ./coach/engine.py
      113 ./core/models.py
+     113 ./tests/selection/test_recipe_scorer.py
      114 ./sleep/sleep_builder.py
-     121 ./recovery/engine.py
-     130 ./scripts/test_workout_metrics.py
+     116 ./tests/execution/test_execution_context.py
+     117 ./decision/prescription/engine.py
+     118 ./training/metrics.py
+     131 ./scripts/tests/test_workout_metrics.py
      133 ./workout/factory.py
+     134 ./tests/execution/test_block_analyzer.py
+     134 ./tests/helpers.py
+     135 ./decision/diagnosis/engine.py
+     138 ./training/analysis/workout_analyzer.py
+     143 ./renderers/morning_renderer.py
      155 ./execution/workout_execution.py
-     157 ./scripts/test_timeline.py
-     158 ./scripts/morning_briefing.py
-     160 ./scripts/test_workout_builder.py
-     189 ./repositories/workout_repository.py
-     195 ./execution/block_analyzer.py
-     257 ./scripts/test_execution_v2.py
+     157 ./repositories/health_repository.py
+     161 ./scripts/tests/test_timeline.py
+     162 ./scripts/morning_briefing.py
+     164 ./tests/execution/test_execution_full_pipeline.py
+     166 ./workout/calculator.py
+     168 ./execution/engine.py
+     168 ./scripts/tests/test_workout_builder.py
+     170 ./tests/execution/test_execution_context_engine.py
+     171 ./planner/selection/recipe_scorer.py
+     177 ./scripts/execution_demo.py
+     196 ./recovery/engine.py
+     269 ./planner/catalog/recipes.py
+     277 ./execution/block_analyzer.py
+     278 ./repositories/workout_repository.py
+     298 ./scripts/project_doctor.py
      491 ./workout/builder.py
-    6814 total
+   13101 total

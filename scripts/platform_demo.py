@@ -6,14 +6,9 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from planner.engine import PlannerEngine
+from pipeline.engine import PlatformEngine
 
-from workout.builders.workout_builder import WorkoutBuilder
-
-from simulator.engine import SimulatorEngine
-from timeline.builder import TimelineBuilder
-
-from decision.models import DecisionState
+from decision.models import DecisionResult
 from decision.sports import Sport
 
 
@@ -27,69 +22,25 @@ def format_time(seconds: int) -> str:
 
 def main():
 
-    decision = DecisionState(
-
+    decision = DecisionResult(
         sport=Sport.CYCLING,
-
         recommendation="TEMPO",
-
         duration=90,
-
         target_tss=70,
-
         intensity="Z3",
-
         reasons=[],
-
         priority=100,
-
         confidence=100,
-
         source_rules=[],
-
     )
 
-    #
-    # Planner
-    #
+    engine = PlatformEngine()
 
-    planned = PlannerEngine().build(
+    result = engine.run(decision)
 
-        decision
-
-    )
-
-    #
-    # Workout
-    #
-
-    workout = WorkoutBuilder().build(
-
-        decision,
-
-        planned,
-
-    )
-
-    #
-    # Simulation
-    #
-
-    simulation = SimulatorEngine().simulate(
-
-        workout
-
-    )
-
-    #
-    # Timeline
-    #
-
-    timeline = TimelineBuilder().build(
-
-        workout
-
-    )
+    workout = result["workout"]
+    simulation = result["simulation"]
+    timeline = result["timeline"]
 
     print()
     print("=" * 72)

@@ -64,6 +64,8 @@ class WorkoutSummary:
 
     efficiency_factor: Optional[float] = None
 
+    variability_index: Optional[float] = None
+
     hr_drift: Optional[float] = None
 
     aerobic_decoupling: Optional[float] = None

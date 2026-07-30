@@ -1,11 +1,14 @@
 from fitparse import FitFile
 
-from training.raw_activity import RawActivity, RawRecord
+from training.ingestion.parsed_activity import (
+    ParsedActivity,
+    ParsedActivityRecord,
+)
 
 
 class FitParser:
 
-    def parse(self, path: str) -> RawActivity:
+    def parse(self, path: str) -> ParsedActivity:
 
         fit = FitFile(path)
 
@@ -26,7 +29,7 @@ class FitParser:
             }
 
             records.append(
-                RawRecord(
+                ParsedActivityRecord(
                     timestamp=fields.get("timestamp"),
                     power=fields.get("power"),
                     heart_rate=fields.get("heart_rate"),
@@ -35,7 +38,7 @@ class FitParser:
                 )
             )
 
-        return RawActivity(
+        return ParsedActivity(
             start=values.get("start_time"),
             end=values.get("timestamp"),
             sport=values.get("sport"),

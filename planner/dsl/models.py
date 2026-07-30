@@ -6,11 +6,33 @@ class Node:
 
 
 @dataclass
+class WorkoutPrescription:
+
+    duration: int
+
+    target_tss: float = 0
+
+    intensity: float = 1.0
+
+
+@dataclass
 class Workout(Node):
 
     name: str
 
     children: list[Node]
+
+    prescription: WorkoutPrescription | None = None
+
+    @property
+    def target_tss(
+        self,
+    ) -> float:
+
+        if self.prescription is None:
+            return 0
+
+        return self.prescription.target_tss
 
 
 @dataclass
@@ -27,6 +49,8 @@ class Interval(Node):
     cadence_from: int
 
     cadence_to: int
+
+    intensity: float = 1.0
 
 
 @dataclass

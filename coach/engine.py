@@ -1,6 +1,6 @@
 from athlete.models import AthleteState
 from coach.models import CoachRecommendation
-from decision.models import DecisionState
+from decision.models import DecisionResult
 
 
 class CoachEngine:
@@ -8,7 +8,7 @@ class CoachEngine:
     def recommend(
         self,
         athlete: AthleteState,
-        decision: DecisionState,
+        decision: DecisionResult,
     ) -> CoachRecommendation:
 
         reasons = []

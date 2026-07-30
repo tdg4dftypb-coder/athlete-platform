@@ -16,6 +16,8 @@ class PlannedBlock:
 
     cadence_to: int
 
+    description: str = ""
+
     repeat: int = 1
 
 

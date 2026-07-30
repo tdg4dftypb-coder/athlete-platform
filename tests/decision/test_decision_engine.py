@@ -1,19 +1,17 @@
 from decision.engine import DecisionEngine
-from decision.models import DecisionState
+
+from tests.helpers import build_athlete
+
 from workout.enums import WorkoutType
 
 
 def test_recovery_rule_returns_recovery_workout():
 
-    state = DecisionState(
-        recovery=20,
+    athlete = build_athlete(
+        recovery_score=20,
         fatigue=70,
-        sleep_score=50,
-        hrv_score=40,
-        resting_hr=55,
-        available_minutes=60,
     )
 
-    plan = DecisionEngine().evaluate(state)
+    plan = DecisionEngine().decide(athlete)
 
     assert plan.recommendation == WorkoutType.RECOVERY

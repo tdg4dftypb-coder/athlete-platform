@@ -1,9 +1,9 @@
-from .decision_state import DecisionState
+from .decision_result import DecisionResult
 from .rule_result import RuleResult
 from .workout_plan import WorkoutPlan
 
 __all__ = [
-    "DecisionState",
+    "DecisionResult",
     "RuleResult",
     "WorkoutPlan",
 ]

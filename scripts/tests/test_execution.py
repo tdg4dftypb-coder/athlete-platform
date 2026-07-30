@@ -1,102 +1,85 @@
 from pathlib import Path
 
 from athlete.state_builder import AthleteStateBuilder
-
 from decision.engine import DecisionEngine
-
 from engines.context_builder import ContextBuilder
-
-from execution.analyzer import ExecutionAnalyzer
-
+from execution.context import ExecutionContext
+from execution.engine import ExecutionEngine
+from health.engine import HealthEngine
 from performance.engine import PerformanceEngine
-
+from planner.engine import PlannerEngine
 from recovery.engine import RecoveryEngine
-
 from repositories.health_repository import HealthRepository
-
-from training.parsers.fit_parser import FitParser
+from timeline.builder import TimelineBuilder
 from training.analysis.workout_analyzer import WorkoutAnalyzer
-
-from workout.builder import WorkoutBuilder
+from training.factories.activity_factory import ActivityFactory
+from training.parsers.fit_parser import FitParser
+from workout.builders.workout_builder import WorkoutBuilder
 
 
 def main():
 
     history = HealthRepository().load_daily()
+    context = ContextBuilder().build(history)
 
-    health = ContextBuilder().build(history)
-
-    recovery = RecoveryEngine().analyze(health)
-
-    performance = PerformanceEngine().analyze()
-
-    activities = Path(
-        "/Users/marsm0wa/Documents/Zwift/Activities"
+    parsed_activity = FitParser().parse(
+        str(
+            sorted(
+                Path(
+                    "/Users/marsm0wa/Documents/Zwift/Activities"
+                ).glob("*.fit")
+            )[-1]
+        )
     )
 
-    fit_file = sorted(
-        activities.glob("*.fit")
-    )[-1]
-
-    activity = FitParser().parse(
-        str(fit_file)
-    )
-
-    summary = WorkoutAnalyzer().analyze(
-        activity
-    )
+    activity = ActivityFactory().create(parsed_activity)
+    summary = WorkoutAnalyzer().analyze(activity)
 
     athlete = AthleteStateBuilder().build(
-
-        health=health,
-
-        recovery=recovery,
-
-        performance=performance,
-
+        health=HealthEngine().analyze(context),
+        context=context,
+        recovery=RecoveryEngine().analyze(context),
+        performance=PerformanceEngine().analyze(),
         workout=summary,
-
     )
 
-    decision = DecisionEngine().decide(
-        athlete
-    )
+    decision = DecisionEngine().decide(athlete)
+    planned = PlannerEngine().build(decision, athlete)
+    workout = WorkoutBuilder().build(decision, planned)
 
-    workout = WorkoutBuilder().build(
-        decision
-    )
-
-    execution = ExecutionAnalyzer().analyze(
-
-        workout,
-
-        summary,
-
+    execution = ExecutionEngine().analyze_context(
+        ExecutionContext(
+            workout=workout,
+            activity=activity,
+            summary=summary,
+            timeline=TimelineBuilder().build(workout),
+        )
     )
 
     print()
-
     print("=" * 60)
-
     print("WORKOUT EXECUTION")
-
     print("=" * 60)
-
     print()
+    print(f"Execution  : {execution.execution_score:.1f}%")
+    print(f"Completion : {execution.completion_score:.1f}%")
+    print(f"Duration   : {execution.executed_duration} / "
+          f"{execution.planned_duration} min")
+    print(f"TSS        : {execution.executed_tss:.1f} / "
+          f"{execution.planned_tss:.1f}")
+    print(f"Blocks     : {len(execution.blocks)}")
+    print(
+        "Status     :",
+        "COMPLETED" if execution.completed else "NOT COMPLETED",
+    )
 
-    print("Execution :", execution.execution_score)
+    if execution.insights:
+        print()
+        print("Insights")
+        print("-" * 60)
 
-    print("Power     :", execution.power_score)
-
-    print("Cadence   :", execution.cadence_score)
-
-    print("HR        :", execution.hr_score)
-
-    print("Completion:", execution.completion)
-
-    print()
-
-    print(execution.comment)
+        for insight in execution.insights:
+            print("•", insight)
 
     print()
 

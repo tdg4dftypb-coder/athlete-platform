@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from training.factories.activity_factory import ActivityFactory
 from training.parsers.fit_parser import FitParser
 
 
@@ -8,7 +9,8 @@ def main():
     activities = Path("/Users/marsm0wa/Documents/Zwift/Activities")
     fit_file = sorted(activities.glob("*.fit"))[-1]
 
-    activity = FitParser().parse(str(fit_file))
+    parsed_activity = FitParser().parse(str(fit_file))
+    activity = ActivityFactory().create(parsed_activity)
 
     powers = [
         r.power

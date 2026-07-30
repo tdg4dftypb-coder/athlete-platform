@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from decision.models import Decision
+from decision.models import DecisionResult
 from performance.models import PerformanceState
 from recovery.models import RecoveryResult
 from training.analysis.workout_summary import WorkoutSummary
@@ -13,6 +13,6 @@ class MorningBriefing:
 
     performance: PerformanceState
 
-    today: Decision
+    today: DecisionResult
 
     last_workout: WorkoutSummary | None

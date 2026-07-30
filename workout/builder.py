@@ -1,4 +1,4 @@
-from decision.models import DecisionState
+from decision.models import DecisionResult
 
 from workout.blocks import (
     CooldownBlock,
@@ -29,7 +29,7 @@ class WorkoutBuilder:
 
     def build(
         self,
-        decision: DecisionState,
+        decision: DecisionResult,
     ) -> Workout:
 
         template = self.factory.create(decision)

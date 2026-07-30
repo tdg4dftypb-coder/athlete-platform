@@ -114,7 +114,7 @@ def main():
 
     print(f"Planned : {execution.planned_duration} min")
     print(f"Actual  : {execution.executed_duration} min")
-    print(f"Score   : {execution.duration_score:.1f}%")
+    print(f"Score   : {execution.completion_score:.1f}%")
 
     print()
 
@@ -123,14 +123,13 @@ def main():
 
     print(f"Planned : {execution.planned_tss:.1f}")
     print(f"Actual  : {execution.executed_tss:.1f}")
-    print(f"Score   : {execution.tss_score:.1f}%")
 
     print()
 
-    print("Overall")
+    print("Execution")
     print("-" * 72)
 
-    print(f"Score   : {execution.overall_score:.1f}%")
+    print(f"Score   : {execution.execution_score:.1f}%")
 
     print(
         "Status  :",
@@ -141,14 +140,33 @@ def main():
 
     print()
 
-    if execution.reasons:
+    print("Blocks")
+    print("-" * 72)
 
-        print("Reasons")
+    if execution.blocks:
+
+        for block in execution.blocks:
+
+            print(
+                f"• {block.name}: "
+                f"{block.execution_score:.1f}% "
+                f"({block.completion_score:.1f}% complete)"
+            )
+
+    else:
+
+        print("No block-level analysis available.")
+
+    print()
+
+    if execution.insights:
+
+        print("Insights")
         print("-" * 72)
 
-        for reason in execution.reasons:
+        for insight in execution.insights:
 
-            print("•", reason)
+            print("•", insight)
 
     print()
     print("=" * 72)

@@ -113,14 +113,21 @@ class MorningRenderer:
 
     def _render_decision(
         self,
-        decision,
+        plan,
     ):
 
         print("Today's Recommendation")
         print("-" * 72)
 
+        if not plan.results:
+            print("Brak rekomendacji.")
+            print()
+            return
+
+        decision = plan.results[0]
+
         print(f"Sport      : {decision.sport.value}")
-        print(f"Workout    : {decision.recommendation}")
+        print(f"Workout    : {decision.recommendation.value}")
         print(f"Duration   : {decision.duration} min")
         print(f"Target TSS : {decision.target_tss:.0f}")
         print(f"Intensity  : {decision.intensity}")

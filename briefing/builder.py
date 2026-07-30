@@ -1,7 +1,7 @@
-from briefing.models import MorningBriefing
-from decision.models import DecisionState
-from coach.models import CoachRecommendation
 from athlete.models import AthleteState
+from briefing.models import MorningBriefing
+from coach.models import CoachRecommendation
+from decision.models import DecisionResult
 
 
 class MorningBriefingBuilder:
@@ -9,7 +9,7 @@ class MorningBriefingBuilder:
     def build(
         self,
         athlete: AthleteState,
-        decision: DecisionState,
+        decision: DecisionResult,
         coach: CoachRecommendation,
     ) -> MorningBriefing:
 

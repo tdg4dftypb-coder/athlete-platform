@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from repositories.workout_repository import WorkoutRepository
+from training.factories.activity_factory import ActivityFactory
 from training.parsers.fit_parser import FitParser
 from training.analysis.workout_analyzer import WorkoutAnalyzer
 
@@ -13,6 +14,8 @@ WORKOUTS = Path(
 def main():
 
     parser = FitParser()
+
+    factory = ActivityFactory()
 
     analyzer = WorkoutAnalyzer()
 
@@ -38,7 +41,9 @@ def main():
 
             continue
 
-        activity = parser.parse(str(file))
+        parsed_activity = parser.parse(str(file))
+
+        activity = factory.create(parsed_activity)
 
         workout = analyzer.analyze(activity)
 

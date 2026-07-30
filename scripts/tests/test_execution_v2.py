@@ -1,258 +1,103 @@
 from pathlib import Path
 
 from athlete.state_builder import AthleteStateBuilder
-
 from decision.engine import DecisionEngine
-
 from engines.context_builder import ContextBuilder
-
+from execution.context import ExecutionContext
+from execution.engine import ExecutionEngine
+from health.engine import HealthEngine
 from performance.engine import PerformanceEngine
-
+from planner.engine import PlannerEngine
 from recovery.engine import RecoveryEngine
-
 from repositories.health_repository import HealthRepository
-
 from timeline.builder import TimelineBuilder
-
-from training.activity_builder import ActivityBuilder
-from training.parsers.fit_parser import FitParser
 from training.analysis.workout_analyzer import WorkoutAnalyzer
-
-from workout.builder import WorkoutBuilder
-
-from execution.workout_execution import WorkoutExecution
-
-
-def percent(value):
-
-    return f"{round(value * 100)} %"
+from training.factories.activity_factory import ActivityFactory
+from training.parsers.fit_parser import FitParser
+from workout.builders.workout_builder import WorkoutBuilder
 
 
-def time(seconds):
+def score(value: float | None) -> str:
 
-    minutes = seconds // 60
-
-    sec = seconds % 60
-
-    return f"{minutes:02}:{sec:02}"
+    return f"{value:.1f}%" if value is not None else "n/a"
 
 
 def main():
 
-    #
-    # Health
-    #
-
     history = HealthRepository().load_daily()
+    context = ContextBuilder().build(history)
 
-    health = ContextBuilder().build(history)
-
-    recovery = RecoveryEngine().analyze(health)
-
-    performance = PerformanceEngine().analyze()
-
-    #
-    # FIT
-    #
-
-    activities = Path(
-        "/Users/marsm0wa/Documents/Zwift/Activities"
+    parsed_activity = FitParser().parse(
+        str(
+            sorted(
+                Path(
+                    "/Users/marsm0wa/Documents/Zwift/Activities"
+                ).glob("*.fit")
+            )[-1]
+        )
     )
 
-    fit = sorted(
-        activities.glob("*.fit")
-    )[-1]
-
-    raw = FitParser().parse(
-        str(fit)
-    )
-
-    activity = ActivityBuilder().build(
-        raw
-    )
-
-    summary = WorkoutAnalyzer().analyze(
-        raw
-    )
-
-    #
-    # Athlete
-    #
+    activity = ActivityFactory().create(parsed_activity)
+    summary = WorkoutAnalyzer().analyze(activity)
 
     athlete = AthleteStateBuilder().build(
-
-        health=health,
-
-        recovery=recovery,
-
-        performance=performance,
-
+        health=HealthEngine().analyze(context),
+        context=context,
+        recovery=RecoveryEngine().analyze(context),
+        performance=PerformanceEngine().analyze(),
         workout=summary,
-
     )
 
-    #
-    # Decision
-    #
+    decision = DecisionEngine().decide(athlete)
+    planned = PlannerEngine().build(decision, athlete)
+    workout = WorkoutBuilder().build(decision, planned)
 
-    decision = DecisionEngine().decide(
-        athlete
+    execution = ExecutionEngine().analyze_context(
+        ExecutionContext(
+            workout=workout,
+            activity=activity,
+            summary=summary,
+            timeline=TimelineBuilder().build(workout),
+        )
     )
-
-    #
-    # Planned workout
-    #
-
-    workout = WorkoutBuilder().build(
-        decision
-    )
-
-    timeline = TimelineBuilder().build(
-        workout
-    )
-
-    #
-    # Execution
-    #
-
-    execution = WorkoutExecution().analyze(
-
-        workout,
-
-        activity,
-
-    )
-
-    #
-    # Report
-    #
 
     print()
-
     print("=" * 60)
-
     print("BLOCK EXECUTION")
-
     print("=" * 60)
-
     print()
 
-    total = 0
+    print(f"Workout score : {execution.execution_score:.1f}%")
+    print(f"Completion    : {execution.completion_score:.1f}%")
+    print(f"TSS           : {execution.executed_tss:.1f} / "
+          f"{execution.planned_tss:.1f}")
+    print()
 
-    for planned, block in zip(
+    for block in execution.blocks:
 
-        timeline.blocks,
+        print(block.name)
+        print(f" Planned time : {block.planned_duration}s")
+        print(f" Actual time  : {block.executed_duration}s")
+        print(f" Completion   : {block.completion_score:.1f}%")
+        print(f" Power score  : {score(block.power_score)}")
+        print(f" Cadence score: {score(block.cadence_score)}")
+        print(f" HR score     : {score(block.heart_rate_score)}")
+        print(f" Score        : {block.execution_score:.1f}%")
 
-        execution,
-
-    ):
-
-        total += block.execution_score
-
-        print(
-
-            f"{planned.name}"
-
-        )
-
-        print(
-
-            f" Time       : "
-
-            f"{time(planned.start)}"
-
-            f" -> "
-
-            f"{time(planned.end)}"
-
-        )
-
-        print(
-
-            f" Target Pow : "
-
-            f"{percent(planned.power_from)}"
-
-            f" - "
-
-            f"{percent(planned.power_to)}"
-
-        )
-
-        print(
-
-            f" Avg Power  : "
-
-            f"{round(block.average_power)} W"
-
-        )
-
-        print(
-
-            f" PowerScore : "
-
-            f"{round(block.power_score,1)}"
-
-        )
-
-        print(
-
-            f" Avg Cad    : "
-
-            f"{round(block.average_cadence)}"
-
-        )
-
-        print(
-
-            f" Cad Score  : "
-
-            f"{round(block.cadence_score,1)}"
-
-        )
-
-        print(
-
-            f" Avg HR     : "
-
-            f"{round(block.average_hr)}"
-
-        )
-
-        print(
-
-            f" Completion : "
-
-            f"{round(block.completion,1)} %"
-
-        )
-
-        print(
-
-            f" Score      : "
-
-            f"{round(block.execution_score,1)}"
-
-        )
+        for deviation in block.deviations:
+            print(" •", deviation)
 
         print()
 
-    print("=" * 60)
+    if execution.insights:
+        print("Insights")
+        print("-" * 60)
+
+        for insight in execution.insights:
+            print("•", insight)
 
     print()
 
-    print(
 
-        "Workout Execution :",
-
-        round(
-
-            total / len(execution),
-
-            1,
-
-        )
-
-    )
-
-    print()
+if __name__ == "__main__":
+    main()

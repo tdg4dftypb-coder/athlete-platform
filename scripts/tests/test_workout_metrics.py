@@ -7,6 +7,7 @@ from performance.engine import PerformanceEngine
 from recovery.engine import RecoveryEngine
 from repositories.health_repository import HealthRepository
 
+from training.factories.activity_factory import ActivityFactory
 from training.parsers.fit_parser import FitParser
 from training.analysis.workout_analyzer import WorkoutAnalyzer
 
@@ -33,9 +34,11 @@ def main():
         activities.glob("*.fit")
     )[-1]
 
-    activity = FitParser().parse(
+    parsed_activity = FitParser().parse(
         str(fit_file)
     )
+
+    activity = ActivityFactory().create(parsed_activity)
 
     workout_summary = WorkoutAnalyzer().analyze(
         activity

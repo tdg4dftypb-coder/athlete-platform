@@ -1,4 +1,4 @@
-from decision.models import DecisionState
+from decision.models import DecisionResult
 
 from workout.templates import (
     EnduranceTemplate,
@@ -14,7 +14,7 @@ class WorkoutFactory:
 
     def create(
         self,
-        decision: DecisionState,
+        decision: DecisionResult,
     ):
 
         if decision.recommendation == "REST":

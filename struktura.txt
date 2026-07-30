@@ -1,0 +1,396 @@
+.
+|-- .gitignore
+|-- README.md
+|-- analyzers
+|  |-- __init__.py
+|  |-- readiness
+|  |  |-- __init__.py
+|  |  |-- analyzer.py
+|-- athlete
+|  |-- engine.py
+|  |-- history
+|  |  |-- __init__.py
+|  |  |-- builder.py
+|  |  |-- event.py
+|  |  |-- factories
+|  |  |  |-- __init__.py
+|  |  |  |-- workout_factory.py
+|  |  |-- models.py
+|  |  |-- repository.py
+|  |-- models.py
+|  |-- state_builder.py
+|  |-- states
+|  |  |-- __init__.py
+|  |  |-- blood.py
+|  |  |-- body.py
+|  |  |-- calendar.py
+|  |  |-- equipment.py
+|  |  |-- goals.py
+|  |  |-- health.py
+|  |  |-- nutrition.py
+|  |  |-- performance.py
+|  |  |-- recovery.py
+|-- briefing
+|  |-- __init__.py
+|  |-- builder.py
+|  |-- engine.py
+|  |-- formatter.py
+|  |-- formatters.py
+|  |-- html_formatter.py
+|  |-- models.py
+|  |-- morning_briefing.html
+|  |-- renderers
+|  |  |-- __init__.py
+|  |  |-- console_renderer.py
+|  |-- static
+|  |  |-- style.css
+|  |-- templates
+|  |  |-- briefing.html
+|-- coach
+|  |-- __init__.py
+|  |-- engine.py
+|  |-- models.py
+|  |-- morning_briefing.py
+|  |-- recommendations.py
+|-- collectors
+|  |-- .DS_Store
+|  |-- __init__.py
+|  |-- apple_health
+|  |  |-- collector.py
+|  |  |-- importer.py
+|  |  |-- parser.py
+|-- config
+|  |-- settings.py
+|-- core
+|  |-- __init__.py
+|  |-- config.py
+|  |-- constants.py
+|  |-- context.py
+|  |-- database.py
+|  |-- exceptions.py
+|  |-- logger.py
+|  |-- models.py
+|  |-- results.py
+|  |-- trend
+|  |  |-- __init__.py
+|  |  |-- engine.py
+|-- data
+|  |-- database
+|  |  |-- health.duckdb
+|  |-- raw
+|  |  |-- export.xml
+|  |  |-- health_today.json
+|-- decision
+|  |-- builders
+|  |-- diagnosis
+|  |  |-- __init__.py
+|  |  |-- engine.py
+|  |  |-- models
+|  |  |  |-- __init__.py
+|  |  |  |-- athlete_diagnosis.py
+|  |  |  |-- readiness.py
+|  |  |  |-- risk.py
+|  |-- engine.py
+|  |-- matrix.py
+|  |-- models
+|  |  |-- __init__.py
+|  |  |-- decision_result.py
+|  |  |-- rule_result.py
+|  |  |-- workout_plan.py
+|  |-- pipeline
+|  |  |-- __init__.py
+|  |  |-- engine.py
+|  |-- prescription
+|  |  |-- __init__.py
+|  |  |-- engine.py
+|  |  |-- models
+|  |  |  |-- __init__.py
+|  |  |  |-- training_objective.py
+|  |  |  |-- training_prescription.py
+|  |-- selection
+|  |  |-- __init__.py
+|  |  |-- engine.py
+|  |  |-- models
+|  |  |  |-- __init__.py
+|  |-- sports.py
+|  |-- workout_template.py
+|  |-- workouts.py
+|-- docs
+|  |-- architecture.md
+|  |-- data_model.md
+|  |-- expert_system.md
+|  |-- roadmap.md
+|-- domain
+|  |-- diagnosis
+|  |  |-- models
+|  |  |  |-- athlete_diagnosis.py
+|  |-- prescription
+|  |  |-- models
+|  |  |  |-- __init__.py
+|  |  |  |-- training_prescription.py
+|-- engines
+|  |-- context_builder.py
+|  |-- recommendation_engine.py
+|  |-- trend_engine.py
+|-- execution
+|  |-- __init__.py
+|  |-- adapter.py
+|  |-- analyzer.py
+|  |-- block_analyzer.py
+|  |-- block_execution.py
+|  |-- block_matcher.py
+|  |-- block_metrics.py
+|  |-- block_models.py
+|  |-- context.py
+|  |-- engine.py
+|  |-- models.py
+|  |-- result.py
+|  |-- scoring.py
+|  |-- timeline_matcher.py
+|  |-- workout_execution.py
+|-- health
+|  |-- __init__.py
+|  |-- engine.py
+|  |-- models.py
+|-- optimizer
+|  |-- __init__.py
+|  |-- engine.py
+|-- output
+|  |-- pdf
+|  |  |-- athlete-platform-raport-architektury.pdf
+|-- performance
+|  |-- engine.py
+|  |-- models.py
+|  |-- training_load.py
+|-- pipeline
+|  |-- __init__.py
+|  |-- engine.py
+|-- planner
+|  |-- __init__.py
+|  |-- catalog
+|  |  |-- __init__.py
+|  |  |-- aggregate.py
+|  |  |-- analytics.py
+|  |  |-- domain.py
+|  |  |-- enums.py
+|  |  |-- factory.py
+|  |  |-- identity.py
+|  |  |-- models.py
+|  |  |-- prescription.py
+|  |  |-- recipes.py
+|  |  |-- registry.py
+|  |  |-- selection.py
+|  |  |-- stimulus.py
+|  |-- composer
+|  |  |-- __init__.py
+|  |  |-- engine.py
+|  |  |-- library.py
+|  |  |-- templates.py
+|  |-- converters
+|  |  |-- __init__.py
+|  |  |-- workout_converter.py
+|  |-- dsl
+|  |  |-- __init__.py
+|  |  |-- compiler.py
+|  |  |-- models.py
+|  |  |-- parser.py
+|  |  |-- workouts
+|  |  |  |-- __init__.py
+|  |  |  |-- endurance.py
+|  |  |  |-- recovery.py
+|  |  |  |-- sprint.py
+|  |  |  |-- tempo.py
+|  |  |  |-- threshold.py
+|  |  |  |-- vo2.py
+|  |-- engine.py
+|  |-- models.py
+|  |-- selection
+|  |  |-- __init__.py
+|  |  |-- engine.py
+|  |  |-- filter.py
+|  |  |-- models.py
+|  |  |-- recipe_scorer.py
+|-- planning
+|  |-- __init__.py
+|  |-- engine.py
+|  |-- models.py
+|-- project_tree.txt
+|-- pyproject.toml
+|-- pytest.ini
+|-- raport_architektury_athlete_platform.pdf
+|-- recovery
+|  |-- analyzer.py
+|  |-- engine.py
+|  |-- models.py
+|-- renderers
+|  |-- __init__.py
+|  |-- morning_renderer.py
+|  |-- week_renderer.py
+|  |-- workout_renderer.py
+|-- reports
+|  |-- morning_briefing.html
+|  |-- project_health.json
+|  |-- workouts
+|  |  |-- Endurance Ride.zwo
+|-- repositories
+|  |-- health_repository.py
+|  |-- workout_repository.py
+|-- requirements.txt
+|-- schema
+|  |-- health_schema.py
+|  |-- sleep_schema.py
+|  |-- training_schema.py
+|-- scripts
+|  |-- bootstrap.py
+|  |-- build_daily_health.py
+|  |-- build_sleep_sessions.py
+|  |-- debug
+|  |  |-- __init__.py
+|  |  |-- debug_power.py
+|  |  |-- debug_workouts.py
+|  |-- demo.py
+|  |-- execution_demo.py
+|  |-- export_workout.py
+|  |-- imports
+|  |  |-- __init__.py
+|  |  |-- import_health.py
+|  |  |-- import_workouts.py
+|  |-- maintenance
+|  |  |-- __init__.py
+|  |  |-- init_database.py
+|  |  |-- initialize_database.py
+|  |  |-- reset_workouts.py
+|  |-- morning.py
+|  |-- morning_briefing.py
+|  |-- planner_demo.py
+|  |-- platform_demo.py
+|  |-- project_doctor.py
+|  |-- reports
+|  |  |-- __init__.py
+|  |  |-- show_days.py
+|  |  |-- show_sleep_sessions.py
+|  |  |-- show_sleep_stats.py
+|  |  |-- show_stats.py
+|  |  |-- show_workouts.py
+|  |-- tests
+|  |  |-- __init__.py
+|  |  |-- test_activity.py
+|  |  |-- test_athlete.py
+|  |  |-- test_block_execution.py
+|  |  |-- test_decision.py
+|  |  |-- test_execution.py
+|  |  |-- test_execution_v2.py
+|  |  |-- test_fit.py
+|  |  |-- test_history.py
+|  |  |-- test_performance.py
+|  |  |-- test_sleep.py
+|  |  |-- test_timeline.py
+|  |  |-- test_workout_builder.py
+|  |  |-- test_workout_metrics.py
+|  |-- timeline_demo.py
+|  |-- week.py
+|-- services
+|  |-- activity_service.py
+|  |-- athlete_service.py
+|  |-- workout_service.py
+|-- simulator
+|  |-- __init__.py
+|  |-- engine.py
+|  |-- models.py
+|-- sleep
+|  |-- sleep_builder.py
+|  |-- sleep_models.py
+|  |-- sleep_repository.py
+|  |-- sleep_session.py
+|  |-- sleep_session_writer.py
+|-- stats.txt
+|-- structure.txt
+|-- struktura.txt
+|-- tests
+|  |-- decision
+|  |  |-- test_decision_engine.py
+|  |-- diagnosis
+|  |  |-- test_diagnosis_engine.py
+|  |-- dsl
+|  |  |-- test_dsl_builders.py
+|  |-- execution
+|  |  |-- test_block_analyzer.py
+|  |  |-- test_execution_adapter.py
+|  |  |-- test_execution_context.py
+|  |  |-- test_execution_context_engine.py
+|  |  |-- test_execution_engine.py
+|  |  |-- test_execution_full_pipeline.py
+|  |  |-- test_execution_result.py
+|  |-- factories
+|  |  |-- test_activity_factory.py
+|  |-- helpers.py
+|  |-- ingestion
+|  |  |-- test_parsed_activity.py
+|  |-- platform
+|  |  |-- test_coach_scenarios.py
+|  |  |-- test_platform_engine.py
+|  |-- reference_workouts
+|  |  |-- 2026-07-12-16-44-48.json
+|  |-- selection
+|  |  |-- test_recipe_scorer.py
+|  |-- test_readiness.py
+|-- timeline
+|  |-- builder.py
+|  |-- models.py
+|-- tmp
+|  |-- pdfs
+|  |  |-- architecture-report-1.png
+|  |  |-- architecture-report-2.png
+|  |  |-- architecture-report-3.png
+|  |  |-- architecture-report-4.png
+|-- training
+|  |-- activity.py
+|  |-- analysis
+|  |  |-- __init__.py
+|  |  |-- workout_analyzer.py
+|  |  |-- workout_summary.py
+|  |-- calculations
+|  |  |-- __init__.py
+|  |  |-- intensity_factor.py
+|  |  |-- normalized_power.py
+|  |  |-- power_zones.py
+|  |  |-- tss.py
+|  |-- factories
+|  |  |-- __init__.py
+|  |  |-- activity_factory.py
+|  |-- fit_repository.py
+|  |-- ftp.py
+|  |-- history
+|  |  |-- __init__.py
+|  |  |-- workout_history.py
+|  |  |-- workout_history_builder.py
+|  |-- ingestion
+|  |  |-- __init__.py
+|  |  |-- parsed_activity.py
+|  |-- load_engine.py
+|  |-- metrics.py
+|  |-- models.py
+|  |-- parsers
+|  |  |-- __init__.py
+|  |  |-- fit_parser.py
+|  |-- repository.py
+|  |-- workout_generator.py
+|-- workout
+|  |-- __init__.py
+|  |-- blocks.py
+|  |-- builder.py
+|  |-- builders
+|  |  |-- __init__.py
+|  |  |-- workout_builder.py
+|  |-- calculator.py
+|  |-- enums.py
+|  |-- export
+|  |  |-- zwo_exporter.py
+|  |-- exporters
+|  |  |-- __init__.py
+|  |  |-- zwo_exporter.py
+|  |-- factory.py
+|  |-- metrics.py
+|  |-- models.py
+|  |-- templates.py
+|  |-- validator.py

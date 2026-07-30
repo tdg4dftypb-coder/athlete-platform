@@ -1,27 +1,26 @@
-from decision.models import (
-    DecisionState,
-    WorkoutPlan,
-)
-from decision.rules.recovery import RecoveryRule
+from athlete.models import AthleteState
+
+from decision.models import WorkoutPlan
+from decision.pipeline.engine import DecisionPipeline
+from decision.selection.engine import SelectionEngine
 
 
 class DecisionEngine:
 
     def __init__(self) -> None:
 
-        self.rules = [
-            RecoveryRule(),
-        ]
+        self.pipeline = DecisionPipeline()
+        self.selection = SelectionEngine()
 
-    def evaluate(
+    def decide(
         self,
-        state: DecisionState,
+        athlete: AthleteState,
     ) -> WorkoutPlan:
 
-        plan = WorkoutPlan()
+        _, prescription = self.pipeline.evaluate(
+            athlete,
+        )
 
-        for rule in self.rules:
-            result = rule.evaluate(state, plan)
-            plan.add_result(result)
-
-        return plan
+        return self.selection.select(
+            prescription,
+        )

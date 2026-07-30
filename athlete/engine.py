@@ -3,6 +3,7 @@ from athlete.state_builder import AthleteStateBuilder
 
 from core.context import HealthContext
 
+from health.models import HealthState
 from performance.models import PerformanceState
 from recovery.models import RecoveryResult
 from training.analysis.workout_summary import WorkoutSummary
@@ -11,31 +12,21 @@ from training.analysis.workout_summary import WorkoutSummary
 class AthleteEngine:
 
     def __init__(self):
-
         self.builder = AthleteStateBuilder()
 
     def build(
-
         self,
-
-        health: HealthContext,
-
+        health: HealthState,
+        context: HealthContext,
         recovery: RecoveryResult,
-
         performance: PerformanceState,
-
         workout: WorkoutSummary = None,
-
     ) -> AthleteState:
 
         return self.builder.build(
-
             health=health,
-
+            context=context,
             recovery=recovery,
-
             performance=performance,
-
             workout=workout,
-
         )

@@ -1,4 +1,4 @@
-from decision.models import DecisionState
+from decision.models import DecisionResult
 
 from planner.models import PlannedWorkout
 
@@ -10,7 +10,7 @@ class WorkoutBuilder:
 
     def build(
         self,
-        decision: DecisionState,
+        decision: DecisionResult,
         planned: PlannedWorkout,
     ) -> Workout:
 

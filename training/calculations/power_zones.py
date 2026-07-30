@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from training.ftp import FTP
-from training.raw_activity import RawActivity
+from training.activity import Activity
 
 
 @dataclass
@@ -19,7 +19,7 @@ class PowerZones:
 class PowerZoneCalculator:
 
     @staticmethod
-    def calculate(activity: RawActivity) -> PowerZones:
+    def calculate(activity: Activity) -> PowerZones:
 
         zones = PowerZones()
 

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from training.activity_builder import ActivityBuilder
+from training.factories.activity_factory import ActivityFactory
 from training.parsers.fit_parser import FitParser
 
 
@@ -14,12 +14,12 @@ def main():
         activities.glob("*.fit")
     )[-1]
 
-    raw = FitParser().parse(
+    parsed_activity = FitParser().parse(
         str(fit)
     )
 
-    activity = ActivityBuilder().build(
-        raw
+    activity = ActivityFactory().create(
+        parsed_activity
     )
 
     print()

@@ -1,7 +1,8 @@
-from execution.models import ExecutionState
+from execution.context import ExecutionContext
+from execution.block_analyzer import BlockAnalyzer
+from execution.result import ExecutionResult
 
 from workout.models import Workout
-
 from training.analysis.workout_summary import WorkoutSummary
 
 
@@ -25,13 +26,63 @@ class ExecutionEngine:
 
         return round(score, 1)
 
+
     def analyze(
         self,
         workout: Workout,
         activity: WorkoutSummary,
-    ) -> ExecutionState:
+    ) -> ExecutionResult:
 
-        duration_score = self._score(
+        return self._build_result(
+            workout,
+            activity,
+            [],
+        )
+
+
+    def analyze_context(
+        self,
+        context: ExecutionContext,
+    ) -> ExecutionResult:
+
+        blocks = []
+
+        analyzer = BlockAnalyzer()
+
+        for block in context.timeline.blocks:
+
+            blocks.append(
+
+                analyzer.analyze(
+
+                    block,
+
+                    context.activity,
+
+                )
+
+            )
+
+
+        return self._build_result(
+
+            context.workout,
+
+            context.summary,
+
+            blocks,
+
+        )
+
+
+    def _build_result(
+        self,
+        workout: Workout,
+        activity: WorkoutSummary,
+        blocks,
+    ) -> ExecutionResult:
+
+        completion_score = self._score(
 
             workout.duration,
 
@@ -39,7 +90,7 @@ class ExecutionEngine:
 
         )
 
-        tss_score = self._score(
+        load_score = self._score(
 
             workout.target_tss,
 
@@ -47,64 +98,72 @@ class ExecutionEngine:
 
         )
 
-        overall = round(
+        execution_score = round(
 
-            (duration_score + tss_score) / 2,
+            (
+                completion_score
+                +
+                load_score
+            )
+            / 2,
 
             1,
 
         )
 
-        completed = overall >= 90
+        completed = execution_score >= 90
 
-        reasons = []
 
-        if duration_score < 90:
+        insights = []
 
-            reasons.append(
 
-                "Workout shorter than planned"
+        if completion_score < 90:
 
+            insights.append(
+                "Workout shorter than planned",
             )
 
-        if tss_score < 90:
 
-            reasons.append(
+        if load_score < 90:
 
-                "Training load below target"
-
+            insights.append(
+                "Training load below target",
             )
+
 
         if completed:
 
-            reasons.append(
-
-                "Workout completed"
-
+            insights.append(
+                "Workout completed",
             )
 
-        return ExecutionState(
+
+        return ExecutionResult(
 
             planned_duration=workout.duration,
 
             executed_duration=round(
-
-                activity.duration / 60
-
+                activity.duration / 60,
             ),
-
-            duration_score=duration_score,
 
             planned_tss=workout.target_tss,
 
             executed_tss=activity.tss,
 
-            tss_score=tss_score,
+            completion_score=completion_score,
 
-            overall_score=overall,
+            power_score=None,
+
+            cadence_score=None,
+
+            heart_rate_score=None,
+
+            execution_score=execution_score,
 
             completed=completed,
 
-            reasons=reasons,
+            blocks=blocks,
+
+            insights=insights,
 
         )

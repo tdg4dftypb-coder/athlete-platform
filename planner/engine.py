@@ -1,92 +1,70 @@
-from decision.models import DecisionState
+from athlete.models import AthleteState
+
+from decision.models import DecisionResult
 
 from planner.dsl.compiler import DSLCompiler
 from planner.dsl.parser import DSLParser
-
 from planner.models import PlannedWorkout
+from planner.selection import SelectionEngine
+from planner.selection.models import SelectionContext
 
 
 class PlannerEngine:
 
     def __init__(self):
 
+        self.selection = SelectionEngine()
+
         self.parser = DSLParser()
 
         self.compiler = DSLCompiler()
 
+
     def build(
         self,
-        decision: DecisionState,
+        decision: DecisionResult,
+        athlete: AthleteState,
     ) -> PlannedWorkout:
 
-        #
-        # DSL
-        #
-
-        if decision.recommendation == "REST":
-
-            return PlannedWorkout(
-
-                name="Rest Day",
-
-                sport=decision.sport.value,
-
-                target_tss=0,
-
-                estimated_duration=0,
-
-                blocks=[],
-
+        context = SelectionContext(
+            available_minutes=athlete.context.available_minutes
+            if hasattr(
+                athlete.context,
+                "available_minutes",
             )
-
-        if decision.recommendation == "RECOVERY":
-
-            dsl = self.parser.recovery()
-
-        elif decision.recommendation == "ENDURANCE":
-
-            dsl = self.parser.endurance()
-
-        elif decision.recommendation == "TEMPO":
-
-            dsl = self.parser.tempo()
-
-        elif decision.recommendation == "THRESHOLD":
-
-            dsl = self.parser.threshold()
-
-        else:
-
-            dsl = self.parser.vo2()
-
-        #
-        # Blocks
-        #
-
-        blocks = self.compiler.compile(dsl)
-
-        duration = sum(
-
-            block.duration
-
-            for block in blocks
-
-        ) // 60
-
-        #
-        # Plan
-        #
-
-        return PlannedWorkout(
-
-            name=dsl.name,
-
-            sport=decision.sport.value,
+            else 60,
 
             target_tss=decision.target_tss,
 
+            workout_type=decision.recommendation,
+
+            recovery_score=athlete.recovery.score,
+
+            fatigue_score=athlete.performance.fatigue,
+        )
+
+        recipe = self.selection.select(
+            decision.recommendation,
+            context,
+        )
+
+        dsl = self.parser.build(
+            recipe,
+        )
+
+        blocks = self.compiler.compile(
+            dsl,
+        )
+
+        duration = sum(
+            block.duration
+            for block in blocks
+        ) // 60
+
+        return PlannedWorkout(
+            name=dsl.name,
+            sport=decision.sport.value,
+            target_tss=recipe.prescription.target_tss,
             estimated_duration=duration,
-
             blocks=blocks,
-
         )
