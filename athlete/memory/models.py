@@ -52,3 +52,15 @@ class AthleteMemorySnapshot:
     workout_observations: tuple[WorkoutMemoryObservation, ...]
     source_event_ids: tuple[str, ...]
     schema_version: int
+
+
+@dataclass(frozen=True)
+class TrainingTrendReport:
+    period: DateRange
+    workouts_count: int
+    planned_duration: float
+    executed_duration: float
+    planned_tss: float
+    executed_tss: float
+    average_completion_score: float
+    average_execution_score: float
