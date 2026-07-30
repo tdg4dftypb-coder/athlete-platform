@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from application.adaptation import AdaptationDirective, AdaptationStatus
 from application.athlete_assessment import AthleteAssessment
+from application.explanation import ExplanationBuilder, ExplanationReport
 from athlete.models import AthleteState
 from planner.models import PlannedWorkout
 
@@ -12,6 +13,7 @@ class MorningCoachReport:
     athlete_assessment: AthleteAssessment
     adaptation: AdaptationDirective
     workout: PlannedWorkout
+    explanation: ExplanationReport
     message: str
 
 
@@ -31,6 +33,11 @@ class MorningCoachBuilder:
             athlete_assessment=athlete_assessment,
             adaptation=adaptation,
             workout=workout,
+            explanation=ExplanationBuilder().build(
+                athlete_assessment,
+                adaptation,
+                workout,
+            ),
             message=self._message_for(adaptation, workout),
         )
 

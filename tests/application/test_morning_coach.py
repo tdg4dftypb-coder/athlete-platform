@@ -59,6 +59,7 @@ def test_report_preserves_existing_model_references():
     assert report.athlete_assessment is assessment
     assert report.adaptation is adaptation
     assert report.workout is workout
+    assert report.explanation.summary == "Today's recommendation: Endurance ride."
 
 
 def test_message_is_deterministic():
@@ -108,6 +109,11 @@ def test_full_integration_builds_a_recovery_daily_brief():
     assert report.message == (
         "Dzisiaj zalecany trening: Recovery. "
         "Powód: Long-term adaptation requires reduced load."
+    )
+    assert report.explanation.reasons == (
+        "Training execution requires reduced load.",
+        "Long-term adaptation recommends recovery.",
+        "Recovery workout has been selected.",
     )
 
 

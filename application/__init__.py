@@ -13,6 +13,7 @@ from application.knowledge_context import (
     AthleteKnowledgeContext,
     AthleteKnowledgeContextBuilder,
 )
+from application.explanation import ExplanationBuilder, ExplanationReport
 from application.morning_coach import MorningCoachBuilder, MorningCoachReport
 from application.post_workout_recording import (
     PostWorkoutRecordingResult,
@@ -35,6 +36,8 @@ __all__ = [
     "AthleteAssessmentStatus",
     "AthleteKnowledgeContext",
     "AthleteKnowledgeContextBuilder",
+    "ExplanationBuilder",
+    "ExplanationReport",
     "MorningCoachBuilder",
     "MorningCoachReport",
     "PostWorkoutRecordingResult",
