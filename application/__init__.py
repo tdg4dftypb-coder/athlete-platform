@@ -1,3 +1,8 @@
+from application.adaptation import (
+    AdaptationDirective,
+    AdaptationPolicy,
+    AdaptationStatus,
+)
 from application.athlete_assessment import (
     AthleteAssessment,
     AthleteAssessmentBuilder,
@@ -20,6 +25,9 @@ from application.training_assessment import (
 from application.weekly_review import WeeklyReviewWorkflow
 
 __all__ = [
+    "AdaptationDirective",
+    "AdaptationPolicy",
+    "AdaptationStatus",
     "AthleteAssessment",
     "AthleteAssessmentBuilder",
     "AthleteAssessmentReason",
