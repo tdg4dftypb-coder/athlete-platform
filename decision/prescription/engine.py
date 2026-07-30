@@ -1,3 +1,4 @@
+from application.adaptation import AdaptationDirective, AdaptationStatus
 from decision.diagnosis.models import (
     AthleteDiagnosis,
     Readiness,
@@ -15,6 +16,7 @@ class PrescriptionEngine:
     def prescribe(
         self,
         diagnosis: AthleteDiagnosis,
+        adaptation: AdaptationDirective | None = None,
     ) -> TrainingPrescription:
 
 
@@ -22,7 +24,13 @@ class PrescriptionEngine:
         # Safety first
         #
 
-        if diagnosis.injury_risk == RiskLevel.HIGH:
+        if (
+            diagnosis.injury_risk == RiskLevel.HIGH
+            or (
+                adaptation is not None
+                and adaptation.status is AdaptationStatus.REDUCE_LOAD
+            )
+        ):
 
             objective = TrainingObjective.RECOVERY
 

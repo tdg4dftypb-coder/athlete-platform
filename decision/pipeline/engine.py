@@ -1,3 +1,4 @@
+from application.adaptation import AdaptationDirective
 from athlete.models import AthleteState
 
 from decision.diagnosis import DiagnosisEngine
@@ -17,6 +18,7 @@ class DecisionPipeline:
     def evaluate(
         self,
         athlete: AthleteState,
+        adaptation: AdaptationDirective | None = None,
     ) -> tuple[
         AthleteDiagnosis,
         TrainingPrescription,
@@ -28,6 +30,7 @@ class DecisionPipeline:
 
         prescription = self.prescription.prescribe(
             diagnosis,
+            adaptation,
         )
 
         return (

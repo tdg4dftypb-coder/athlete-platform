@@ -1,3 +1,4 @@
+from application.adaptation import AdaptationDirective
 from athlete.models import AthleteState
 
 from decision.models import WorkoutPlan
@@ -15,10 +16,12 @@ class DecisionEngine:
     def decide(
         self,
         athlete: AthleteState,
+        adaptation: AdaptationDirective | None = None,
     ) -> WorkoutPlan:
 
         _, prescription = self.pipeline.evaluate(
             athlete,
+            adaptation,
         )
 
         return self.selection.select(
