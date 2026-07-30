@@ -8,7 +8,10 @@ from athlete.memory.history import AthleteMemoryHistoryAdapter
 from athlete.memory.models import (
     AthleteMemoryEvent,
     AthleteMemoryEventType,
+    DateRange,
 )
+from athlete.memory.patterns import PatternDetector
+from athlete.memory.reader import AthleteMemoryReader
 from athlete.memory.repository import AthleteMemoryRepository
 from athlete.memory.serializer import WorkoutCompletedSerializer
 from athlete.memory.writer import AthleteMemoryWriter
@@ -26,6 +29,8 @@ from workout.models import Workout
 def build_post_workout_result(
     *,
     start: datetime | None = None,
+    completion_score: float = 100.0,
+    execution_score: float = 100.0,
 ) -> PostWorkoutResult:
 
     start = start or datetime(2026, 7, 30, 8, 0)
@@ -92,11 +97,11 @@ def build_post_workout_result(
         executed_duration=60,
         planned_tss=80,
         executed_tss=80,
-        completion_score=100,
+        completion_score=completion_score,
         power_score=None,
         cadence_score=None,
         heart_rate_score=None,
-        execution_score=100,
+        execution_score=execution_score,
         completed=True,
         blocks=[],
         insights=["Workout completed"],
@@ -106,8 +111,8 @@ def build_post_workout_result(
         status=WorkoutFeedbackStatus.EXCELLENT,
         headline="Świetnie wykonany trening",
         summary="Plan został zrealizowany z bardzo wysoką jakością.",
-        execution_score=100,
-        completion_score=100,
+        execution_score=execution_score,
+        completion_score=completion_score,
         positive_signals=(),
         attention_signals=(),
     )
@@ -284,6 +289,78 @@ def test_writer_persists_workout_completed_and_builds_history(tmp_path):
     assert history.count == 1
     assert history.events[0].title == "Threshold Test"
     assert history.events[0].payload == event.payload
+
+    db.close()
+
+
+def test_memory_round_trip_preserves_percent_scores_for_consistent_execution(tmp_path):
+
+    db, repository = build_repository(tmp_path)
+    writer = AthleteMemoryWriter(repository)
+    start = datetime(2026, 7, 30, 8, 0)
+
+    for day in range(3):
+        writer.write(
+            build_post_workout_result(
+                start=start + timedelta(days=day),
+                completion_score=90.0,
+                execution_score=90.0,
+            )
+        )
+
+    period = DateRange(
+        start=start,
+        end=start + timedelta(days=3, minutes=1),
+    )
+    snapshot = AthleteMemoryReader(repository).read(period)
+    report = PatternDetector().analyze(snapshot)
+
+    assert [
+        observation.completion_score
+        for observation in snapshot.workout_observations
+    ] == [90.0, 90.0, 90.0]
+    assert [
+        observation.execution_score
+        for observation in snapshot.workout_observations
+    ] == [90.0, 90.0, 90.0]
+    assert "CONSISTENT_EXECUTION" in {
+        pattern.code
+        for pattern in report.patterns
+    }
+
+    db.close()
+
+
+def test_memory_round_trip_does_not_interpret_0_90_as_90_percent(tmp_path):
+
+    db, repository = build_repository(tmp_path)
+    writer = AthleteMemoryWriter(repository)
+    start = datetime(2026, 7, 30, 8, 0)
+
+    for day in range(3):
+        writer.write(
+            build_post_workout_result(
+                start=start + timedelta(days=day),
+                completion_score=0.90,
+                execution_score=0.90,
+            )
+        )
+
+    period = DateRange(
+        start=start,
+        end=start + timedelta(days=3, minutes=1),
+    )
+    snapshot = AthleteMemoryReader(repository).read(period)
+    report = PatternDetector().analyze(snapshot)
+
+    assert [
+        observation.execution_score
+        for observation in snapshot.workout_observations
+    ] == [0.90, 0.90, 0.90]
+    assert "CONSISTENT_EXECUTION" not in {
+        pattern.code
+        for pattern in report.patterns
+    }
 
     db.close()
 

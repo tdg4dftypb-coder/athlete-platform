@@ -39,8 +39,8 @@ def build_snapshot(period: DateRange) -> AthleteMemorySnapshot:
         executed_duration=55,
         planned_tss=80,
         executed_tss=75,
-        completion_score=0.90,
-        execution_score=0.88,
+        completion_score=90.0,
+        execution_score=88.0,
         feedback_status="completed",
         completed=True,
     )
@@ -61,8 +61,8 @@ def build_trends(period: DateRange) -> TrainingTrendReport:
         executed_duration=55,
         planned_tss=80,
         executed_tss=75,
-        average_completion_score=0.90,
-        average_execution_score=0.88,
+        average_completion_score=90.0,
+        average_execution_score=88.0,
     )
 
 
@@ -171,8 +171,8 @@ def build_event(event_id: str, occurred_at: datetime) -> AthleteMemoryEvent:
                 "executed_duration": 60,
                 "planned_tss": 100,
                 "executed_tss": 100,
-                "completion_score": 0.95,
-                "execution_score": 0.95,
+                "completion_score": 95.0,
+                "execution_score": 95.0,
                 "completed": True,
             },
             "feedback": {"status": "completed"},

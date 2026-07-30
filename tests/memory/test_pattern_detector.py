@@ -15,8 +15,8 @@ from athlete.memory.patterns import PatternDetector
 def build_observation(
     event_id: str,
     *,
-    completion_score: float = 0.95,
-    execution_score: float = 0.95,
+    completion_score: float = 95.0,
+    execution_score: float = 95.0,
     planned_tss: float = 100,
     executed_tss: float = 100,
 ) -> WorkoutMemoryObservation:
@@ -81,8 +81,12 @@ def test_detector_finds_consistent_execution_with_all_evidence_events():
     snapshot = build_snapshot(
         (
             build_observation("event-1"),
-            build_observation("event-2", completion_score=0.90),
-            build_observation("event-3", execution_score=0.90),
+            build_observation("event-2", completion_score=90.0),
+            build_observation(
+                "event-3",
+                completion_score=100.0,
+                execution_score=90.0,
+            ),
         )
     )
 
@@ -99,7 +103,35 @@ def test_detector_does_not_find_consistent_execution_with_one_weaker_workout():
         (
             build_observation("event-1"),
             build_observation("event-2"),
-            build_observation("event-3", execution_score=0.89),
+            build_observation("event-3", execution_score=89.0),
+        )
+    )
+
+    assert "CONSISTENT_EXECUTION" not in {
+        pattern.code
+        for pattern in PatternDetector().analyze(snapshot).patterns
+    }
+
+
+def test_detector_does_not_interpret_a_fractional_score_as_90_percent():
+
+    snapshot = build_snapshot(
+        (
+            build_observation(
+                "event-1",
+                completion_score=0.90,
+                execution_score=0.90,
+            ),
+            build_observation(
+                "event-2",
+                completion_score=0.90,
+                execution_score=0.90,
+            ),
+            build_observation(
+                "event-3",
+                completion_score=0.90,
+                execution_score=0.90,
+            ),
         )
     )
 
@@ -114,10 +146,11 @@ def test_detector_finds_repeated_partial_execution_and_excludes_boundaries():
     snapshot = build_snapshot(
         (
             build_observation("zero", completion_score=0),
-            build_observation("lower", completion_score=0.79),
-            build_observation("upper", completion_score=0.80),
-            build_observation("another", completion_score=0.50),
-            build_observation("consistent-boundary", completion_score=0.90),
+            build_observation("lower", completion_score=79.0),
+            build_observation("upper", completion_score=80.0),
+            build_observation("fraction", completion_score=0.90),
+            build_observation("another", completion_score=50.0),
+            build_observation("consistent-boundary", completion_score=90.0),
         )
     )
 
@@ -127,16 +160,16 @@ def test_detector_finds_repeated_partial_execution_and_excludes_boundaries():
     )
 
     assert pattern.severity == "WARNING"
-    assert pattern.source_event_ids == ("lower", "another")
+    assert pattern.source_event_ids == ("lower", "fraction", "another")
 
 
 def test_report_keeps_all_analyzed_events_while_pattern_keeps_only_evidence():
 
     snapshot = build_snapshot(
         (
-            build_observation("partial-1", completion_score=0.50),
-            build_observation("partial-2", completion_score=0.60),
-            build_observation("neutral", completion_score=0.85),
+            build_observation("partial-1", completion_score=50.0),
+            build_observation("partial-2", completion_score=60.0),
+            build_observation("neutral", completion_score=85.0),
         )
     )
 
@@ -205,8 +238,8 @@ def test_detector_returns_multiple_patterns_in_a_stable_order():
 
     snapshot = build_snapshot(
         (
-            build_observation("partial-under-1", completion_score=0.50, executed_tss=80),
-            build_observation("partial-under-2", completion_score=0.60, executed_tss=70),
+            build_observation("partial-under-1", completion_score=50.0, executed_tss=80),
+            build_observation("partial-under-2", completion_score=60.0, executed_tss=70),
             build_observation("over-1", executed_tss=120),
             build_observation("over-2", executed_tss=130),
         )
@@ -246,8 +279,8 @@ def test_pattern_models_are_immutable():
 def test_detector_is_deterministic_and_does_not_mutate_snapshot():
 
     observations = (
-        build_observation("event-1", completion_score=0.50),
-        build_observation("event-2", completion_score=0.60),
+        build_observation("event-1", completion_score=50.0),
+        build_observation("event-2", completion_score=60.0),
     )
     snapshot = build_snapshot(observations)
     original_observations = snapshot.workout_observations

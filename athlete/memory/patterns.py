@@ -7,7 +7,10 @@ from athlete.memory.models import (
 
 
 class PatternDetector:
-    """Detects deterministic workout-execution patterns from a memory snapshot."""
+    """Detects patterns from percentage scores; TSS thresholds use load ratios."""
+
+    CONSISTENT_EXECUTION_MIN_SCORE = 90.0
+    PARTIAL_EXECUTION_MAX_SCORE = 80.0
 
     def analyze(
         self,
@@ -36,8 +39,8 @@ class PatternDetector:
         if len(observations) < 3:
             return None
         if not all(
-            observation.completion_score >= 0.90
-            and observation.execution_score >= 0.90
+            observation.completion_score >= PatternDetector.CONSISTENT_EXECUTION_MIN_SCORE
+            and observation.execution_score >= PatternDetector.CONSISTENT_EXECUTION_MIN_SCORE
             for observation in observations
         ):
             return None
@@ -60,7 +63,7 @@ class PatternDetector:
         matching = tuple(
             observation
             for observation in observations
-            if 0 < observation.completion_score < 0.80
+            if 0 < observation.completion_score < PatternDetector.PARTIAL_EXECUTION_MAX_SCORE
         )
         if len(matching) < 2:
             return None

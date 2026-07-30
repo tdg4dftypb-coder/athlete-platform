@@ -34,6 +34,11 @@ class DateRange:
 
 @dataclass(frozen=True)
 class WorkoutMemoryObservation:
+    """Typed workout memory data with scores expressed as 0-100 percentages.
+
+    A value of 0.90 means 0.90%, not 90%.
+    """
+
     event_id: str
     occurred_at: datetime
     planned_duration: float

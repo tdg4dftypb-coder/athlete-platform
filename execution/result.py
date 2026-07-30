@@ -27,6 +27,10 @@ class BlockExecutionResult:
 
 @dataclass(frozen=True)
 class ExecutionResult:
+    """Technical result whose completion and execution scores are 0-100 percentages.
+
+    A value of 0.90 means 0.90%, not 90%.
+    """
 
     planned_duration: int
 
