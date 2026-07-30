@@ -1,3 +1,4 @@
+from dataclasses import replace
 from pathlib import Path
 
 from athlete.state_builder import AthleteStateBuilder
@@ -7,6 +8,8 @@ from config.settings import ZWIFT_WORKOUTS
 from decision.engine import DecisionEngine
 
 from engines.context_builder import ContextBuilder
+
+from health.engine import HealthEngine
 
 from performance.engine import PerformanceEngine
 
@@ -27,9 +30,11 @@ def main():
 
     history = HealthRepository().load_daily()
 
-    health = ContextBuilder().build(history)
+    context = ContextBuilder().build(history)
 
-    recovery = RecoveryEngine().analyze(health)
+    health = HealthEngine().analyze(context)
+
+    recovery = RecoveryEngine().analyze(context)
 
     performance = PerformanceEngine().analyze()
 
@@ -55,6 +60,8 @@ def main():
 
         health=health,
 
+        context=context,
+
         recovery=recovery,
 
         performance=performance,
@@ -67,8 +74,13 @@ def main():
         athlete
     )
 
+    legacy_decision = replace(
+        decision.decision,
+        recommendation=decision.decision.recommendation.name,
+    )
+
     workout = WorkoutBuilder().build(
-        decision
+        legacy_decision
     )
 
     metrics = WorkoutCalculator().calculate(
