@@ -1,3 +1,4 @@
+from schema.athlete_memory_schema import AthleteMemorySchema
 from schema.health_schema import HealthSchema
 from schema.sleep_schema import SleepSchema
 from schema.training_schema import TrainingSchema
@@ -14,6 +15,8 @@ def main():
     SleepSchema().create()
 
     TrainingSchema().create()
+
+    AthleteMemorySchema().create()
 
     print("Done.")
 
