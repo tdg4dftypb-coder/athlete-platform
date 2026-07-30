@@ -64,3 +64,18 @@ class TrainingTrendReport:
     executed_tss: float
     average_completion_score: float
     average_execution_score: float
+
+
+@dataclass(frozen=True)
+class TrainingPattern:
+    code: str
+    severity: str
+    description: str
+    source_event_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class PatternReport:
+    period: DateRange
+    patterns: tuple[TrainingPattern, ...]
+    source_event_ids: tuple[str, ...]
