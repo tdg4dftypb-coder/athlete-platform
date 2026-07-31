@@ -1,6 +1,8 @@
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 from scripts import morning_coach
+from schema.athlete_memory_schema import AthleteMemorySchema
 
 
 def test_main_runs_the_cli_and_prints_the_morning_coach_report(
@@ -44,3 +46,25 @@ def test_main_runs_the_cli_and_prints_the_morning_coach_report(
         "\n"
         "=========================================\n"
     )
+
+
+def test_build_report_does_not_create_the_athlete_memory_schema(monkeypatch):
+    report = SimpleNamespace()
+    created_schema = Mock()
+    database = Mock()
+
+    class FakeUseCase:
+        def __init__(self, **_dependencies):
+            pass
+
+        def run(self):
+            return SimpleNamespace(report=report)
+
+    monkeypatch.setattr(morning_coach, "Database", lambda: database)
+    monkeypatch.setattr(morning_coach, "HealthRepository", Mock())
+    monkeypatch.setattr(morning_coach, "MorningCoachUseCase", FakeUseCase)
+    monkeypatch.setattr(AthleteMemorySchema, "create", created_schema)
+
+    assert morning_coach.build_report() is report
+    created_schema.assert_not_called()
+    database.close.assert_called_once_with()

@@ -15,6 +15,10 @@ from application.knowledge_context import (
 )
 from application.explanation import ExplanationBuilder, ExplanationReport
 from application.morning_coach import MorningCoachBuilder, MorningCoachReport
+from application.morning_coach_use_case import (
+    MorningCoachResult,
+    MorningCoachUseCase,
+)
 from application.post_workout_recording import (
     PostWorkoutRecordingResult,
     PostWorkoutRecordingService,
@@ -40,6 +44,8 @@ __all__ = [
     "ExplanationReport",
     "MorningCoachBuilder",
     "MorningCoachReport",
+    "MorningCoachResult",
+    "MorningCoachUseCase",
     "PostWorkoutRecordingResult",
     "PostWorkoutRecordingService",
     "TrainingAssessment",
