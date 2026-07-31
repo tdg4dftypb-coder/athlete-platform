@@ -113,6 +113,32 @@ def test_weekly_review_workflow_orchestrates_existing_components():
     assert result is review
 
 
+def test_weekly_review_workflow_returns_the_snapshot_used_for_the_review():
+    period = build_period()
+    snapshot = build_snapshot(period)
+    review = build_review(period)
+    reader = Mock()
+    trend_engine = Mock()
+    pattern_detector = Mock()
+    review_service = Mock()
+    reader.read.return_value = snapshot
+    trend_engine.analyze.return_value = review.trends
+    pattern_detector.analyze.return_value = review.patterns
+    review_service.build.return_value = review
+    workflow = WeeklyReviewWorkflow(
+        reader,
+        trend_engine,
+        pattern_detector,
+        review_service,
+    )
+
+    result_snapshot, result_review = workflow.run_with_snapshot(period)
+
+    reader.read.assert_called_once_with(period)
+    assert result_snapshot is snapshot
+    assert result_review is review
+
+
 @pytest.mark.parametrize(
     ("component_name", "error"),
     [

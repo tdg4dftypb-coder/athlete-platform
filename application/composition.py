@@ -3,7 +3,7 @@ from application.athlete_assessment import AthleteAssessmentBuilder
 from application.decision_explainability import DecisionExplainabilityBuilder
 from application.intelligence_decision_workflow import IntelligenceDecisionWorkflow
 from application.knowledge_context import AthleteKnowledgeContextBuilder
-from application.morning_coach import MorningCoachBuilder
+from application.morning_coach import MorningCoachPresenter
 from application.morning_coach_use_case import (
     HealthHistoryReader,
     MorningCoachUseCase,
@@ -97,7 +97,7 @@ def build_morning_coach_use_case(
         training_assessment_builder=TrainingAssessmentBuilder(),
         athlete_assessment_builder=AthleteAssessmentBuilder(),
         adaptation_policy=AdaptationPolicy(),
-        decision_engine=build_decision_engine(),
+        intelligence_workflow=build_intelligence_decision_workflow(),
         planner_engine=build_planner_engine(),
-        morning_coach_builder=MorningCoachBuilder(),
+        morning_coach_presenter=MorningCoachPresenter(),
     )

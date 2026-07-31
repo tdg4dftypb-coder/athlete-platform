@@ -11,18 +11,19 @@ from application.knowledge_context import (
     AthleteKnowledgeContext,
     AthleteKnowledgeContextBuilder,
 )
-from application.morning_coach import MorningCoachBuilder, MorningCoachReport
+from application.intelligence_decision_workflow import IntelligenceDecisionWorkflow
+from application.morning_coach import MorningCoachPresenter, MorningCoachReport
 from application.training_assessment import (
     TrainingAssessment,
     TrainingAssessmentBuilder,
 )
 from application.weekly_review import WeeklyReviewWorkflow
 from athlete.memory.models import DateRange
+from athlete.intelligence.models import HealthObservationInput
 from athlete.models import AthleteState
 from athlete.review.models import WeeklyTrainingReview
 from athlete.state_builder import AthleteStateBuilder
 from core.models import HealthDaily
-from decision.engine import DecisionEngine
 from decision.models import WorkoutPlan
 from engines.context_builder import ContextBuilder
 from health.engine import HealthEngine
@@ -67,9 +68,9 @@ class MorningCoachUseCase:
         training_assessment_builder: TrainingAssessmentBuilder,
         athlete_assessment_builder: AthleteAssessmentBuilder,
         adaptation_policy: AdaptationPolicy,
-        decision_engine: DecisionEngine,
+        intelligence_workflow: IntelligenceDecisionWorkflow,
         planner_engine: PlannerEngine,
-        morning_coach_builder: MorningCoachBuilder,
+        morning_coach_presenter: MorningCoachPresenter,
     ) -> None:
         self.health_repository = health_repository
         self.context_builder = context_builder
@@ -82,9 +83,9 @@ class MorningCoachUseCase:
         self.training_assessment_builder = training_assessment_builder
         self.athlete_assessment_builder = athlete_assessment_builder
         self.adaptation_policy = adaptation_policy
-        self.decision_engine = decision_engine
+        self.intelligence_workflow = intelligence_workflow
         self.planner_engine = planner_engine
-        self.morning_coach_builder = morning_coach_builder
+        self.morning_coach_presenter = morning_coach_presenter
 
     def run(self) -> MorningCoachResult:
         health_context = self.context_builder.build(
@@ -101,7 +102,7 @@ class MorningCoachUseCase:
         )
 
         as_of = datetime.combine(health_context.today.date, time.min)
-        weekly_review = self.weekly_review_workflow.run(
+        snapshot, weekly_review = self.weekly_review_workflow.run_with_snapshot(
             DateRange(
                 start=as_of - timedelta(days=6),
                 end=as_of + timedelta(days=1),
@@ -120,13 +121,30 @@ class MorningCoachUseCase:
             training_assessment,
         )
         adaptation = self.adaptation_policy.evaluate(athlete_assessment)
-        decision = self.decision_engine.decide(athlete, adaptation)
-        planned_workout = self.planner_engine.build(decision.decision, athlete)
-        report = self.morning_coach_builder.build(
+        intelligence = self.intelligence_workflow.run(
             athlete,
-            athlete_assessment,
-            adaptation,
-            planned_workout,
+            health=HealthObservationInput(
+                observed_at=as_of,
+                hrv_delta_percent=health_context.hrv.delta_percent,
+                sleep_duration_minutes=health_context.today.sleep_duration,
+                sleep_baseline_minutes=health_context.sleep.average_7,
+                recovery_score=recovery.score,
+                evidence=(f"health_daily:{health_context.today.date.isoformat()}",),
+            ),
+            snapshot=snapshot,
+            adaptation=adaptation,
+        )
+        planned_workout = self.planner_engine.build(
+            intelligence.decision,
+            athlete,
+        )
+        report = self.morning_coach_presenter.present(
+            intelligence=intelligence,
+            planned_workout=planned_workout,
+            athlete_state=athlete,
+            athlete_assessment=athlete_assessment,
+            weekly_review=weekly_review,
+            adaptation=adaptation,
         )
 
         return MorningCoachResult(
@@ -136,7 +154,7 @@ class MorningCoachUseCase:
             training_assessment=training_assessment,
             athlete_assessment=athlete_assessment,
             adaptation=adaptation,
-            decision=decision,
+            decision=intelligence.plan,
             planned_workout=planned_workout,
             report=report,
         )

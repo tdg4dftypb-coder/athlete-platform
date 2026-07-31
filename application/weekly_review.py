@@ -1,4 +1,4 @@
-from athlete.memory.models import DateRange
+from athlete.memory.models import AthleteMemorySnapshot, DateRange
 from athlete.memory.patterns import PatternDetector
 from athlete.memory.reader import AthleteMemoryReader
 from athlete.memory.trends import TrendEngine
@@ -27,7 +27,22 @@ class WeeklyReviewWorkflow:
         period: DateRange,
     ) -> WeeklyTrainingReview:
 
+        _, review = self.run_with_snapshot(period)
+        return review
+
+    def run_with_snapshot(
+        self,
+        period: DateRange,
+    ) -> tuple[AthleteMemorySnapshot, WeeklyTrainingReview]:
+
         snapshot = self.reader.read(period)
+        return snapshot, self.build(snapshot)
+
+    def build(
+        self,
+        snapshot: AthleteMemorySnapshot,
+    ) -> WeeklyTrainingReview:
+
         trends = self.trend_engine.analyze(snapshot)
         patterns = self.pattern_detector.analyze(snapshot)
 

@@ -5,6 +5,7 @@ from application import (
     AthleteAssessmentBuilder,
     AthleteKnowledgeContextBuilder,
     MorningCoachBuilder,
+    MorningCoachPresenter,
     MorningCoachReport,
     TrainingAssessment,
     TrainingAssessmentStatus,
@@ -120,4 +121,5 @@ def test_full_integration_builds_a_recovery_daily_brief():
 def test_public_application_exports_are_available():
 
     assert MorningCoachBuilder.__name__ == "MorningCoachBuilder"
+    assert MorningCoachPresenter.__name__ == "MorningCoachPresenter"
     assert MorningCoachReport.__name__ == "MorningCoachReport"

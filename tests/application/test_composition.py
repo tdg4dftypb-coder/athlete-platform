@@ -62,7 +62,8 @@ def test_build_morning_coach_use_case_preserves_the_current_pipeline():
     assert isinstance(use_case, MorningCoachUseCase)
     assert use_case.health_repository is health_repository
     assert isinstance(use_case.weekly_review_workflow, WeeklyReviewWorkflow)
-    assert isinstance(use_case.decision_engine, DecisionEngine)
+    assert isinstance(use_case.intelligence_workflow, IntelligenceDecisionWorkflow)
+    assert not hasattr(use_case, "decision_engine")
     assert isinstance(use_case.planner_engine, PlannerEngine)
 
 
