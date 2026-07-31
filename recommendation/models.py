@@ -40,7 +40,7 @@ class Recommendation:
 @dataclass(frozen=True)
 class RecommendationResult:
     recommendations: tuple[Recommendation, ...]
-    as_of: datetime
+    as_of: datetime | None
 
 
 @dataclass(frozen=True)

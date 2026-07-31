@@ -1,12 +1,15 @@
 from datetime import datetime
 from types import SimpleNamespace
 
+import pytest
+
 from athlete.intelligence.models import (
     AthleteInsight,
     AthleteInsightType,
     AthleteObservation,
     AthleteObservationType,
 )
+from decision.prescription.models import DecisionReason
 from recommendation import (
     HydrationRecommendationRule,
     MobilityRecommendationRule,
@@ -128,7 +131,10 @@ def test_recovery_rule_recommends_protocol_for_recovery_insight():
 
 def test_recovery_rule_recommends_protocol_for_load_reduction_decision():
     context = _context(
-        decision=_decision("adaptation_reduce_load", confidence=75.0),
+        decision=_decision(
+            DecisionReason.ADAPTATION_REDUCE_LOAD.value,
+            confidence=75.0,
+        ),
         observations=(_observation(AthleteObservationType.TRAINING_LOAD_HIGH),),
     )
 
@@ -138,6 +144,15 @@ def test_recovery_rule_recommends_protocol_for_load_reduction_decision():
     assert recommendation.confidence == 0.75
     assert recommendation.evidence == ("adaptation_reduce_load",)
     assert recommendation.as_of == AS_OF
+
+
+def test_recovery_rule_rejects_an_undated_load_reduction():
+    context = _context(
+        decision=_decision(DecisionReason.ADAPTATION_REDUCE_LOAD.value),
+    )
+
+    with pytest.raises(ValueError, match="dated fact"):
+        RecoveryRecommendationRule().evaluate(context)
 
 
 def test_recovery_rule_returns_empty_without_recovery_signal():

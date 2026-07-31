@@ -7,6 +7,7 @@ from athlete.intelligence.models import (
     AthleteObservation,
     AthleteObservationType,
 )
+from decision.prescription.models import DecisionReason
 from recommendation.models import (
     Recommendation,
     RecommendationContext,
@@ -75,7 +76,7 @@ class HydrationRecommendationRule:
 
 
 class RecoveryRecommendationRule:
-    _REDUCE_LOAD_REASON = "adaptation_reduce_load"
+    _REDUCE_LOAD_REASON = DecisionReason.ADAPTATION_REDUCE_LOAD.value
 
     def evaluate(
         self,
@@ -147,7 +148,7 @@ def _recommendation_from_facts(
     observations: tuple[AthleteObservation, ...] = (),
     additional_evidence: tuple[str, ...] = (),
     fallback_confidence: float = 0.0,
-    fallback_as_of: datetime = datetime.min,
+    fallback_as_of: datetime | None = None,
 ) -> Recommendation:
     evidence = tuple(
         sorted(
@@ -169,13 +170,15 @@ def _recommendation_from_facts(
         ),
         default=fallback_confidence,
     )
-    as_of = max(
-        (
-            *(insight.as_of for insight in insights),
-            *(observation.observed_at for observation in observations),
-        ),
-        default=fallback_as_of,
+    timestamps = (
+        *(insight.as_of for insight in insights),
+        *(observation.observed_at for observation in observations),
     )
+    if not timestamps and fallback_as_of is None:
+        raise ValueError(
+            "Recommendation requires a dated fact or an explicit fallback_as_of."
+        )
+    as_of = max(timestamps, default=fallback_as_of)
     identity_evidence = evidence or (source_rule,)
 
     return Recommendation(
@@ -193,11 +196,11 @@ def _decision_confidence(context: RecommendationContext) -> float:
     return max(0.0, min(1.0, context.decision.confidence / 100.0))
 
 
-def _context_as_of(context: RecommendationContext) -> datetime:
+def _context_as_of(context: RecommendationContext) -> datetime | None:
     return max(
         (
             *(insight.as_of for insight in context.insights),
             *(observation.observed_at for observation in context.observations),
         ),
-        default=datetime.min,
+        default=None,
     )

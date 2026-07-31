@@ -1,3 +1,4 @@
+from recommendation.builder import RecommendationBuilder
 from recommendation.models import (
     Recommendation,
     RecommendationContext,
@@ -17,6 +18,7 @@ __all__ = [
     "HydrationRecommendationRule",
     "MobilityRecommendationRule",
     "Recommendation",
+    "RecommendationBuilder",
     "RecommendationContext",
     "RecommendationPriority",
     "RecommendationRule",
