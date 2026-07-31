@@ -32,6 +32,17 @@ from training.parsers.fit_parser import FitParser
 from workout.builders.workout_builder import WorkoutBuilder
 
 
+class PostWriteVerificationError(RuntimeError):
+    """Signals that an event was stored but its read-side verification failed."""
+
+    def __init__(self, result) -> None:
+        self.result = result
+        super().__init__(
+            "WORKOUT_COMPLETED was recorded, but post-write verification/read failed "
+            f"(event_id={result.event.event_id})."
+        )
+
+
 def available_plan_ids() -> tuple[str, ...]:
     return tuple(
         recipe.id
@@ -100,11 +111,16 @@ def import_completed_fit(
             )
             return None
 
-        snapshot = AthleteMemoryReader(repository).read(
-            _activity_period(activity),
-        )
-        if result.event.event_id not in snapshot.source_event_ids:
-            raise RuntimeError("Imported activity was not projected into Athlete Memory")
+        try:
+            snapshot = AthleteMemoryReader(repository).read(
+                _activity_period(activity),
+            )
+            if result.event.event_id not in snapshot.source_event_ids:
+                raise RuntimeError(
+                    "Imported activity was not projected into Athlete Memory"
+                )
+        except Exception as error:
+            raise PostWriteVerificationError(result) from error
 
         return result
     finally:

@@ -200,6 +200,98 @@ def test_parser_error_leaves_no_database_or_partial_event(tmp_path, monkeypatch)
     assert not database_path.exists()
 
 
+def test_append_failure_leaves_no_new_event(tmp_path, monkeypatch):
+    fit_path = tmp_path / "completed.fit"
+    database_path = tmp_path / "athlete_memory.duckdb"
+    fit_path.write_bytes(b"valid source artifact")
+    parsed_activity = build_parsed_activity()
+
+    monkeypatch.setattr(
+        import_completed_fit,
+        "FitParser",
+        lambda: SimpleNamespace(parse=lambda _: parsed_activity),
+    )
+
+    class FailingWriter:
+        def __init__(self, repository):
+            self.repository = repository
+
+        def write(self, result, source_identity):
+            raise RuntimeError("append failed")
+
+    monkeypatch.setattr(import_completed_fit, "AthleteMemoryWriter", FailingWriter)
+
+    with pytest.raises(RuntimeError, match="append failed"):
+        import_completed_fit.import_completed_fit(
+            fit_path,
+            database_path,
+            "recovery_60",
+        )
+
+    database = Database(database_path)
+    event_count = database.connection.execute(
+        "SELECT COUNT(*) FROM athlete_memory_events"
+    ).fetchone()[0]
+
+    assert event_count == 0
+    database.close()
+
+
+def test_post_write_reader_failure_reports_the_persisted_event_and_retry_is_duplicate(
+    tmp_path,
+    monkeypatch,
+):
+    fit_path = tmp_path / "completed.fit"
+    database_path = tmp_path / "athlete_memory.duckdb"
+    fit_path.write_bytes(b"valid source artifact")
+    parsed_activity = build_parsed_activity()
+    original_reader = import_completed_fit.AthleteMemoryReader
+
+    monkeypatch.setattr(
+        import_completed_fit,
+        "FitParser",
+        lambda: SimpleNamespace(parse=lambda _: parsed_activity),
+    )
+
+    class FailingReader:
+        def __init__(self, repository):
+            self.repository = repository
+
+        def read(self, period):
+            raise RuntimeError("read model unavailable")
+
+    monkeypatch.setattr(import_completed_fit, "AthleteMemoryReader", FailingReader)
+
+    with pytest.raises(
+        import_completed_fit.PostWriteVerificationError,
+        match="WORKOUT_COMPLETED was recorded, but post-write verification/read failed",
+    ) as error:
+        import_completed_fit.import_completed_fit(
+            fit_path,
+            database_path,
+            "recovery_60",
+        )
+
+    database = Database(database_path)
+    repository = AthleteMemoryRepository(database)
+    events = repository.load_between(
+        parsed_activity.start,
+        parsed_activity.end + timedelta(microseconds=1),
+    )
+
+    assert len(events) == 1
+    assert error.value.result.event == events[0]
+    database.close()
+
+    monkeypatch.setattr(import_completed_fit, "AthleteMemoryReader", original_reader)
+
+    assert import_completed_fit.import_completed_fit(
+        fit_path,
+        database_path,
+        "recovery_60",
+    ) is None
+
+
 def test_import_refuses_the_production_database_path(tmp_path):
     with pytest.raises(ValueError, match="Refusing to import"):
         import_completed_fit.import_completed_fit(
