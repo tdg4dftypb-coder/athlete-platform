@@ -1,4 +1,4 @@
-# Athlete Platform Engineering Handbook
+# Athlete Platform Engineering Handbook v1.0
 
 > Centralny indeks dokumentacji technicznej i zasad pracy inżynierskiej projektu Athlete Platform.
 
@@ -19,7 +19,18 @@
 
 ## Cel handbooka
 
-Handbook będzie wspólnym punktem odniesienia dla architektury, jakości, testowania i współpracy z narzędziami AI. Na tym etapie dokument definiuje wyłącznie strukturę przyszłej dokumentacji.
+Handbook jest wspólnym punktem odniesienia dla architektury, jakości, testowania i współpracy z narzędziami AI. Rozdziały 01–08 definiują obowiązujące zasady i aktualny stan projektu; przegląd produktu w rozdziale 00 pozostaje dokumentem do osobnego rozwinięcia.
+
+## Jak korzystać
+
+- Zacznij od [Architektury](02-architecture.md) i właściwego [ADR-u](03-architecture-decisions.md).
+- Implementację prowadź według [Standardów kodowania](04-coding-standards.md).
+- Zakres weryfikacji dobierz według [Strategii testowania](05-testing-strategy.md).
+- Niezależny review wykonaj z [Listą kontrolną](06-review-checklist.md).
+- Status funkcji sprawdzaj w [Roadmapie](07-roadmap.md), nie w historycznych planach wersji.
+- Znaczenie nazw domenowych sprawdzaj w [Glosariuszu](08-glossary.md).
+
+W razie rozbieżności kod określa stan implementacji, a zaakceptowane ADR-y określają wiążące decyzje. Planowane elementy nie są częścią działającego systemu.
 
 ## Nawigacja
 

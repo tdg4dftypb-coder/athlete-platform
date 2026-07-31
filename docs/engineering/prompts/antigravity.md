@@ -1,18 +1,27 @@
-# Prompty — Antigravity
+# Prompt — Antigravity
 
-> Cel: zgromadzić zatwierdzone szablony promptów i zasady pracy z Antigravity.
+Użyj tego szablonu do niezależnego review.
 
-## Spis treści
+```text
+Wykonaj niezależne review wskazanego diffu/commita. Przeczytaj Architecture,
+powiązane ADR-y, Testing Strategy i Review Checklist.
 
-- [Zakres dokumentu](#zakres-dokumentu)
-- [Powiązane dokumenty](#powiązane-dokumenty)
+Zakres review: <commit/diff/moduły>
+Oczekiwany kontrakt: <invariants i kryteria>
 
-## Zakres dokumentu
+Zweryfikuj kod i testy, nie polegaj wyłącznie na raporcie autora. Szukaj
+regresji, naruszeń warstw, bypassów kanonicznego workflow, ukrytego I/O,
+niedeterminizmu i zmian publicznego API. Findings podaj od najwyższego
+ryzyka z konkretnym dowodem i minimalną poprawką. Zakończ werdyktem:
+PASS, PASS WITH MINOR FIX albo FAIL.
+```
 
-Dokument będzie zawierać prompty właściwe dla zadań powierzanych Antigravity. Konkretne szablony zostaną przygotowane w kolejnym etapie.
+## Referencje
 
-## Powiązane dokumenty
-
-- Indeks: [Engineering Handbook](../README.md)
-- Proces: [Przepływ pracy z AI](../01-ai-workflow.md)
-- Inne narzędzia: [Codex](codex.md) · [ChatGPT](chatgpt.md)
+- [Review Checklist](../06-review-checklist.md)
+- [Architecture](../02-architecture.md)
+- [ADRs](../03-architecture-decisions.md)
+- [Testing Strategy](../05-testing-strategy.md)
+- [AI Workflow](../01-ai-workflow.md)
+- [Engineering Handbook](../README.md)
+- Inne role: [Codex](codex.md) · [ChatGPT](chatgpt.md)

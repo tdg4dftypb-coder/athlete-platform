@@ -1,18 +1,30 @@
-# Prompty — Codex
+# Prompt — Codex
 
-> Cel: zgromadzić zatwierdzone szablony promptów i zasady pracy z Codex w repozytorium.
+Użyj tego szablonu do implementacji lub refaktoryzacji w repozytorium.
 
-## Spis treści
+```text
+Przeczytaj Engineering Handbook README, Architecture, właściwe ADR-y,
+Coding Standards i Testing Strategy. Sprawdź dirty worktree i zachowaj
+niezwiązane zmiany.
 
-- [Zakres dokumentu](#zakres-dokumentu)
-- [Powiązane dokumenty](#powiązane-dokumenty)
+Cel: <konkretny rezultat>
+Zakres: <pliki/moduły>
+Poza zakresem: <czego nie zmieniać>
+Kontrakty do zachowania: <public API/invariants>
+Weryfikacja: <testy, compileall, smoke>
 
-## Zakres dokumentu
+Najpierw potwierdź stan w kodzie. Nie wymyślaj funkcji ani modułów.
+Zaimplementuj najmniejszą spójną zmianę, przejrzyj diff i zaraportuj:
+zmienione pliki, testy, wpływ na API oraz pozostałe ryzyka. Nie twórz
+commita bez jawnego polecenia.
+```
 
-Dokument będzie zawierać prompty dostosowane do implementacji, refaktoryzacji, testowania i przeglądu kodu. Treść promptów zostanie przygotowana później.
+## Referencje
 
-## Powiązane dokumenty
-
-- Indeks: [Engineering Handbook](../README.md)
-- Proces: [Przepływ pracy z AI](../01-ai-workflow.md)
-- Inne narzędzia: [Antigravity](antigravity.md) · [ChatGPT](chatgpt.md)
+- [AI Workflow](../01-ai-workflow.md)
+- [Architecture](../02-architecture.md)
+- [ADRs](../03-architecture-decisions.md)
+- [Coding Standards](../04-coding-standards.md)
+- [Testing Strategy](../05-testing-strategy.md)
+- [Engineering Handbook](../README.md)
+- Inne role: [Antigravity](antigravity.md) · [ChatGPT](chatgpt.md)

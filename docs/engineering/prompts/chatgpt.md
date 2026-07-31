@@ -1,18 +1,25 @@
-# Prompty — ChatGPT
+# Prompt — ChatGPT
 
-> Cel: zgromadzić zatwierdzone szablony promptów i zasady pracy z ChatGPT.
+Użyj tego szablonu do analizy i projektowania.
 
-## Spis treści
+```text
+Pracuj zgodnie z Engineering Handbook, aktualną Architecture i ADR-ami.
 
-- [Zakres dokumentu](#zakres-dokumentu)
-- [Powiązane dokumenty](#powiązane-dokumenty)
+Problem: <problem do rozwiązania>
+Cel: <oczekiwany rezultat>
+Ograniczenia: <granice i publiczne kontrakty>
 
-## Zakres dokumentu
+Oddziel stan istniejący od planowanego. Nie wymyślaj modułów ani funkcji.
+Jeżeli faktu nie da się potwierdzić, oznacz go jako TODO. Zaproponuj
+odpowiedzialności, kierunek zależności, kontrakty, konsekwencje, alternatywy,
+małe etapy implementacji i kryteria testowe. Wskaż, czy potrzebny jest ADR.
+```
 
-Dokument będzie zawierać prompty przeznaczone do analizy, projektowania, dokumentacji i konsultacji technicznych. Szczegółowa treść zostanie dodana później.
+## Referencje
 
-## Powiązane dokumenty
-
-- Indeks: [Engineering Handbook](../README.md)
-- Proces: [Przepływ pracy z AI](../01-ai-workflow.md)
-- Inne narzędzia: [Codex](codex.md) · [Antigravity](antigravity.md)
+- [AI Workflow](../01-ai-workflow.md)
+- [Architecture](../02-architecture.md)
+- [ADRs](../03-architecture-decisions.md)
+- [Glossary](../08-glossary.md)
+- [Engineering Handbook](../README.md)
+- Inne role: [Codex](codex.md) · [Antigravity](antigravity.md)
