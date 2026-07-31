@@ -20,6 +20,7 @@ from pipeline.models import PostWorkoutResult
 from pipeline.post_workout import PostWorkoutPipeline
 from schema.athlete_memory_schema import AthleteMemorySchema
 from training.activity import Activity, ActivityRecord
+from training.ingestion.source_identity import SourceIdentity
 from training.analysis.workout_summary import WorkoutSummary
 from workout.blocks import WorkoutBlock
 from workout.models import Workout
@@ -147,21 +148,30 @@ def build_event() -> AthleteMemoryEvent:
     )
 
 
+def build_source_identity() -> SourceIdentity:
+    return SourceIdentity(provider="activity", external_id="activity-1")
+
+
 def test_recording_service_passes_exact_inputs_and_results_between_components():
 
     workout = build_workout()
     activity = build_activity()
     post_workout = build_post_workout_result(workout, activity)
     event = build_event()
+    source_identity = build_source_identity()
     pipeline = Mock()
     writer = Mock()
     pipeline.run.return_value = post_workout
     writer.write.return_value = event
 
-    result = PostWorkoutRecordingService(pipeline, writer).record(workout, activity)
+    result = PostWorkoutRecordingService(pipeline, writer).record(
+        workout,
+        activity,
+        source_identity,
+    )
 
     pipeline.run.assert_called_once_with(workout, activity)
-    writer.write.assert_called_once_with(post_workout)
+    writer.write.assert_called_once_with(post_workout, source_identity)
     assert result.post_workout is post_workout
     assert result.event is event
 
@@ -176,6 +186,7 @@ def test_recording_service_propagates_pipeline_error_without_calling_writer():
         PostWorkoutRecordingService(pipeline, writer).record(
             build_workout(),
             build_activity(),
+            build_source_identity(),
         )
 
     writer.write.assert_not_called()
@@ -191,10 +202,17 @@ def test_recording_service_propagates_writer_error():
     writer.write.side_effect = RuntimeError("write failed")
 
     with pytest.raises(RuntimeError, match="write failed"):
-        PostWorkoutRecordingService(pipeline, writer).record(workout, activity)
+        PostWorkoutRecordingService(pipeline, writer).record(
+            workout,
+            activity,
+            build_source_identity(),
+        )
 
     pipeline.run.assert_called_once_with(workout, activity)
-    writer.write.assert_called_once_with(pipeline.run.return_value)
+    writer.write.assert_called_once_with(
+        pipeline.run.return_value,
+        build_source_identity(),
+    )
 
 
 def test_post_workout_recording_result_is_immutable():
@@ -215,11 +233,12 @@ def test_recording_service_persists_and_reader_projects_event(tmp_path):
     repository = AthleteMemoryRepository(db)
     workout = build_workout()
     activity = build_activity()
+    source_identity = build_source_identity()
 
     result = PostWorkoutRecordingService(
         PostWorkoutPipeline(),
         AthleteMemoryWriter(repository),
-    ).record(workout, activity)
+    ).record(workout, activity, source_identity)
     snapshot = AthleteMemoryReader(repository).read(
         DateRange(
             start=activity.start,
@@ -234,6 +253,11 @@ def test_recording_service_persists_and_reader_projects_event(tmp_path):
     db.close()
 
 
+def test_activity_does_not_receive_source_identity():
+
+    assert not hasattr(build_activity(), "source_identity")
+
+
 def test_recording_service_rejects_a_duplicate_activity_source_key(tmp_path):
 
     db = Database(tmp_path / "athlete_memory.duckdb")
@@ -245,10 +269,11 @@ def test_recording_service_rejects_a_duplicate_activity_source_key(tmp_path):
     )
     workout = build_workout()
     activity = build_activity()
+    source_identity = build_source_identity()
 
-    service.record(workout, activity)
+    service.record(workout, activity, source_identity)
 
     with pytest.raises(duckdb.ConstraintException):
-        service.record(workout, activity)
+        service.record(workout, activity, source_identity)
 
     db.close()

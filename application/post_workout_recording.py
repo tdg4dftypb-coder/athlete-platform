@@ -5,6 +5,7 @@ from athlete.memory.writer import AthleteMemoryWriter
 from pipeline.models import PostWorkoutResult
 from pipeline.post_workout import PostWorkoutPipeline
 from training.activity import Activity
+from training.ingestion.source_identity import SourceIdentity
 from workout.models import Workout
 
 
@@ -30,10 +31,11 @@ class PostWorkoutRecordingService:
         self,
         workout: Workout,
         activity: Activity,
+        source_identity: SourceIdentity,
     ) -> PostWorkoutRecordingResult:
 
         post_workout = self.pipeline.run(workout, activity)
-        event = self.writer.write(post_workout)
+        event = self.writer.write(post_workout, source_identity)
 
         return PostWorkoutRecordingResult(
             post_workout=post_workout,

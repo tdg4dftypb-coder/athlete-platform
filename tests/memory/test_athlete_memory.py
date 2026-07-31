@@ -21,6 +21,7 @@ from feedback.models import WorkoutFeedback, WorkoutFeedbackStatus
 from pipeline.models import PostWorkoutResult
 from schema.athlete_memory_schema import AthleteMemorySchema
 from training.activity import Activity, ActivityRecord
+from training.ingestion.source_identity import SourceIdentity
 from training.analysis.workout_summary import WorkoutSummary
 from workout.blocks import WorkoutBlock
 from workout.models import Workout
@@ -132,6 +133,13 @@ def build_repository(tmp_path):
     AthleteMemorySchema(db).create()
 
     return db, AthleteMemoryRepository(db)
+
+
+def legacy_source_identity(result: PostWorkoutResult) -> SourceIdentity:
+    return SourceIdentity(
+        provider="activity",
+        external_id=result.activity.start.isoformat(),
+    )
 
 
 def test_memory_event_is_immutable():
@@ -412,7 +420,10 @@ def test_writer_persists_workout_completed_and_builds_history(tmp_path):
     db, repository = build_repository(tmp_path)
     result = build_post_workout_result()
 
-    event = AthleteMemoryWriter(repository).write(result)
+    event = AthleteMemoryWriter(repository).write(
+        result,
+        legacy_source_identity(result),
+    )
     events = repository.load_between(
         result.activity.start,
         result.activity.end,
@@ -435,11 +446,16 @@ def test_writer_preserves_workout_completed_v1_envelope_contract(tmp_path):
     db, repository = build_repository(tmp_path)
     result = build_post_workout_result()
 
-    event = AthleteMemoryWriter(repository).write(result)
+    source_identity = SourceIdentity(
+        provider="fit_file",
+        external_id="sha256:abc",
+    )
+
+    event = AthleteMemoryWriter(repository).write(result, source_identity)
 
     assert event.event_type is AthleteMemoryEventType.WORKOUT_COMPLETED
-    assert event.source_type == "activity"
-    assert event.source_key == result.activity.start.isoformat()
+    assert event.source_type == source_identity.provider
+    assert event.source_key == source_identity.external_id
     assert event.schema_version == WorkoutCompletedSerializer.SCHEMA_VERSION
     assert event.occurred_at == result.activity.end
 
@@ -454,7 +470,10 @@ def test_workout_completed_round_trip_preserves_observation_semantics(tmp_path):
         execution_score=88.0,
     )
 
-    event = AthleteMemoryWriter(repository).write(result)
+    event = AthleteMemoryWriter(repository).write(
+        result,
+        legacy_source_identity(result),
+    )
     snapshot = AthleteMemoryReader(repository).read(
         DateRange(
             start=result.activity.start,
@@ -485,13 +504,12 @@ def test_memory_round_trip_preserves_percent_scores_for_consistent_execution(tmp
     start = datetime(2026, 7, 30, 8, 0)
 
     for day in range(3):
-        writer.write(
-            build_post_workout_result(
-                start=start + timedelta(days=day),
-                completion_score=90.0,
-                execution_score=90.0,
-            )
+        result = build_post_workout_result(
+            start=start + timedelta(days=day),
+            completion_score=90.0,
+            execution_score=90.0,
         )
+        writer.write(result, legacy_source_identity(result))
 
     period = DateRange(
         start=start,
@@ -523,13 +541,12 @@ def test_memory_round_trip_does_not_interpret_0_90_as_90_percent(tmp_path):
     start = datetime(2026, 7, 30, 8, 0)
 
     for day in range(3):
-        writer.write(
-            build_post_workout_result(
-                start=start + timedelta(days=day),
-                completion_score=0.90,
-                execution_score=0.90,
-            )
+        result = build_post_workout_result(
+            start=start + timedelta(days=day),
+            completion_score=0.90,
+            execution_score=0.90,
         )
+        writer.write(result, legacy_source_identity(result))
 
     period = DateRange(
         start=start,
@@ -557,8 +574,8 @@ def test_history_adapter_receives_events_in_repository_order(tmp_path):
     earlier = build_post_workout_result(start=datetime(2026, 7, 30, 8, 0))
     later = build_post_workout_result(start=datetime(2026, 7, 31, 8, 0))
 
-    writer.write(later)
-    writer.write(earlier)
+    writer.write(later, legacy_source_identity(later))
+    writer.write(earlier, legacy_source_identity(earlier))
 
     events = repository.load_between(
         earlier.activity.start,

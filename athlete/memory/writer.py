@@ -7,6 +7,7 @@ from athlete.memory.models import (
 from athlete.memory.repository import AthleteMemoryRepository
 from athlete.memory.serializer import WorkoutCompletedSerializer
 from pipeline.models import PostWorkoutResult
+from training.ingestion.source_identity import SourceIdentity
 
 
 class AthleteMemoryWriter:
@@ -23,14 +24,15 @@ class AthleteMemoryWriter:
     def write(
         self,
         result: PostWorkoutResult,
+        source_identity: SourceIdentity,
     ) -> AthleteMemoryEvent:
 
         event = AthleteMemoryEvent(
             event_id=str(uuid4()),
             occurred_at=result.activity.end,
             event_type=AthleteMemoryEventType.WORKOUT_COMPLETED,
-            source_type="activity",
-            source_key=result.activity.start.isoformat(),
+            source_type=source_identity.provider,
+            source_key=source_identity.external_id,
             schema_version=self.serializer.SCHEMA_VERSION,
             payload=self.serializer.serialize(result),
         )
