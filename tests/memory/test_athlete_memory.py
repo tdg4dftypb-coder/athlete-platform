@@ -388,6 +388,66 @@ def test_schema_migrates_legacy_source_key_index_without_losing_events(tmp_path)
     db.close()
 
 
+def test_schema_rolls_back_the_legacy_index_when_new_index_creation_fails(tmp_path):
+
+    db = Database(tmp_path / "athlete_memory.duckdb")
+    db.connection.execute(
+        """
+        CREATE TABLE athlete_memory_events (
+            event_id VARCHAR PRIMARY KEY,
+            occurred_at TIMESTAMP NOT NULL,
+            event_type VARCHAR NOT NULL,
+            source_type VARCHAR NOT NULL,
+            source_key VARCHAR NOT NULL,
+            schema_version INTEGER NOT NULL,
+            payload_json VARCHAR NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    db.connection.execute(
+        """
+        CREATE UNIQUE INDEX athlete_memory_events_source_key_unique
+        ON athlete_memory_events (source_key)
+        """
+    )
+    db.connection.execute(
+        """
+        INSERT INTO athlete_memory_events
+        (event_id, occurred_at, event_type, source_type, source_key, schema_version, payload_json)
+        VALUES ('legacy-event', '2026-07-30 09:00:00', 'workout_completed', 'activity', 'legacy-key', 1, '{}')
+        """
+    )
+
+    class FailingConnection:
+        def __init__(self, connection):
+            self.connection = connection
+
+        def execute(self, query):
+            if "CREATE UNIQUE INDEX IF NOT EXISTS" in query:
+                raise RuntimeError("new source index failed")
+            return self.connection.execute(query)
+
+    failing_database = type("FailingDatabase", (), {"connection": FailingConnection(db.connection)})()
+
+    with pytest.raises(RuntimeError, match="new source index failed"):
+        AthleteMemorySchema(failing_database).create()
+
+    assert db.connection.execute(
+        "SELECT source_key FROM athlete_memory_events"
+    ).fetchall() == [("legacy-key",)]
+    index_names = {
+        row[0]
+        for row in db.connection.execute(
+            "SELECT index_name FROM duckdb_indexes()"
+        ).fetchall()
+    }
+    assert "athlete_memory_events_source_key_unique" in index_names
+    assert "athlete_memory_events_source_identity_unique" not in index_names
+
+    db.close()
+
+
 def test_load_between_is_inclusive_and_returns_events_chronologically(tmp_path):
 
     db, repository = build_repository(tmp_path)
