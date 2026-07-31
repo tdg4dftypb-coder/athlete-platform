@@ -106,6 +106,17 @@ nazwami storage odpowiednio dla `provider` i `external_id`. Legacy eventy
 pozostają bez migracji: używają `source_type = activity` oraz
 `source_key = activity.start.isoformat()` i nie są backfillowane.
 
+## Operational import semantics
+
+Konflikt tej samej pary `provider + external_id` oznacza duplicate Source
+Identity. Kontrolowany importer raportuje taki przypadek jako już
+zaimportowany; inne błędy constraint nie są interpretowane jako duplicate.
+
+Udany append `WORKOUT_COMPLETED` jest punktem trwałego zatwierdzenia. Późniejszy
+błąd weryfikacji read-side nie cofa eventu append-only. Importer raportuje wtedy
+jednoznacznie, że event został zapisany, ale post-write verification/read
+zawiodło; kolejne uruchomienie tego samego Source Record pozostaje duplicate.
+
 ## Zasady architektoniczne
 
 - Domena nie zna sposobu identyfikacji źródła.
