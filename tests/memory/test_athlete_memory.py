@@ -587,6 +587,47 @@ def test_workout_completed_round_trip_preserves_observation_semantics(tmp_path):
     db.close()
 
 
+def test_reader_projects_mixed_legacy_and_fit_source_history(tmp_path):
+
+    db, repository = build_repository(tmp_path)
+    writer = AthleteMemoryWriter(repository)
+    legacy_result = build_post_workout_result(start=datetime(2026, 7, 30, 8, 0))
+    fit_result = build_post_workout_result(start=datetime(2026, 7, 31, 8, 0))
+
+    legacy_event = writer.write(
+        legacy_result,
+        legacy_source_identity(legacy_result),
+    )
+    fit_identity = SourceIdentity(
+        provider="fit_file",
+        external_id=f"sha256:{'a' * 64}",
+    )
+    fit_event = writer.write(fit_result, fit_identity)
+
+    snapshot = AthleteMemoryReader(repository).read(
+        DateRange(
+            start=legacy_result.activity.start,
+            end=fit_result.activity.end + timedelta(microseconds=1),
+        )
+    )
+
+    assert [event.source_type for event in repository.load_between(
+        legacy_result.activity.start,
+        fit_result.activity.end,
+    )] == ["activity", "fit_file"]
+    assert snapshot.source_event_ids == (legacy_event.event_id, fit_event.event_id)
+    assert [observation.event_id for observation in snapshot.workout_observations] == [
+        legacy_event.event_id,
+        fit_event.event_id,
+    ]
+    assert [observation.executed_tss for observation in snapshot.workout_observations] == [
+        legacy_result.execution.executed_tss,
+        fit_result.execution.executed_tss,
+    ]
+
+    db.close()
+
+
 def test_memory_round_trip_preserves_percent_scores_for_consistent_execution(tmp_path):
 
     db, repository = build_repository(tmp_path)
