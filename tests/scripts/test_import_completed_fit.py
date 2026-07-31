@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from hashlib import sha256
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -47,6 +48,8 @@ def test_import_records_one_fit_activity_in_the_explicit_temporary_database(
 ):
     fit_path = tmp_path / "completed.fit"
     database_path = tmp_path / "athlete_memory.duckdb"
+    fit_payload = b"completed FIT artifact"
+    fit_path.write_bytes(fit_payload)
     parsed_activity = build_parsed_activity()
     created_database_paths = []
     real_database = Database
@@ -71,7 +74,8 @@ def test_import_records_one_fit_activity_in_the_explicit_temporary_database(
 
     assert result is not None
     assert result.event.event_type is AthleteMemoryEventType.WORKOUT_COMPLETED
-    assert result.event.source_key == parsed_activity.start.isoformat()
+    assert result.event.source_type == "fit_file"
+    assert result.event.source_key == f"sha256:{sha256(fit_payload).hexdigest()}"
     assert created_database_paths == [database_path]
 
     database = Database(database_path)
@@ -101,6 +105,99 @@ def test_import_records_one_fit_activity_in_the_explicit_temporary_database(
 
     assert skipped is None
     assert "SKIPPED: already imported" in capsys.readouterr().out
+
+
+def test_import_recognizes_identical_fit_bytes_under_a_different_name(tmp_path, monkeypatch, capsys):
+    database_path = tmp_path / "athlete_memory.duckdb"
+    original = tmp_path / "original.fit"
+    copy = tmp_path / "renamed-copy.fit"
+    original.write_bytes(b"same FIT artifact")
+    copy.write_bytes(b"same FIT artifact")
+    parsed_activity = build_parsed_activity()
+
+    monkeypatch.setattr(
+        import_completed_fit,
+        "FitParser",
+        lambda: SimpleNamespace(parse=lambda _: parsed_activity),
+    )
+
+    first = import_completed_fit.import_completed_fit(
+        original,
+        database_path,
+        "recovery_60",
+    )
+    duplicate = import_completed_fit.import_completed_fit(
+        copy,
+        database_path,
+        "recovery_60",
+    )
+
+    assert first is not None
+    assert duplicate is None
+    assert "SKIPPED: already imported" in capsys.readouterr().out
+
+
+def test_import_allows_different_fit_bytes_with_the_same_activity_start(tmp_path, monkeypatch):
+    database_path = tmp_path / "athlete_memory.duckdb"
+    first_path = tmp_path / "first.fit"
+    second_path = tmp_path / "second.fit"
+    first_path.write_bytes(b"first FIT artifact")
+    second_path.write_bytes(b"second FIT artifact")
+    parsed_activity = build_parsed_activity()
+
+    monkeypatch.setattr(
+        import_completed_fit,
+        "FitParser",
+        lambda: SimpleNamespace(parse=lambda _: parsed_activity),
+    )
+
+    first = import_completed_fit.import_completed_fit(
+        first_path,
+        database_path,
+        "recovery_60",
+    )
+    second = import_completed_fit.import_completed_fit(
+        second_path,
+        database_path,
+        "recovery_60",
+    )
+
+    assert first is not None
+    assert second is not None
+    assert first.event.source_key != second.event.source_key
+
+    database = Database(database_path)
+    repository = AthleteMemoryRepository(database)
+    events = repository.load_between(
+        parsed_activity.start,
+        parsed_activity.end + timedelta(microseconds=1),
+    )
+
+    assert len(events) == 2
+    database.close()
+
+
+def test_parser_error_leaves_no_database_or_partial_event(tmp_path, monkeypatch):
+    fit_path = tmp_path / "completed.fit"
+    database_path = tmp_path / "athlete_memory.duckdb"
+    fit_path.write_bytes(b"valid source artifact")
+
+    monkeypatch.setattr(
+        import_completed_fit,
+        "FitParser",
+        lambda: SimpleNamespace(
+            parse=lambda _: (_ for _ in ()).throw(RuntimeError("parse failed")),
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="parse failed"):
+        import_completed_fit.import_completed_fit(
+            fit_path,
+            database_path,
+            "recovery_60",
+        )
+
+    assert not database_path.exists()
 
 
 def test_import_refuses_the_production_database_path(tmp_path):

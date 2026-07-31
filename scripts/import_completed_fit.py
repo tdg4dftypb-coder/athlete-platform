@@ -26,6 +26,7 @@ from planner.dsl.parser import DSLParser
 from planner.models import PlannedWorkout
 from schema.athlete_memory_schema import AthleteMemorySchema
 from training.factories.activity_factory import ActivityFactory
+from training.ingestion.fit_file_source_identity import FitFileSourceIdentity
 from training.parsers.fit_parser import FitParser
 from workout.builders.workout_builder import WorkoutBuilder
 
@@ -75,6 +76,7 @@ def import_completed_fit(
             "Use an explicitly selected temporary DuckDB database.",
         )
 
+    source_identity = FitFileSourceIdentity().create(fit_path)
     parsed_activity = FitParser().parse(str(fit_path))
     activity = ActivityFactory().create(parsed_activity)
     workout = build_workout(plan_id)
@@ -89,18 +91,18 @@ def import_completed_fit(
         )
 
         try:
-            result = service.record(workout, activity)
+            result = service.record(workout, activity, source_identity)
         except duckdb.ConstraintException:
             print(
                 "SKIPPED: already imported "
-                f"(source_key={activity.start.isoformat()})",
+                f"(source_key={source_identity.external_id})",
             )
             return None
 
         snapshot = AthleteMemoryReader(repository).read(
             _activity_period(activity),
         )
-        if len(snapshot.workout_observations) != 1:
+        if result.event.event_id not in snapshot.source_event_ids:
             raise RuntimeError("Imported activity was not projected into Athlete Memory")
 
         return result
