@@ -248,7 +248,7 @@ def test_schema_initialization_is_idempotent(tmp_path):
     db.close()
 
 
-def test_repository_rejects_duplicate_source_key_without_replacing_event(tmp_path):
+def test_repository_rejects_duplicate_source_identity_without_replacing_event(tmp_path):
 
     db, repository = build_repository(tmp_path)
     occurred_at = datetime(2026, 7, 30, 9, 0)
@@ -274,6 +274,108 @@ def test_repository_rejects_duplicate_source_key_without_replacing_event(tmp_pat
         )
 
     assert repository.load_between(occurred_at, occurred_at) == [event]
+
+    db.close()
+
+
+def test_repository_allows_the_same_source_key_for_different_source_types(tmp_path):
+
+    db, repository = build_repository(tmp_path)
+    occurred_at = datetime(2026, 7, 30, 9, 0)
+    legacy_event = AthleteMemoryEvent(
+        event_id="legacy-event",
+        occurred_at=occurred_at,
+        event_type=AthleteMemoryEventType.WORKOUT_COMPLETED,
+        source_type="activity",
+        source_key="shared-key",
+        schema_version=1,
+        payload={"workout": {"name": "Legacy"}},
+    )
+    fit_event = replace(
+        legacy_event,
+        event_id="fit-event",
+        source_type="fit_file",
+        payload={"workout": {"name": "FIT"}},
+    )
+
+    repository.append(legacy_event)
+    repository.append(fit_event)
+
+    assert repository.load_between(occurred_at, occurred_at) == [legacy_event, fit_event]
+
+    db.close()
+
+
+def test_schema_migrates_legacy_source_key_index_without_losing_events(tmp_path):
+
+    db = Database(tmp_path / "athlete_memory.duckdb")
+    db.connection.execute(
+        """
+        CREATE TABLE athlete_memory_events (
+            event_id VARCHAR PRIMARY KEY,
+            occurred_at TIMESTAMP NOT NULL,
+            event_type VARCHAR NOT NULL,
+            source_type VARCHAR NOT NULL,
+            source_key VARCHAR NOT NULL,
+            schema_version INTEGER NOT NULL,
+            payload_json VARCHAR NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    db.connection.execute(
+        """
+        CREATE UNIQUE INDEX athlete_memory_events_source_key_unique
+        ON athlete_memory_events (source_key)
+        """
+    )
+    db.connection.execute(
+        """
+        INSERT INTO athlete_memory_events
+        (event_id, occurred_at, event_type, source_type, source_key, schema_version, payload_json)
+        VALUES ('legacy-event', '2026-07-30 09:00:00', 'workout_completed', 'activity', 'legacy-key', 1, '{}')
+        """
+    )
+
+    schema = AthleteMemorySchema(db)
+    schema.create()
+    schema.create()
+    repository = AthleteMemoryRepository(db)
+    occurred_at = datetime(2026, 7, 30, 9, 0)
+
+    assert repository.load_between(occurred_at, occurred_at)[0].event_id == "legacy-event"
+    repository.append(
+        AthleteMemoryEvent(
+            event_id="fit-event",
+            occurred_at=occurred_at,
+            event_type=AthleteMemoryEventType.WORKOUT_COMPLETED,
+            source_type="fit_file",
+            source_key="legacy-key",
+            schema_version=1,
+            payload={},
+        )
+    )
+    with pytest.raises(duckdb.ConstraintException):
+        repository.append(
+            AthleteMemoryEvent(
+                event_id="duplicate-fit-event",
+                occurred_at=occurred_at,
+                event_type=AthleteMemoryEventType.WORKOUT_COMPLETED,
+                source_type="fit_file",
+                source_key="legacy-key",
+                schema_version=1,
+                payload={},
+            )
+        )
+
+    index_names = {
+        row[0]
+        for row in db.connection.execute(
+            "SELECT index_name FROM duckdb_indexes()"
+        ).fetchall()
+    }
+    assert "athlete_memory_events_source_key_unique" not in index_names
+    assert "athlete_memory_events_source_identity_unique" in index_names
 
     db.close()
 
