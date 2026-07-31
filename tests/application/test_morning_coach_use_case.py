@@ -15,6 +15,7 @@ from application import (
     MorningCoachResult,
     MorningCoachUseCase,
     TrainingAssessmentBuilder,
+    build_intelligence_decision_workflow,
 )
 from application.weekly_review import WeeklyReviewWorkflow
 from athlete.memory.models import (
@@ -34,7 +35,8 @@ from decision.models import DecisionResult, WorkoutPlan
 from decision.sports import Sport
 from engines.context_builder import ContextBuilder
 from planner.models import PlannedWorkout
-from recommendation import RecommendationResult
+from planner.engine import PlannerEngine
+from recommendation import RecommendationResult, RecommendationType
 from schema.athlete_memory_schema import AthleteMemorySchema
 from tests.helpers import (
     build_athlete,
@@ -111,9 +113,10 @@ def build_use_case(
     *,
     weekly_review_workflow,
     context_builder=None,
+    context=None,
     athlete=None,
 ):
-    context = build_context()
+    context = context or build_context()
     athlete = athlete or build_athlete(recovery_score=70, fatigue=79)
     plan = build_plan()
     planned_workout = build_planned_workout()
@@ -326,6 +329,119 @@ def test_use_case_contains_no_alternative_decision_or_recommendation_pipeline():
     assert "RecommendationEngine" not in source
     assert "DecisionExplainabilityBuilder" not in source
     assert "ExplanationBuilder" not in source
+
+
+class RecordingIntelligenceWorkflow:
+    def __init__(self) -> None:
+        self.workflow = build_intelligence_decision_workflow()
+        self.results = []
+
+    def run(self, *args, **kwargs):
+        result = self.workflow.run(*args, **kwargs)
+        self.results.append(result)
+        return result
+
+
+def build_canonical_use_case(*, context, athlete):
+    weekly_review_workflow = Mock()
+    weekly_review_workflow.run_with_snapshot.return_value = (
+        build_snapshot(context),
+        build_review(context),
+    )
+    use_case, dependencies, _, _, _, _ = build_use_case(
+        weekly_review_workflow=weekly_review_workflow,
+        context=context,
+        athlete=athlete,
+    )
+    recording_workflow = RecordingIntelligenceWorkflow()
+    use_case.intelligence_workflow = recording_workflow
+    use_case.planner_engine = PlannerEngine()
+    dependencies["recovery_engine"].analyze.return_value = athlete.recovery
+    return use_case, recording_workflow
+
+
+def test_canonical_morning_coach_handles_a_neutral_day_end_to_end():
+    context = build_context(sleep=480)
+    athlete = build_athlete(recovery_score=80, fatigue=20, freshness=20)
+    use_case, workflow = build_canonical_use_case(
+        context=context,
+        athlete=athlete,
+    )
+
+    result = use_case.run()
+    intelligence = workflow.results[0]
+
+    assert intelligence.recommendations.recommendations == ()
+    assert intelligence.explainability.recommendations == ()
+    assert result.decision is intelligence.plan
+    assert result.report.explanation.summary == intelligence.explainability.summary
+
+
+def test_canonical_morning_coach_handles_low_recovery_end_to_end():
+    context = build_context(sleep=480)
+    athlete = build_athlete(recovery_score=60, fatigue=20, freshness=20)
+    use_case, workflow = build_canonical_use_case(
+        context=context,
+        athlete=athlete,
+    )
+
+    result = use_case.run()
+    intelligence = workflow.results[0]
+
+    assert intelligence.decision.recommendation is WorkoutType.RECOVERY
+    assert tuple(
+        recommendation.type
+        for recommendation in intelligence.recommendations.recommendations
+    ) == (RecommendationType.APPLY_RECOVERY_PROTOCOL,)
+    assert result.report.explanation.reasons == (
+        intelligence.explainability.contributing_factors
+        + intelligence.explainability.recommendations
+    )
+
+
+def test_canonical_morning_coach_is_deterministic_with_sleep_debt_and_many_rules():
+    context = build_context(sleep=360)
+    context.sleep.average_7 = 420
+    context.sleep.delta = -60
+    context.sleep.delta_percent = (-60 / 420) * 100
+    context.hrv.today = 65
+    context.hrv.average_7 = 70
+    context.hrv.delta = -5
+    context.hrv.delta_percent = (-5 / 70) * 100
+    athlete = build_athlete(recovery_score=90, fatigue=20, freshness=20)
+    use_case, workflow = build_canonical_use_case(
+        context=context,
+        athlete=athlete,
+    )
+
+    first = use_case.run()
+    second = use_case.run()
+    first_intelligence, second_intelligence = workflow.results
+
+    assert first_intelligence == second_intelligence
+    assert first == second
+    assert tuple(
+        recommendation.type
+        for recommendation in first_intelligence.recommendations.recommendations
+    ) == (
+        RecommendationType.EXTEND_SLEEP,
+        RecommendationType.APPLY_RECOVERY_PROTOCOL,
+        RecommendationType.INCREASE_HYDRATION,
+        RecommendationType.PERFORM_MOBILITY,
+    )
+    assert (
+        first_intelligence.recommendations.recommendations
+        == second_intelligence.recommendations.recommendations
+    )
+    assert tuple(
+        recommendation.id
+        for recommendation in first_intelligence.recommendations.recommendations
+    ) == tuple(
+        recommendation.id
+        for recommendation in second_intelligence.recommendations.recommendations
+    )
+    assert "Extend sleep duration." in first.report.explanation.reasons
+    assert "Increase hydration." in first.report.explanation.reasons
 
 
 def test_public_application_exports_are_available():

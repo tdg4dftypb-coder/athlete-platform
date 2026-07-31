@@ -5,6 +5,8 @@ from datetime import datetime
 import pytest
 
 from application import (
+    AdaptationDirective,
+    AdaptationStatus,
     ExplainabilityResult,
     IntelligenceDecisionWorkflow,
     build_default_recommendation_engine,
@@ -169,6 +171,36 @@ def test_default_composition_contains_the_four_recommendation_rules():
         RecoveryRecommendationRule,
         MobilityRecommendationRule,
     )
+
+
+def test_workflow_dates_recovery_recommendation_from_load_reduction_input():
+    athlete = build_athlete(recovery_score=60, fatigue=20, freshness=20)
+    as_of = datetime(2026, 7, 31, 8)
+    adaptation = AdaptationDirective(
+        as_of=as_of,
+        status=AdaptationStatus.REDUCE_LOAD,
+        source_reasons=(),
+    )
+    health = HealthObservationInput(
+        observed_at=as_of,
+        hrv_delta_percent=0.0,
+        sleep_duration_minutes=480.0,
+        sleep_baseline_minutes=480.0,
+        recovery_score=60.0,
+        evidence=("health-day",),
+    )
+
+    result = IntelligenceDecisionWorkflow().run(
+        athlete,
+        health=health,
+        adaptation=adaptation,
+    )
+
+    assert result.recommendations.as_of == as_of
+    assert tuple(
+        recommendation.type
+        for recommendation in result.recommendations.recommendations
+    ) == (RecommendationType.APPLY_RECOVERY_PROTOCOL,)
 
 
 def test_application_exports_intelligence_decision_workflow_contracts():

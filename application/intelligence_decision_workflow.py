@@ -81,6 +81,17 @@ class IntelligenceDecisionWorkflow:
                 decision=decision,
                 insights=insights,
                 observations=observations,
+                as_of=max(
+                    (
+                        *((health.observed_at,) if health is not None else ()),
+                        *((adaptation.as_of,) if adaptation is not None else ()),
+                        *(
+                            observation.observed_at
+                            for observation in observations
+                        ),
+                    ),
+                    default=None,
+                ),
             )
         )
         explainability = self.explainability_builder.build(

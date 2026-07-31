@@ -155,6 +155,19 @@ def test_recovery_rule_rejects_an_undated_load_reduction():
         RecoveryRecommendationRule().evaluate(context)
 
 
+def test_recovery_rule_uses_explicit_context_timestamp_for_load_reduction():
+    context = RecommendationContext(
+        decision=_decision(DecisionReason.ADAPTATION_REDUCE_LOAD.value),
+        insights=(),
+        observations=(),
+        as_of=AS_OF,
+    )
+
+    recommendation = RecoveryRecommendationRule().evaluate(context)[0]
+
+    assert recommendation.as_of == AS_OF
+
+
 def test_recovery_rule_returns_empty_without_recovery_signal():
     assert RecoveryRecommendationRule().evaluate(_context()) == ()
 

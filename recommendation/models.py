@@ -48,3 +48,4 @@ class RecommendationContext:
     decision: DecisionResult
     insights: tuple[AthleteInsight, ...]
     observations: tuple[AthleteObservation, ...]
+    as_of: datetime | None = None

@@ -1,5 +1,7 @@
 from unittest.mock import Mock
 
+import application.composition as composition
+
 from application.composition import (
     build_decision_engine,
     build_intelligence_decision_workflow,
@@ -77,3 +79,50 @@ def test_small_engine_factories_return_fresh_instances():
     assert isinstance(first_planner, PlannerEngine)
     assert first_decision is not second_decision
     assert first_planner is not second_planner
+
+
+def test_all_factories_return_fresh_instances():
+    database = Mock()
+    health_repository = Mock()
+
+    assert build_recommendation_engine() is not build_recommendation_engine()
+    assert (
+        build_intelligence_decision_workflow()
+        is not build_intelligence_decision_workflow()
+    )
+    assert build_weekly_review_workflow(database) is not build_weekly_review_workflow(
+        database
+    )
+    assert build_morning_coach_use_case(
+        database,
+        health_repository,
+    ) is not build_morning_coach_use_case(database, health_repository)
+
+
+def test_default_morning_coach_composition_defers_health_repository_io(
+    monkeypatch,
+):
+    database = Mock()
+    repository = Mock()
+    repository.load_daily.return_value = []
+    repository_factory = Mock(return_value=repository)
+    monkeypatch.setattr(composition, "HealthRepository", repository_factory)
+
+    use_case = build_morning_coach_use_case(database)
+
+    repository_factory.assert_not_called()
+    assert use_case.health_repository.load_daily() == []
+    repository_factory.assert_called_once_with()
+    repository.load_daily.assert_called_once_with()
+
+
+def test_public_application_exports_include_composition_factories():
+    from application import (
+        build_intelligence_decision_workflow as public_intelligence_factory,
+        build_morning_coach_use_case as public_morning_factory,
+        build_recommendation_engine as public_recommendation_factory,
+    )
+
+    assert public_intelligence_factory is build_intelligence_decision_workflow
+    assert public_morning_factory is build_morning_coach_use_case
+    assert public_recommendation_factory is build_recommendation_engine

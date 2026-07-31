@@ -201,6 +201,7 @@ def _context_as_of(context: RecommendationContext) -> datetime | None:
         (
             *(insight.as_of for insight in context.insights),
             *(observation.observed_at for observation in context.observations),
+            *((context.as_of,) if context.as_of is not None else ()),
         ),
         default=None,
     )

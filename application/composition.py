@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 from application.adaptation import AdaptationPolicy
 from application.athlete_assessment import AthleteAssessmentBuilder
 from application.decision_explainability import DecisionExplainabilityBuilder
@@ -21,6 +23,7 @@ from athlete.memory import (
 from athlete.review import WeeklyReviewService
 from athlete.state_builder import AthleteStateBuilder
 from core.database import Database
+from core.models import HealthDaily
 from decision.engine import DecisionEngine
 from engines.context_builder import ContextBuilder
 from health.engine import HealthEngine
@@ -36,6 +39,20 @@ from recommendation import (
 )
 from recovery.engine import RecoveryEngine
 from repositories.health_repository import HealthRepository
+
+
+class _DeferredHealthHistoryReader:
+    def __init__(
+        self,
+        factory: Callable[[], HealthHistoryReader],
+    ) -> None:
+        self._factory = factory
+        self._reader: HealthHistoryReader | None = None
+
+    def load_daily(self) -> list[HealthDaily]:
+        if self._reader is None:
+            self._reader = self._factory()
+        return self._reader.load_daily()
 
 
 def build_decision_engine() -> DecisionEngine:
@@ -85,7 +102,7 @@ def build_morning_coach_use_case(
         health_repository=(
             health_repository
             if health_repository is not None
-            else HealthRepository()
+            else _DeferredHealthHistoryReader(HealthRepository)
         ),
         context_builder=ContextBuilder(),
         health_engine=HealthEngine(),

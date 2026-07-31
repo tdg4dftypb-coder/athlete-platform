@@ -44,6 +44,14 @@ from application.training_assessment import (
     TrainingAssessmentStatus,
 )
 from application.weekly_review import WeeklyReviewWorkflow
+from application.composition import (
+    build_decision_engine,
+    build_intelligence_decision_workflow,
+    build_morning_coach_use_case,
+    build_planner_engine,
+    build_recommendation_engine,
+    build_weekly_review_workflow,
+)
 
 __all__ = [
     "AdaptationDirective",
@@ -55,6 +63,12 @@ __all__ = [
     "AthleteAssessmentStatus",
     "AthleteKnowledgeContext",
     "AthleteKnowledgeContextBuilder",
+    "build_decision_engine",
+    "build_intelligence_decision_workflow",
+    "build_morning_coach_use_case",
+    "build_planner_engine",
+    "build_recommendation_engine",
+    "build_weekly_review_workflow",
     "DecisionInput",
     "DecisionExplainabilityBuilder",
     "ExplainabilityMappingError",
