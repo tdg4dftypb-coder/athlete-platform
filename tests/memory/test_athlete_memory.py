@@ -165,6 +165,37 @@ def test_workout_completed_serializer_uses_post_workout_snapshot():
     assert "records" not in payload["activity"]
 
 
+def test_workout_completed_serializer_preserves_v1_sections_units_and_plan_snapshot():
+
+    result = build_post_workout_result()
+
+    payload = WorkoutCompletedSerializer().serialize(result)
+
+    assert {"activity", "workout", "workout_summary", "execution", "feedback"} <= set(
+        payload
+    )
+    assert payload["activity"]["duration"] == result.activity.duration == 3600
+    assert result.workout_summary.duration == 3600
+    assert payload["execution"]["planned_duration"] == 60
+    assert payload["execution"]["executed_duration"] == 60
+    assert payload["workout"]["goal"] == result.workout.goal
+    assert payload["workout"]["target_tss"] == result.workout.target_tss
+    assert payload["workout"]["target_if"] == result.workout.target_if
+    assert payload["workout"]["blocks"] == [
+        {
+            "name": "Threshold",
+            "description": "FTP effort.",
+            "duration": 3600,
+            "power_from": 0.95,
+            "power_to": 1.0,
+            "cadence_from": 85,
+            "cadence_to": 95,
+            "repeat": 1,
+        }
+    ]
+    assert "records" not in payload["activity"]
+
+
 def test_repository_appends_and_loads_events_between_dates(tmp_path):
 
     db, repository = build_repository(tmp_path)
@@ -289,6 +320,54 @@ def test_writer_persists_workout_completed_and_builds_history(tmp_path):
     assert history.count == 1
     assert history.events[0].title == "Threshold Test"
     assert history.events[0].payload == event.payload
+
+    db.close()
+
+
+def test_writer_preserves_workout_completed_v1_envelope_contract(tmp_path):
+
+    db, repository = build_repository(tmp_path)
+    result = build_post_workout_result()
+
+    event = AthleteMemoryWriter(repository).write(result)
+
+    assert event.event_type is AthleteMemoryEventType.WORKOUT_COMPLETED
+    assert event.source_type == "activity"
+    assert event.source_key == result.activity.start.isoformat()
+    assert event.schema_version == WorkoutCompletedSerializer.SCHEMA_VERSION
+    assert event.occurred_at == result.activity.end
+
+    db.close()
+
+
+def test_workout_completed_round_trip_preserves_observation_semantics(tmp_path):
+
+    db, repository = build_repository(tmp_path)
+    result = build_post_workout_result(
+        completion_score=92.5,
+        execution_score=88.0,
+    )
+
+    event = AthleteMemoryWriter(repository).write(result)
+    snapshot = AthleteMemoryReader(repository).read(
+        DateRange(
+            start=result.activity.start,
+            end=result.activity.end + timedelta(microseconds=1),
+        )
+    )
+
+    assert snapshot.source_event_ids == (event.event_id,)
+    observation = snapshot.workout_observations[0]
+    assert observation.event_id == event.event_id
+    assert observation.occurred_at == result.activity.end
+    assert observation.planned_duration == result.execution.planned_duration
+    assert observation.executed_duration == result.execution.executed_duration
+    assert observation.planned_tss == result.execution.planned_tss
+    assert observation.executed_tss == result.execution.executed_tss
+    assert observation.completion_score == result.execution.completion_score
+    assert observation.execution_score == result.execution.execution_score
+    assert observation.feedback_status == result.feedback.status.value
+    assert observation.completed is result.execution.completed
 
     db.close()
 

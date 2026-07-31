@@ -107,6 +107,41 @@ def test_reader_projects_a_single_workout_completed_event():
     assert snapshot.source_event_ids == (event.event_id,)
 
 
+def test_reader_ignores_unknown_additive_payload_fields():
+
+    start = datetime(2026, 8, 1, 8, 0)
+    event = build_event(
+        "event-with-extra-fields",
+        start,
+        payload={
+            "schema_version": 1,
+            "execution": {
+                "planned_duration": 60,
+                "executed_duration": 55,
+                "planned_tss": 80,
+                "executed_tss": 75,
+                "completion_score": 90,
+                "execution_score": 88,
+                "completed": True,
+                "future_execution_field": "ignored",
+            },
+            "feedback": {
+                "status": "completed",
+                "future_feedback_field": "ignored",
+            },
+            "future_payload_section": {"value": "ignored"},
+        },
+    )
+    period = DateRange(start=start, end=start + timedelta(days=1))
+
+    snapshot = AthleteMemoryReader(FakeAthleteMemoryRepository([event])).read(period)
+
+    observation = snapshot.workout_observations[0]
+    assert observation.event_id == event.event_id
+    assert observation.executed_tss == 75
+    assert observation.feedback_status == "completed"
+
+
 def test_reader_returns_observations_in_chronological_order():
 
     start = datetime(2026, 8, 1, 8, 0)
