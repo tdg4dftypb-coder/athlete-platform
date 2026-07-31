@@ -1,4 +1,5 @@
 from recommendation.builder import RecommendationBuilder
+from recommendation.engine import RecommendationEngine
 from recommendation.models import (
     Recommendation,
     RecommendationContext,
@@ -20,6 +21,7 @@ __all__ = [
     "Recommendation",
     "RecommendationBuilder",
     "RecommendationContext",
+    "RecommendationEngine",
     "RecommendationPriority",
     "RecommendationRule",
     "RecommendationResult",
