@@ -3,6 +3,17 @@ from application.adaptation import (
     AdaptationPolicy,
     AdaptationStatus,
 )
+from application.decision_input import DecisionInput
+from application.decision_explainability import (
+    DecisionExplainabilityBuilder,
+    ExplainabilityMappingError,
+    ExplainabilityResult,
+)
+from application.intelligence_decision_workflow import (
+    IntelligenceDecisionResult,
+    IntelligenceDecisionWorkflow,
+    build_default_recommendation_engine,
+)
 from application.athlete_assessment import (
     AthleteAssessment,
     AthleteAssessmentBuilder,
@@ -40,6 +51,13 @@ __all__ = [
     "AthleteAssessmentStatus",
     "AthleteKnowledgeContext",
     "AthleteKnowledgeContextBuilder",
+    "DecisionInput",
+    "DecisionExplainabilityBuilder",
+    "ExplainabilityMappingError",
+    "ExplainabilityResult",
+    "IntelligenceDecisionResult",
+    "IntelligenceDecisionWorkflow",
+    "build_default_recommendation_engine",
     "ExplanationBuilder",
     "ExplanationReport",
     "MorningCoachBuilder",
