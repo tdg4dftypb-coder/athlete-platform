@@ -3,8 +3,6 @@ from datetime import timedelta
 from pathlib import Path
 import sys
 
-import duckdb
-
 ROOT = Path(__file__).resolve().parent.parent
 PRODUCTION_DATABASE_PATH = ROOT / "data/database/health.duckdb"
 
@@ -14,7 +12,10 @@ if str(ROOT) not in sys.path:
 from application.post_workout_recording import PostWorkoutRecordingService
 from athlete.memory.models import DateRange
 from athlete.memory.reader import AthleteMemoryReader
-from athlete.memory.repository import AthleteMemoryRepository
+from athlete.memory.repository import (
+    AthleteMemoryRepository,
+    DuplicateSourceIdentityError,
+)
 from athlete.memory.writer import AthleteMemoryWriter
 from core.database import Database
 from decision.models import DecisionResult
@@ -92,7 +93,7 @@ def import_completed_fit(
 
         try:
             result = service.record(workout, activity, source_identity)
-        except duckdb.ConstraintException:
+        except DuplicateSourceIdentityError:
             print(
                 "SKIPPED: already imported "
                 f"(source_key={source_identity.external_id})",

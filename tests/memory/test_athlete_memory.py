@@ -12,7 +12,10 @@ from athlete.memory.models import (
 )
 from athlete.memory.patterns import PatternDetector
 from athlete.memory.reader import AthleteMemoryReader
-from athlete.memory.repository import AthleteMemoryRepository
+from athlete.memory.repository import (
+    AthleteMemoryRepository,
+    DuplicateSourceIdentityError,
+)
 from athlete.memory.serializer import WorkoutCompletedSerializer
 from athlete.memory.writer import AthleteMemoryWriter
 from core.database import Database
@@ -272,7 +275,7 @@ def test_repository_rejects_duplicate_source_identity_without_replacing_event(tm
 
     repository.append(event)
 
-    with pytest.raises(duckdb.ConstraintException):
+    with pytest.raises(DuplicateSourceIdentityError):
         repository.append(
             replace(
                 event,
@@ -284,6 +287,33 @@ def test_repository_rejects_duplicate_source_identity_without_replacing_event(tm
     assert repository.load_between(occurred_at, occurred_at) == [event]
 
     db.close()
+
+
+def test_repository_does_not_map_an_unrelated_constraint_failure_to_duplicate_identity():
+
+    class ConstraintFailingConnection:
+        def execute(self, query, parameters):
+            raise duckdb.ConstraintException(
+                'Constraint Error: Duplicate key "event_id: event-1" violates primary key constraint.'
+            )
+
+    database = type(
+        "ConstraintFailingDatabase",
+        (),
+        {"connection": ConstraintFailingConnection()},
+    )()
+    event = AthleteMemoryEvent(
+        event_id="event-1",
+        occurred_at=datetime(2026, 7, 30, 9, 0),
+        event_type=AthleteMemoryEventType.WORKOUT_COMPLETED,
+        source_type="fit_file",
+        source_key="sha256:abc",
+        schema_version=1,
+        payload={},
+    )
+
+    with pytest.raises(duckdb.ConstraintException):
+        AthleteMemoryRepository(database).append(event)
 
 
 def test_repository_allows_the_same_source_key_for_different_source_types(tmp_path):
@@ -363,7 +393,7 @@ def test_schema_migrates_legacy_source_key_index_without_losing_events(tmp_path)
             payload={},
         )
     )
-    with pytest.raises(duckdb.ConstraintException):
+    with pytest.raises(DuplicateSourceIdentityError):
         repository.append(
             AthleteMemoryEvent(
                 event_id="duplicate-fit-event",
