@@ -54,17 +54,19 @@ def test_build_report_does_not_create_the_athlete_memory_schema(monkeypatch):
     database = Mock()
 
     class FakeUseCase:
-        def __init__(self, **_dependencies):
-            pass
-
         def run(self):
             return SimpleNamespace(report=report)
 
     monkeypatch.setattr(morning_coach, "Database", lambda: database)
-    monkeypatch.setattr(morning_coach, "HealthRepository", Mock())
-    monkeypatch.setattr(morning_coach, "MorningCoachUseCase", FakeUseCase)
+    factory = Mock(return_value=FakeUseCase())
+    monkeypatch.setattr(
+        morning_coach,
+        "build_morning_coach_use_case",
+        factory,
+    )
     monkeypatch.setattr(AthleteMemorySchema, "create", created_schema)
 
     assert morning_coach.build_report() is report
+    factory.assert_called_once_with(database)
     created_schema.assert_not_called()
     database.close.assert_called_once_with()

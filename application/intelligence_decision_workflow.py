@@ -15,27 +15,16 @@ from athlete.models import AthleteState
 from decision.engine import DecisionEngine
 from decision.models import DecisionResult, WorkoutPlan
 from recommendation import (
-    HydrationRecommendationRule,
-    MobilityRecommendationRule,
-    RecommendationBuilder,
     RecommendationContext,
     RecommendationEngine,
     RecommendationResult,
-    RecoveryRecommendationRule,
-    SleepRecommendationRule,
 )
 
 
 def build_default_recommendation_engine() -> RecommendationEngine:
-    return RecommendationEngine(
-        rules=(
-            SleepRecommendationRule(),
-            HydrationRecommendationRule(),
-            RecoveryRecommendationRule(),
-            MobilityRecommendationRule(),
-        ),
-        builder=RecommendationBuilder(),
-    )
+    from application.composition import build_recommendation_engine
+
+    return build_recommendation_engine()
 
 
 @dataclass(frozen=True)
