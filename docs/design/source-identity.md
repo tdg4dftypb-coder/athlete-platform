@@ -83,6 +83,29 @@ external_id = <identyfikator treningu Apple Health>
 
 Są to przykłady wartości wspólnego kontraktu, a nie propozycja hierarchii klas, interfejsów ani provider-specific typów.
 
+## FIT artifact identity
+
+Dla kontrolowanego importu pliku FIT `provider = fit_file` oznacza namespace
+artefaktu plikowego przekazanego do adaptera ingestion. Nie oznacza producenta
+urządzenia ani systemu, z którego plik mógł zostać wcześniej wyeksportowany.
+
+`external_id` ma postać:
+
+```text
+sha256:<64 lowercase hexadecimal characters>
+```
+
+Digest obejmuje komplet surowych bajtów pliku. Identyczne bajty, także pod
+inną nazwą albo ścieżką, są tym samym Source Record. Ponowny eksport o innych
+bajtach jest innym Source Record, nawet gdy opisuje ten sam fizyczny trening.
+Nie jest to decyzja o Canonical Activity ani mechanizm multi-source
+reconciliation.
+
+Istniejące kolumny event store `source_type` i `source_key` są kompatybilnymi
+nazwami storage odpowiednio dla `provider` i `external_id`. Legacy eventy
+pozostają bez migracji: używają `source_type = activity` oraz
+`source_key = activity.start.isoformat()` i nie są backfillowane.
+
 ## Zasady architektoniczne
 
 - Domena nie zna sposobu identyfikacji źródła.
@@ -99,6 +122,11 @@ Source Identity jest tylko jednym z elementów metadanych takiego eventu. Ten do
 
 ## Out of scope
 
-Dokument nie opisuje mechanizmów technicznych, sposobu wyznaczania identyfikatorów, storage, indeksowania, migracji, zachowania przy ponownym imporcie ani implementacji. Poza zakresem pozostają również multi-source deduplication, entity resolution oraz Canonical Activity Identity.
+Poza opisanym profilem FIT artifact dokument nie opisuje innych mechanizmów
+technicznych, sposobu wyznaczania identyfikatorów, storage, indeksowania,
+migracji, zachowania przy ponownym imporcie ani implementacji. Poza zakresem
+pozostają również multi-source deduplication, entity resolution oraz Canonical
+Activity Identity.
 
-Dokument nie przyjmuje konkretnego mechanizmu identyfikacji FIT. Jego wybór wymaga osobnego audytu rzeczywistych danych FIT.
+Dokument nie opisuje innych mechanizmów identyfikacji FIT ani rekonsyliacji
+różnych artefaktów plikowych.
