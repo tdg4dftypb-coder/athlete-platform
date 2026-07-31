@@ -92,7 +92,7 @@ def test_date_range_rejects_end_before_start():
         DateRange(start=start, end=start - timedelta(seconds=1))
 
 
-def test_reader_projects_a_single_workout_completed_event():
+def test_reader_projects_v1_event_without_analysis_metadata():
 
     start = datetime(2026, 8, 1, 8, 0)
     event = build_event("event-1", start)
@@ -107,7 +107,7 @@ def test_reader_projects_a_single_workout_completed_event():
     assert snapshot.source_event_ids == (event.event_id,)
 
 
-def test_reader_ignores_unknown_additive_payload_fields():
+def test_reader_ignores_additive_analysis_metadata_and_unknown_payload_fields():
 
     start = datetime(2026, 8, 1, 8, 0)
     event = build_event(
@@ -115,6 +115,8 @@ def test_reader_ignores_unknown_additive_payload_fields():
         start,
         payload={
             "schema_version": 1,
+            "analysis_version": "1",
+            "feedback_version": "1",
             "execution": {
                 "planned_duration": 60,
                 "executed_duration": 55,
@@ -140,6 +142,45 @@ def test_reader_ignores_unknown_additive_payload_fields():
     assert observation.event_id == event.event_id
     assert observation.executed_tss == 75
     assert observation.feedback_status == "completed"
+
+
+def test_reader_projects_mixed_v1_history_with_and_without_analysis_metadata():
+
+    start = datetime(2026, 8, 1, 8, 0)
+    legacy_event = build_event("legacy", start)
+    current_event = build_event(
+        "current",
+        start + timedelta(hours=1),
+        payload={
+            "schema_version": 1,
+            "analysis_version": "1",
+            "feedback_version": "1",
+            "execution": {
+                "planned_duration": 60,
+                "executed_duration": 55,
+                "planned_tss": 80,
+                "executed_tss": 75,
+                "completion_score": 90,
+                "execution_score": 88,
+                "completed": True,
+            },
+            "feedback": {"status": "completed"},
+        },
+    )
+    period = DateRange(start=start, end=start + timedelta(days=1))
+
+    snapshot = AthleteMemoryReader(
+        FakeAthleteMemoryRepository([current_event, legacy_event])
+    ).read(period)
+
+    assert [observation.event_id for observation in snapshot.workout_observations] == [
+        "legacy",
+        "current",
+    ]
+    assert [observation.execution_score for observation in snapshot.workout_observations] == [
+        88,
+        88,
+    ]
 
 
 def test_reader_returns_observations_in_chronological_order():

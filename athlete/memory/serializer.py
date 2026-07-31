@@ -4,6 +4,8 @@ from pipeline.models import PostWorkoutResult
 class WorkoutCompletedSerializer:
 
     SCHEMA_VERSION = 1
+    ANALYSIS_VERSION = "1"
+    FEEDBACK_VERSION = "1"
 
     def serialize(
         self,
@@ -12,6 +14,8 @@ class WorkoutCompletedSerializer:
 
         return {
             "schema_version": self.SCHEMA_VERSION,
+            "analysis_version": self.ANALYSIS_VERSION,
+            "feedback_version": self.FEEDBACK_VERSION,
             "workout": {
                 "name": result.workout.name,
                 "goal": str(result.workout.goal),

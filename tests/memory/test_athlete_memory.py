@@ -157,6 +157,10 @@ def test_workout_completed_serializer_uses_post_workout_snapshot():
     payload = WorkoutCompletedSerializer().serialize(result)
 
     assert payload["schema_version"] == 1
+    assert payload["analysis_version"] == WorkoutCompletedSerializer.ANALYSIS_VERSION
+    assert payload["feedback_version"] == WorkoutCompletedSerializer.FEEDBACK_VERSION
+    assert isinstance(payload["analysis_version"], str)
+    assert isinstance(payload["feedback_version"], str)
     assert payload["workout"]["name"] == "Threshold Test"
     assert payload["activity"]["duration"] == 3600
     assert payload["workout_summary"]["tss"] == 80
