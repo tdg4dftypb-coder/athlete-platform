@@ -23,3 +23,18 @@ Modele prezentacyjne nie są modelami domenowymi. Nie podejmują decyzji, nie in
 Pierwszy prototyp webowy realizuje zasadę Decision First. Najpierw przedstawia dzisiejszą decyzję i jej narracyjne uzasadnienie, a dopiero dalej zmianę względem wczoraj, plan dnia, cel i skróty. Dane są statyczne i deterministyczne; integracja payloadu pozostaje poza zakresem.
 
 Interfejs jest mobile first, zachowuje ograniczoną szerokość na desktopie i obsługuje Dark Mode, powiększony tekst, widoczny focus oraz `prefers-reduced-motion`.
+
+## Morning Briefing Presentation States
+
+Experience Layer używa jawnego `MorningBriefingPresentationState` jako discriminated union: `ready`, `partial`, `unavailable`, `stale`, `loading` albo `failure`. Każdy wariant zawiera wyłącznie wymagane dla niego dane i nie dopuszcza sprzecznych kombinacji luźnych flag.
+
+- `ready` transportuje kompletny, aktualny briefing;
+- `partial` transportuje briefing oraz jawną listę brakujących źródeł; jego Preview Data nie formułują wniosków na podstawie tych braków;
+- `unavailable` nie transportuje decyzji, ponieważ danych jest zbyt mało do wiarygodnego wyniku;
+- `stale` zachowuje dostęp do briefingu, ale przed treścią pokazuje czas ostatniej aktualizacji;
+- `loading` nie posiada danych briefingu i udostępnia stabilny przestrzennie skeleton;
+- `failure` opisuje błąd operacyjny oraz jedną akcję ponowienia.
+
+`partial` dotyczy kompletności, a `stale` aktualności danych. `unavailable` jest poprawnym wynikiem braku wystarczających faktów, natomiast `failure` oznacza, że oczekiwana operacja nie mogła się zakończyć.
+
+Query string `?state=<kind>` służy wyłącznie do deterministycznego Preview wszystkich wariantów. Nie jest częścią interfejsu ani przyszłego kontraktu backendowego.

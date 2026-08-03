@@ -1,6 +1,9 @@
-import type { MorningBriefingPresentation } from "../models/morning-briefing-presentation";
+import type { MorningBriefingPresentationState } from "../models/morning-briefing-presentation-state";
 import { renderMorningBriefing } from "../features/morning-briefing/morning-briefing-view";
 
-export function createApp(model: MorningBriefingPresentation): HTMLElement {
-  return renderMorningBriefing(model);
+export function createApp(
+  state: MorningBriefingPresentationState,
+  onRetry: () => void = () => undefined,
+): HTMLElement {
+  return renderMorningBriefing(state, onRetry);
 }

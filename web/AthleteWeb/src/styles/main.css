@@ -42,6 +42,118 @@ button:focus-visible {
   min-width: 0;
 }
 
+.briefing--message {
+  align-content: start;
+}
+
+.state-notice {
+  display: grid;
+}
+
+.state-card {
+  display: grid;
+  gap: 1rem;
+  border-color: color-mix(in srgb, var(--color-accent) 18%, var(--color-border));
+}
+
+.state-card h2 {
+  color: var(--color-accent);
+}
+
+.state-message {
+  font-size: 1.12rem;
+  font-weight: 620;
+  line-height: 1.48;
+}
+
+.state-detail-label,
+.state-next-action,
+.state-detail-list {
+  color: var(--color-muted);
+}
+
+.state-detail-label {
+  margin-bottom: -0.5rem;
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+
+.state-detail-list {
+  display: grid;
+  gap: 0.55rem;
+  padding-left: 1.2rem;
+  list-style: disc;
+}
+
+.state-next-action {
+  padding-top: 0.15rem;
+  border-top: 1px solid var(--color-border);
+  font-weight: 590;
+}
+
+.primary-action {
+  width: fit-content;
+  min-height: 2.75rem;
+  padding: 0.7rem 1rem;
+  border: 0;
+  border-radius: 0.85rem;
+  background: var(--color-accent);
+  color: var(--color-shell);
+  font-weight: 680;
+}
+
+.briefing--loading {
+  align-content: start;
+}
+
+.loading-label {
+  color: var(--color-muted);
+  font-size: 1rem;
+  font-weight: 590;
+}
+
+.skeleton-layout {
+  display: grid;
+  gap: 2.75rem;
+}
+
+.skeleton-block {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.skeleton-block::after {
+  display: block;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, var(--color-accent-soft), transparent);
+  content: "";
+  animation: skeleton-shift 1.6s ease-in-out infinite;
+}
+
+.skeleton-block--header {
+  width: 72%;
+  height: 5.4rem;
+  border: 0;
+  box-shadow: none;
+}
+
+.skeleton-block--hero {
+  height: 20rem;
+  background: var(--color-hero);
+}
+
+.skeleton-block--card {
+  height: 11rem;
+}
+
+.skeleton-block--shortcuts {
+  height: 17rem;
+}
+
 .briefing-header {
   display: grid;
   gap: 0.75rem;
@@ -318,6 +430,11 @@ h2 {
 
 @keyframes reveal-progress {
   from { transform: scaleX(0); }
+}
+
+@keyframes skeleton-shift {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(260%); }
 }
 
 @media (min-width: 48rem) {

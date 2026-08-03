@@ -1,17 +1,99 @@
 import { createCard, createSection } from "../../components/card";
+import { createStatusNotice } from "../../components/status-notice";
 import { createTextList } from "../../components/text-list";
-import type { MorningBriefingPresentation } from "../../models/morning-briefing-presentation";
+import type {
+  MorningBriefingHeader,
+  MorningBriefingPresentation,
+} from "../../models/morning-briefing-presentation";
+import type { MorningBriefingPresentationState } from "../../models/morning-briefing-presentation-state";
 
 const navigationItems = ["Dzisiaj", "Trening", "Postępy", "Więcej"] as const;
 
-export function renderMorningBriefing(model: MorningBriefingPresentation): HTMLElement {
+export function renderMorningBriefing(
+  state: MorningBriefingPresentationState,
+  onRetry: () => void,
+): HTMLElement {
   const shell = document.createElement("div");
   shell.className = "app-shell";
 
+  const main = createStateContent(state, onRetry);
+  shell.append(main, createBottomNavigation());
+  return shell;
+}
+
+function createStateContent(
+  state: MorningBriefingPresentationState,
+  onRetry: () => void,
+): HTMLElement {
   const main = document.createElement("main");
   main.className = "briefing";
+
+  switch (state.kind) {
+    case "ready":
+      appendAvailableBriefing(main, state.briefing);
+      break;
+    case "partial":
+      main.append(createHeader(state.briefing));
+      main.append(createStatusNotice({
+        variant: "partial",
+        title: "Niepełne dane",
+        message: state.message,
+        detailLabel: "Brakuje:",
+        details: state.missingData,
+      }));
+      appendBriefingBody(main, state.briefing);
+      break;
+    case "stale":
+      main.append(createHeader(state.briefing));
+      main.append(createStatusNotice({
+        variant: "stale",
+        title: "Dane wymagają odświeżenia",
+        message: state.message,
+        details: [state.lastUpdatedText],
+      }));
+      appendBriefingBody(main, state.briefing);
+      break;
+    case "unavailable":
+      main.classList.add("briefing--message");
+      main.append(
+        createHeader(state.header),
+        createStatusNotice({
+          variant: "unavailable",
+          title: "Briefing jest dziś niedostępny",
+          message: state.message,
+          details: [state.reason],
+          nextAction: state.nextAction,
+        }),
+      );
+      break;
+    case "failure":
+      main.classList.add("briefing--message");
+      main.append(
+        createHeader(state.header),
+        createStatusNotice({
+          variant: "failure",
+          title: "Nie udało się odświeżyć",
+          message: state.message,
+          details: [state.supportingText],
+          retryLabel: state.retryLabel,
+          onRetry,
+        }),
+      );
+      break;
+    case "loading":
+      return createLoadingContent(state.message);
+  }
+
+  return main;
+}
+
+function appendAvailableBriefing(main: HTMLElement, model: MorningBriefingPresentation): void {
+  main.append(createHeader(model));
+  appendBriefingBody(main, model);
+}
+
+function appendBriefingBody(main: HTMLElement, model: MorningBriefingPresentation): void {
   main.append(
-    createHeader(model),
     createHero(model),
     createDecision(model),
     createListSection("Dlaczego właśnie taki plan?", "plan-reasons", model.reasons, "check"),
@@ -20,16 +102,14 @@ export function renderMorningBriefing(model: MorningBriefingPresentation): HTMLE
     createGoal(model),
     createShortcuts(model),
   );
-
-  shell.append(main, createBottomNavigation());
-  return shell;
 }
 
-function createHeader(model: MorningBriefingPresentation): HTMLElement {
+function createHeader(model: MorningBriefingHeader): HTMLElement {
   const header = document.createElement("header");
   header.className = "briefing-header reveal";
 
   const title = document.createElement("h1");
+  title.tabIndex = -1;
   const greeting = document.createElement("span");
   greeting.textContent = `${model.greeting},`;
   const athleteName = document.createElement("strong");
@@ -42,6 +122,39 @@ function createHeader(model: MorningBriefingPresentation): HTMLElement {
 
   header.append(title, context);
   return header;
+}
+
+function createLoadingContent(message: string): HTMLElement {
+  const main = document.createElement("main");
+  main.className = "briefing briefing--loading";
+  main.setAttribute("aria-busy", "true");
+
+  const status = document.createElement("p");
+  status.className = "loading-label";
+  status.setAttribute("role", "status");
+  status.setAttribute("aria-live", "polite");
+  status.textContent = message;
+
+  const skeleton = document.createElement("div");
+  skeleton.className = "skeleton-layout";
+  skeleton.setAttribute("aria-hidden", "true");
+  for (const variant of [
+    "header",
+    "hero",
+    "card",
+    "card",
+    "card",
+    "card",
+    "card",
+    "shortcuts",
+  ] as const) {
+    const block = document.createElement("div");
+    block.className = `skeleton-block skeleton-block--${variant}`;
+    skeleton.append(block);
+  }
+
+  main.append(status, skeleton);
+  return main;
 }
 
 function createHero(model: MorningBriefingPresentation): HTMLElement {

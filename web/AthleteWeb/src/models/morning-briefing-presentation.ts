@@ -16,12 +16,15 @@ export interface MorningBriefingShortcut {
   readonly label: string;
 }
 
-/** UI-ready data. It deliberately knows neither backend DTOs nor domain models. */
-export interface MorningBriefingPresentation {
+export interface MorningBriefingHeader {
   readonly greeting: string;
   readonly athleteName: string;
   readonly dateText: string;
   readonly timeText: string;
+}
+
+/** UI-ready data. It deliberately knows neither backend DTOs nor domain models. */
+export interface MorningBriefingPresentation extends MorningBriefingHeader {
   readonly coachMessage: readonly string[];
   readonly decision: MorningBriefingDecision;
   readonly reasons: readonly string[];

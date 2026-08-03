@@ -137,6 +137,15 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 - sticky bottom navigation pozostaje ostatnim elementem shella, respektuje safe area i nie traci sticky containment na desktopie;
 - treść, modele prezentacyjne, Preview Data oraz kontrakty backendu pozostają bez zmian.
 
+#### Sprint 3 — Morning Briefing Presentation States
+
+- jawny discriminated union reprezentuje dokładnie stany `ready`, `partial`, `unavailable`, `stale`, `loading` i `failure`;
+- warianty współdzielą shell, komponenty i tokeny, a jednocześnie transportują wyłącznie wymagane dane;
+- `partial` nie formułuje twierdzeń z brakujących źródeł, `unavailable` nie pokazuje decyzji, a `stale` jawnie oznacza czas aktualizacji;
+- spokojny skeleton, live regions i retry zapewniają kontrolowane zachowanie stanów przejściowych oraz błędu;
+- query string umożliwia deterministyczne Preview bez panelu widocznego w produkcie;
+- integracja payloadu, sieć i logika domenowa pozostają poza zakresem.
+
 ### Stage 11.2 — Experience Architecture, Sprint 1
 
 - natywny projekt `AthleteApp` dla iOS 18+ jest przygotowany w SwiftUI bez UIKit i z granicą MVVM;
