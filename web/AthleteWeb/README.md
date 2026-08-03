@@ -50,6 +50,10 @@ Sprint 2 dopracowuje wyłącznie jakość tego samego ekranu: lżejszy briefing,
 
 Nieznana lub pominięta wartość `state` bezpiecznie wybiera `ready`. Query string jest wyłącznie mechanizmem Preview i nie pojawia się w interfejsie użytkownika.
 
+## System wizualny
+
+Morning Briefing jest light-first. Jawne tokeny Theme definiują neutralne powierzchnie oraz semantyczne akcenty: Recovery/Goal, Training, Sleep/Coach/Reflection i Attention/Load/Fuel. Komponenty odwołują się wyłącznie do tokenów, a wariant systemowego Dark Mode zachowuje znaczenie kolorów przy ograniczonym nasyceniu i bez czystej czerni.
+
 Web i zachowany klient SwiftUI mają docelowo konsumować ten sam wersjonowany kontrakt backendowy. Logika domenowa pozostaje wyłącznie w backendzie; klienci odpowiadają za mapowanie prezentacyjne i renderowanie.
 
 ## PWA

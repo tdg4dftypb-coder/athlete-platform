@@ -176,6 +176,7 @@ function createHero(model: MorningBriefingPresentation): HTMLElement {
 
 function createDecision(model: MorningBriefingPresentation): HTMLElement {
   const section = createSection("Dzisiejsza decyzja", "today-decision");
+  section.classList.add("briefing-section--training");
   const card = createCard("decision-card");
 
   const title = document.createElement("p");
@@ -198,6 +199,7 @@ function createListSection(
   variant: "check" | "change" | "plan",
 ): HTMLElement {
   const section = createSection(title, id);
+  section.classList.add(`briefing-section--${id}`);
   const card = createCard();
   card.append(createTextList(items, variant));
   section.append(card);
@@ -206,6 +208,7 @@ function createListSection(
 
 function createGoal(model: MorningBriefingPresentation): HTMLElement {
   const section = createSection("Twój cel", "your-goal");
+  section.classList.add("briefing-section--recovery");
   const card = createCard("goal-card");
 
   const heading = document.createElement("div");

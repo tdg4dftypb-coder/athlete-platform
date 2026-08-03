@@ -146,6 +146,13 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 - query string umożliwia deterministyczne Preview bez panelu widocznego w produkcie;
 - integracja payloadu, sieć i logika domenowa pozostają poza zakresem.
 
+#### Sprint 3 — Visual System Alignment
+
+- Light Mode jest głównym stylem produktu, a Dark Mode pozostaje pełnoprawnym wariantem systemowym;
+- wspólne tokeny Theme rozdzielają powierzchnie neutralne od akcentów Recovery, Training, Sleep i Attention;
+- hero używa lekkiego gradientu fioletowo-brzoskwiniowego, a pozostałe kolory wspierają skanowanie bez dominowania nad treścią;
+- struktura informacji, dane, modele prezentacyjne, nawigacja i kontrakty pozostają bez zmian.
+
 ### Stage 11.2 — Experience Architecture, Sprint 1
 
 - natywny projekt `AthleteApp` dla iOS 18+ jest przygotowany w SwiftUI bez UIKit i z granicą MVVM;
