@@ -99,6 +99,16 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 - ADR-009 ma status Accepted;
 - trwały adapter celu, Nutrition Intake i Energy Balance nie należą do ukończonego zakresu.
 
+### Stage 10 — Canonical Dashboard read model
+
+- immutable, wersjonowany i datowany `AthleteDashboard` stanowi typowany read model;
+- bezstanowy `DashboardEngine` składa wszystkie wymagane sekcje z gotowych wyników bez I/O i ponownego uruchamiania silników;
+- composition root wstrzykuje świeży engine do `MorningCoachUseCase`, który buduje Dashboard dokładnie raz;
+- MorningCoach transportuje Dashboard, zachowując dotychczasowy Presenter i `MorningCoachReport`;
+- jawny `DashboardSerializer` zapewnia strict payload contract v1.0, kontrolowaną deserializację oraz snapshot/round-trip tests;
+- ADR-010 ma status Accepted;
+- persistence, transport HTTP/API, layout i UI nie należą do ukończonego zakresu Stage 10.
+
 **TODO:** Repozytorium nie zawiera źródłowego dokumentu przypisującego oficjalne nazwy do Stage 1–3. Powyższe nazwy porządkują wyłącznie zaimplementowane rezultaty widoczne w kodzie i historii Git; wymagają potwierdzenia, jeśli mają stać się oficjalnymi nazwami etapów.
 
 ## Current

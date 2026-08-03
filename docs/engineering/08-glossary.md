@@ -89,7 +89,11 @@ Efemeryczna, deterministyczna interpretacja jednej lub wielu observations, zawie
 
 ### MorningCoach
 
-Kanoniczny dzienny use case przygotowujący stan i historię zawodnika, uruchamiający Intelligence Workflow raz, planujący trening i prezentujący kompatybilny raport. `MorningCoachResult` udostępnia canonical Body Composition, Body Mass Trend Quality i Goal Assessment bez ich interpretacji przez Presenter.
+Kanoniczny dzienny use case przygotowujący stan i historię zawodnika, uruchamiający Intelligence Workflow raz, planujący trening, prezentujący kompatybilny raport i składający jeden Athlete Dashboard z tych samych gotowych wyników. `MorningCoachResult` transportuje wyniki kanoniczne i Dashboard bez ich interpretacji przez Presenter.
+
+### Athlete Dashboard
+
+Immutable, wersjonowana i datowana projekcja odczytowa gotowych wyników kanonicznego przebiegu. Wszystkie typed sekcje są zawsze obecne, a brak źródła oznacza `UNAVAILABLE`. Kontrakt v1.0 może zostać jawnie zserializowany do ścisłego payloadu z prymitywów, ale sam model nie wykonuje I/O, nie podejmuje decyzji i nie jest trwałym źródłem prawdy.
 
 ### Goal Assessment
 
@@ -196,6 +200,14 @@ Warstwa posiadająca modele, język biznesowy i czyste reguły, niezależna od i
 ### Engine
 
 Komponent wykonujący jedną spójną zdolność domenową lub koordynujący jej jawne etapy, bez przejmowania obowiązków sąsiednich silników.
+
+### Dashboard Engine
+
+Bezstanowy, deterministyczny assembler budujący `AthleteDashboard` z gotowych wyników bieżącego przebiegu. Nie uruchamia innych silników, nie odczytuje danych i nie zawiera polityki UI.
+
+### Dashboard Serializer
+
+Czysty, bezstanowy komponent mapujący `AthleteDashboard` na prymitywny payload kontraktu v1.0 i odtwarzający model według jawnego strict schema. Nie koduje JSON, nie wykonuje I/O i nie zna MorningCoach ani frameworka HTTP.
 
 ### Body Composition Engine
 

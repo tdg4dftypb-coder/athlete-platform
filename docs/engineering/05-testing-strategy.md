@@ -110,6 +110,10 @@ Przykłady obowiązujących asercji:
 - reguły i domena nie importują repository, DuckDB ani presentation;
 - publiczne symbole można zaimportować w świeżym procesie bez cyklicznego importu.
 - Adaptive Goals używa dokładnie jednego readera, jednego trend-quality evaluation i jednego Goal Assessment na datowany przebieg, zachowując identity assessmentu w contextach i wynikach;
+- `MorningCoachUseCase` uruchamia `DashboardEngine` dokładnie raz po Presenterze, przekazuje te same obiekty kanoniczne i nie wykonuje dodatkowego odczytu danych;
+- Dashboard pozostaje poza Presenterem, `MorningCoachReport`, `DecisionResult` i `RecommendationContext`;
+- serializer Dashboardu ma dokładne snapshoty kluczy i wartości, strict error tests oraz round-trip dla naive i aware timestamps;
+- clean-checkout test potwierdza import `dashboard` i `application`, pełny pytest oraz serialize/deserialize bez korzystania z lokalnych artefaktów;
 
 Takie testy mogą używać spies, introspekcji sygnatur, analizy importów lub minimalnego smoke procesu. Nie powinny zakładać nazw prywatnych pól, jeżeli kontrakt nie zależy od nich.
 
@@ -124,6 +128,8 @@ Sprawdzaj:
 - rekomendacje, kolejność i ID;
 - explainability;
 - finalny report;
+- typowany `AthleteDashboard`, łącznie z wersją, datami, statusami sekcji i kolejnością rekomendacji;
+- prymitywny payload Dashboardu, zachowanie `None`, kolejności list i pełny round-trip bez mutacji;
 - wynik dla odwróconej kolejności kandydatów lub reguł, jeśli kolejność nie należy do kontraktu;
 - brak mutacji inputu;
 - brak stanu pozostającego między wywołaniami.
@@ -157,6 +163,8 @@ Minimalne scenariusze MorningCoach:
 | Zwiększona potrzeba regeneracji | hydration/mobility według obecnych reguł, stabilne evidence i ID |
 | Wiele reguł | deterministyczna kolejność i brak duplikatów typu |
 | Brak danych | kontrolowany wynik zgodny z publicznym kontraktem |
+| Dashboard z kompletem danych | assembler otrzymuje te same instancje źródłowe, a sekcje zachowują statusy i deterministyczną kolejność |
+| Dashboard z brakującymi źródłami | `UNAVAILABLE` jest odróżnione od dostępnego, lecz pustego wyniku rekomendacji |
 
 Nie istnieje obecnie osobny sygnał domenowy odwodnienia. Test `INCREASE_HYDRATION` powinien używać aktualnych triggerów reguły, a nie udawać nieistniejącego pomiaru hydration.
 

@@ -14,6 +14,7 @@
 - [ADR-007 — Kanoniczna integracja Nutrition](#adr-007---kanoniczna-integracja-nutrition)
 - [ADR-008 — Body Composition Assessment](#adr-008---body-composition-assessment)
 - [ADR-009 — Adaptive Goals](#adr-009---adaptive-goals)
+- [ADR-010 — Kanoniczny Athlete Dashboard Read Model](#adr-010---kanoniczny-athlete-dashboard-read-model)
 - [Rejestr ADR](#rejestr-adr)
 - [Powiązane dokumenty](#powiązane-dokumenty)
 
@@ -370,6 +371,43 @@ Ocena celu masy ciała wymaga jawnego celu, gotowego Body Composition Assessment
 - **Reader lub GoalAssessmentEngine w MorningCoachUseCase** — odrzucone; orkiestracja należy do Intelligence Workflow.
 - **DuckDB goal repository w MVP** — odroczone do osobnej decyzji persistence.
 
+## ADR-010 — Kanoniczny Athlete Dashboard Read Model
+
+### Status
+
+**Accepted**
+
+### Context
+
+Warstwa prezentacji potrzebuje jednego, typowanego kontraktu odczytowego obejmującego gotowe wyniki kanonicznego przebiegu. Składanie takiego widoku nie może uruchamiać ponownie silników, wykonywać dodatkowych odczytów ani przenosić polityki prezentacyjnej do modeli domenowych i workflow Intelligence.
+
+### Decision
+
+- `dashboard/` definiuje immutable, wersjonowany i datowany `AthleteDashboard` oraz czysty, bezstanowy `DashboardEngine`;
+- domeny źródłowe zachowują własność swoich danych; Dashboard jest wyłącznie efemeryczną, nieutrwalaną projekcją odczytową;
+- `MorningCoachUseCase` uruchamia `DashboardEngine` dokładnie raz, po Plannerze i Presenterze, przekazując te same obiekty kanoniczne uzyskane w bieżącym przebiegu;
+- `DashboardEngine` wyłącznie składa typed read model; nie podejmuje decyzji, nie generuje rekomendacji, nie interpretuje explainability i nie wykonuje I/O;
+- `MorningCoachResult` transportuje Dashboard, natomiast `MorningCoachPresenter` i kompatybilny `MorningCoachReport` pozostają bez zmian funkcjonalnych;
+- `DashboardEngine` jest tworzony jawnie przez composition root jako świeża zależność;
+- `DashboardSerializer` jawnie mapuje pełny kontrakt v1.0 do prymitywnego payloadu oraz odtwarza go bez refleksyjnego deserializera;
+- schema v1.0 jest strict: brakujące, dodatkowe lub błędnie typowane pola, nieznane enumy i nieobsługiwana wersja są odrzucane kontrolowanym błędem;
+- `MorningCoachResult` transportuje model `AthleteDashboard`, a serializacja pozostaje jawnym wyborem downstream;
+- persistence, transport HTTP/API, układ UI i renderowanie pozostają poza bieżącą decyzją.
+
+### Consequences
+
+- istnieje jeden kanoniczny kontrakt backend–presentation bez równoległego workflow;
+- orkiestracja zachowuje identity gotowych wejść przekazywanych do assemblera, a wynik zachowuje ich deterministyczną kolejność;
+- brak danych i pusty wynik są rozróżniane przez jawne statusy sekcji;
+- integracja jest testowalna bez infrastruktury, zegara systemowego i efektów ubocznych;
+- snapshoty payloadu oraz round-trip tests chronią stabilność kontraktu v1.0 bez zależności od frameworka JSON lub HTTP.
+
+### Alternatives considered
+
+- **Budowa Dashboardu w Presenterze** — odrzucona; zmieniałaby kompatybilny kontrakt raportu i mieszała typed read model z renderowaniem.
+- **Osobny Dashboard Workflow** — odrzucony jako równoległa orkiestracja i ryzyko ponownych wywołań silników.
+- **Dashboard persistence w bieżącym etapie** — odroczone; projekcja jest deterministycznie odbudowywalna z wyników bieżącego przebiegu.
+
 ## Rejestr ADR
 
 | ADR | Tytuł | Status | Główne źródło |
@@ -383,6 +421,7 @@ Ocena celu masy ciała wymaga jawnego celu, gotowego Body Composition Assessment
 | ADR-007 | Kanoniczna integracja Nutrition | Accepted | `application/nutrition_input.py`, `application/intelligence_decision_workflow.py` |
 | ADR-008 | Body Composition Assessment | Accepted | `body_composition/`, `application/body_composition_input.py` |
 | ADR-009 | Adaptive Goals | Accepted | `adaptive/`, `application/intelligence_decision_workflow.py` |
+| ADR-010 | Kanoniczny Athlete Dashboard Read Model | Accepted | `dashboard/`, `application/morning_coach_use_case.py` |
 
 ## Powiązane dokumenty
 

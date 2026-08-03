@@ -249,10 +249,15 @@ Modele zwracane przez adaptery powinny być stabilnymi wejściami dla warstwy ap
 Warstwa prezentacji odpowiada za strukturę odpowiedzi dla użytkownika i jej renderowanie:
 
 - `MorningCoachPresenter` i `MorningCoachReport`;
+- `dashboard/` — immutable, typowany read model, czysty `DashboardEngine` oraz jawny `DashboardSerializer` dla ścisłego kontraktu payloadu v1.0;
 - `briefing/`, `renderers/` i część eksporterów;
 - entry pointy CLI w `scripts/`, w tym `scripts/morning_coach.py`.
 
 Presenter może mapować typowane wyniki na komunikaty, lecz nie może uruchamiać silników decyzyjnych ani zmieniać decyzji. W obecnym układzie `DecisionExplainabilityBuilder` znajduje się w `application/`; stanowi granicę application/presentation, ponieważ przekształca strukturalne powody i rekomendacje w gotowy wynik wyjaśnialności.
+
+`DashboardSerializer` mapuje `AthleteDashboard` na strukturę złożoną wyłącznie z prymitywów bezpiecznych dla JSON i odtwarza model przez jawny, ścisły schemat v1.0. Daty i timestampy używają kanonicznego ISO 8601, enumy stabilnych wartości, a tuple list. Nie wykonuje I/O ani kodowania JSON i nie jest adapterem HTTP.
+
+Publiczny `AthleteDashboard` zawsze zawiera `contract_version`, `valid_for_date`, `as_of` oraz typed sekcje health, recovery, performance, training, nutrition, body composition, goal, recommendations i data quality. Brak źródła tworzy sekcję `UNAVAILABLE`, a nie brak sekcji. `completeness_score` opisuje kompletność, nie accuracy; confidence rekomendacji pozostaje osobnym `source_confidence`.
 
 ## Composition Root
 
@@ -266,6 +271,7 @@ Kanonicznym composition root jest `application/composition.py`. Zawiera jawne, m
 | `build_athlete_goal_reader(goals=())` | immutable konfiguracja celów in-memory MVP |
 | `build_body_mass_trend_quality_evaluator()` | `BodyMassTrendQualityEvaluator` |
 | `build_goal_assessment_engine()` | `GoalAssessmentEngine` |
+| `build_dashboard_engine()` | świeży, bezstanowy `DashboardEngine` |
 | `build_intelligence_decision_workflow()` | kompletny workflow Intelligence |
 | `build_weekly_review_workflow(database)` | reader Memory, analityka i review service |
 | `build_morning_coach_use_case(database, health_repository=None)` | pełny graf MorningCoach |
@@ -280,6 +286,7 @@ flowchart TD
     MC --> IW["IntelligenceDecisionWorkflow"]
     MC --> PE["PlannerEngine"]
     MC --> MP["MorningCoachPresenter"]
+    MC --> DB["DashboardEngine"]
 
     WR --> MR["AthleteMemoryReader"]
     MR --> MRepo["AthleteMemoryRepository"]
@@ -401,7 +408,7 @@ Każdy etap otrzymuje gotowy wynik poprzedniego etapu. Workflow nie implementuje
 
 ## MorningCoach
 
-`MorningCoachUseCase` jest kanonicznym dziennym koordynatorem aplikacji. Przygotowuje wejścia, wykonuje Intelligence Workflow dokładnie raz, przekazuje decyzję do Plannera i oddaje gotowe wyniki Presenterowi.
+`MorningCoachUseCase` jest kanonicznym dziennym koordynatorem aplikacji. Przygotowuje wejścia, wykonuje Intelligence Workflow dokładnie raz, przekazuje decyzję do Plannera, oddaje gotowe wyniki Presenterowi, a następnie składa typowany Dashboard z tych samych obiektów kanonicznych.
 
 ```mermaid
 sequenceDiagram
@@ -413,6 +420,7 @@ sequenceDiagram
     participant IW as IntelligenceDecisionWorkflow
     participant PL as PlannerEngine
     participant PR as MorningCoachPresenter
+    participant DB as DashboardEngine
 
     CLI->>MC: run()
     MC->>HR: load_daily()
@@ -428,6 +436,8 @@ sequenceDiagram
     PL-->>MC: PlannedWorkout
     MC->>PR: present(intelligence, workout, state, assessment, review, adaptation)
     PR-->>MC: MorningCoachReport
+    MC->>DB: build(same canonical results)
+    DB-->>MC: AthleteDashboard
     MC-->>CLI: MorningCoachResult
 ```
 
@@ -439,10 +449,16 @@ Istotne granice:
 - `MorningCoachUseCase` nie uruchamia `NutritionEngine` ani Recommendation Engine bezpośrednio;
 - Planner otrzymuje `DecisionResult`, a nie `RecommendationResult`;
 - Presenter otrzymuje gotowe wyniki i nie uruchamia Decision ani Recommendation Engine;
+- `DashboardEngine` jest uruchamiany dokładnie raz po Presenterze i nie uruchamia ponownie żadnego silnika ani odczytu danych;
+- orkiestracja przekazuje do `DashboardEngine` te same instancje wyników źródłowych, a assembler jedynie mapuje ich dostępność do datowanego, wersjonowanego read modelu;
 - `MorningCoachResult.decision` przechowuje `WorkoutPlan`, a pola Body Composition, trend quality i Goal Assessment zachowują dokładnie te same immutable obiekty co wynik Intelligence;
-- `MorningCoachPresenter` i `MorningCoachReport` nie interpretują ani nie prezentują Body Composition, trend quality ani Goal Assessment; pełny wynik Intelligence pozostaje wejściem Presentera.
+- `MorningCoachResult.dashboard` transportuje `AthleteDashboard`; pole ma kompatybilną wartość domyślną `None` dla istniejących konstrukcji wyniku;
+- `MorningCoachResult` transportuje model, nie zserializowany payload; downstream jawnie wybiera użycie `DashboardSerializer`;
+- `MorningCoachPresenter` i `MorningCoachReport` nie interpretują ani nie prezentują Body Composition, trend quality, Goal Assessment ani Dashboardu; pełny wynik Intelligence pozostaje wejściem Presentera.
 
 `MorningCoachBuilder` i `ExplanationBuilder` pozostają dostępne jako API kompatybilnościowe. Nie uczestniczą w aktywnej ścieżce `MorningCoachUseCase`.
+
+Po zakończeniu kanonicznego przebiegu downstream może jawnie wykonać `DashboardSerializer.serialize()`. Ostateczna ścieżka read-side ma postać `MorningCoachUseCase → DashboardEngine → AthleteDashboard → DashboardSerializer → payload v1.0`; serializer nie jest wywoływany automatycznie przez use case.
 
 ## Intelligence Workflow
 
