@@ -113,6 +113,15 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 
 ## Current
 
+### Stage 11.2 — Experience Architecture, Sprint 1
+
+- natywny projekt `AthleteApp` dla iOS 18+ jest przygotowany w SwiftUI bez UIKit i z granicą MVVM;
+- pierwszy ekran Morning Briefing korzysta wyłącznie z deterministycznych Preview Data;
+- osobny model prezentacyjny chroni UI przed bezpośrednim sprzężeniem z kontraktem `AthleteDashboard`;
+- współdzielone komponenty i tokeny Theme przygotowują klienta pod kolejne feature slices;
+- backend, API, Apple Health i logika biznesowa pozostają poza zakresem Sprintu 1;
+- build oraz uruchomienie SwiftUI Preview wymagają końcowej walidacji w pełnym Xcode 17+ z SDK iOS 18; bieżące środowisko udostępnia tylko Command Line Tools.
+
 ### Engineering Handbook v1.0
 
 - ujednolicenie referencji architektonicznej, ADR-ów, standardów i strategii testowej;
