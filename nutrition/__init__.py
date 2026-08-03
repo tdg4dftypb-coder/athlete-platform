@@ -1,3 +1,4 @@
+from nutrition.engine import NutritionEngine
 from nutrition.models import (
     EnergyRequirement,
     FuelingPlan,
@@ -15,5 +16,6 @@ __all__ = [
     "MacroTargets",
     "NutritionAssessment",
     "NutritionDataStatus",
+    "NutritionEngine",
     "NutritionInput",
 ]

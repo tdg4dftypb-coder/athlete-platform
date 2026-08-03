@@ -69,6 +69,14 @@ class HydrationTarget:
 
 @dataclass(frozen=True)
 class NutritionAssessment:
+    """Nutrition result with aggregate completeness metadata.
+
+    ``data_status`` describes completeness of the entire assessment.
+    ``confidence`` is a deterministic completeness score across its four MVP
+    sections, not an estimate of accuracy, source quality, or clinical
+    reliability.
+    """
+
     energy_requirement: EnergyRequirement
     macro_targets: MacroTargets
     fueling_plan: FuelingPlan
