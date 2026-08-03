@@ -151,6 +151,7 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 - Light Mode jest głównym stylem produktu, a Dark Mode pozostaje pełnoprawnym wariantem systemowym;
 - wspólne tokeny Theme rozdzielają powierzchnie neutralne od akcentów Recovery, Training, Sleep i Attention;
 - hero używa lekkiego gradientu fioletowo-brzoskwiniowego, a pozostałe kolory wspierają skanowanie bez dominowania nad treścią;
+- stany `partial`, `unavailable`, `stale` i `failure` otrzymują odrębne tokeny informacyjne, neutralne, ostrzegawcze i błędu bez zmiany komunikatów ani semantyki;
 - struktura informacji, dane, modele prezentacyjne, nawigacja i kontrakty pozostają bez zmian.
 
 ### Stage 11.2 — Experience Architecture, Sprint 1

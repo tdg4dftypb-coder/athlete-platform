@@ -38,3 +38,13 @@ Experience Layer używa jawnego `MorningBriefingPresentationState` jako discrimi
 `partial` dotyczy kompletności, a `stale` aktualności danych. `unavailable` jest poprawnym wynikiem braku wystarczających faktów, natomiast `failure` oznacza, że oczekiwana operacja nie mogła się zakończyć.
 
 Query string `?state=<kind>` służy wyłącznie do deterministycznego Preview wszystkich wariantów. Nie jest częścią interfejsu ani przyszłego kontraktu backendowego.
+
+## Web Visual System
+
+Light Mode jest głównym kierunkiem wizualnym Athlete Platform. Jasne neutralne powierzchnie, delikatny cień i pastelowy gradient hero budują spokojny charakter porannej odprawy. Dark Mode jest wariantem systemowym opartym na ciemnych neutralnych powierzchniach bez czystej czerni i zachowuje tę samą semantykę.
+
+Kolory mają stałe znaczenie: zieleń opisuje regenerację, HRV i cele; błękit trening; fiolet sen, refleksję i briefing; pomarańcz odżywianie, obciążenie i uwagę; chłodne szaroniebieskie odcienie informacje neutralne. Kolor wspiera istniejący tekst i znaczniki, ale nigdy samodzielnie nie komunikuje stanu.
+
+Stany prezentacyjne korzystają z tokenów operacyjnych bez zmiany swojej semantyki: `partial` używa spokojnego `info`, `unavailable` wariantu neutralnego, `stale` tokenu `warning`, a `failure` stonowanego `error`. `ready` korzysta z pełnej palety obszarów, natomiast `loading` używa powierzchni neutralnych i łagodnego skeletonu respektującego `prefers-reduced-motion`.
+
+Źródłem kolorów jest jeden katalog Theme w `src/theme/tokens.css`. Katalog obejmuje powierzchnie, trzy poziomy tekstu, akcenty produktowe, statusy operacyjne, focus, postęp, cień oraz trzy punkty gradientu hero. Komponenty nie przechowują własnych wartości kolorów.

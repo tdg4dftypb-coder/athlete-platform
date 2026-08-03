@@ -52,7 +52,9 @@ Nieznana lub pominięta wartość `state` bezpiecznie wybiera `ready`. Query str
 
 ## System wizualny
 
-Morning Briefing jest light-first. Jawne tokeny Theme definiują neutralne powierzchnie oraz semantyczne akcenty: Recovery/Goal, Training, Sleep/Coach/Reflection i Attention/Load/Fuel. Komponenty odwołują się wyłącznie do tokenów, a wariant systemowego Dark Mode zachowuje znaczenie kolorów przy ograniczonym nasyceniu i bez czystej czerni.
+Morning Briefing jest light-first. Jawne tokeny Theme definiują neutralne powierzchnie oraz semantyczne akcenty: Recovery/Goal, Training, Sleep/Coach/Reflection i Nutrition/Load/Attention. Osobne tokeny `success`, `warning`, `error` i `info` obsługują stany operacyjne. Komponenty odwołują się wyłącznie do tokenów, a wariant systemowego Dark Mode zachowuje znaczenie kolorów przy ograniczonym nasyceniu i bez czystej czerni.
+
+`partial` używa spokojnego wariantu informacyjnego, `unavailable` neutralnego, `stale` wariantu uwagi, a `failure` stonowanego koralu. Znaczenie każdego stanu pozostaje również opisane tekstem i semantyką HTML, dlatego interfejs nie polega wyłącznie na kolorze.
 
 Web i zachowany klient SwiftUI mają docelowo konsumować ten sam wersjonowany kontrakt backendowy. Logika domenowa pozostaje wyłącznie w backendzie; klienci odpowiadają za mapowanie prezentacyjne i renderowanie.
 

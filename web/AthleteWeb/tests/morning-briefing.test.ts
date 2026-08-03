@@ -91,6 +91,15 @@ describe("Morning Briefing", () => {
     expect(retry).toHaveBeenCalledOnce();
   });
 
+  it.each(["partial", "unavailable", "stale", "failure"] as const)(
+    "%s exposes its semantic visual variant",
+    (kind) => {
+      document.body.append(createApp(morningBriefingPreviewStates[kind]));
+
+      expect(document.querySelector(`.state-notice--${kind}`)).not.toBeNull();
+    },
+  );
+
   it.each(["ready", "partial", "unavailable", "stale", "loading", "failure"] as const)(
     "query string selects the %s state",
     (kind) => {
