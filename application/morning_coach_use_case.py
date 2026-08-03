@@ -23,6 +23,7 @@ from athlete.intelligence.models import HealthObservationInput
 from athlete.models import AthleteState
 from athlete.review.models import WeeklyTrainingReview
 from athlete.state_builder import AthleteStateBuilder
+from body_composition import BodyCompositionAssessment
 from core.models import HealthDaily
 from decision.models import WorkoutPlan
 from engines.context_builder import ContextBuilder
@@ -50,6 +51,7 @@ class MorningCoachResult:
     decision: WorkoutPlan
     planned_workout: PlannedWorkout
     report: MorningCoachReport
+    body_composition: BodyCompositionAssessment | None = None
 
 
 class MorningCoachUseCase:
@@ -161,4 +163,5 @@ class MorningCoachUseCase:
             decision=intelligence.plan,
             planned_workout=planned_workout,
             report=report,
+            body_composition=intelligence.body_composition,
         )

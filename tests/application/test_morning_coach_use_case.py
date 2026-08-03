@@ -1,3 +1,5 @@
+from copy import deepcopy
+from dataclasses import FrozenInstanceError, replace
 from datetime import datetime, timedelta
 import inspect
 from unittest.mock import Mock
@@ -30,7 +32,13 @@ from athlete.memory.repository import AthleteMemoryRepository
 from athlete.memory.trends import TrendEngine
 from athlete.review.models import WeeklyTrainingReview
 from athlete.review.weekly import WeeklyReviewService
+from body_composition import (
+    BodyCompositionAssessment,
+    BodyCompositionDataStatus,
+    BodyCompositionProfile,
+)
 from core.database import Database
+from core.models import HealthDaily
 from decision.models import DecisionResult, WorkoutPlan
 from decision.sports import Sport
 from engines.context_builder import ContextBuilder
@@ -106,6 +114,30 @@ def build_snapshot(context) -> AthleteMemorySnapshot:
         workout_observations=(),
         source_event_ids=(),
         schema_version=1,
+    )
+
+
+def build_body_composition_assessment(
+    as_of: datetime,
+) -> BodyCompositionAssessment:
+    return BodyCompositionAssessment(
+        profile=BodyCompositionProfile(),
+        body_mass_trend=None,
+        data_status=BodyCompositionDataStatus.INSUFFICIENT_DATA,
+        confidence=0.0,
+        evidence=(),
+        limitations=(
+            "missing_body_mass",
+            "missing_body_fat_percentage",
+            "missing_muscle_mass",
+            "missing_body_water_percentage",
+            "missing_visceral_fat",
+            "missing_basal_metabolic_rate",
+            "missing_waist_circumference",
+            "insufficient_body_mass_history",
+        ),
+        valid_for_date=as_of.date(),
+        as_of=as_of,
     )
 
 
@@ -224,6 +256,58 @@ def test_use_case_composes_happy_path_and_preserves_all_results():
     )
 
 
+def test_use_case_preserves_canonical_body_composition_assessment_identity():
+    context = build_context()
+    weekly_review_workflow = Mock()
+    weekly_review_workflow.run_with_snapshot.return_value = (
+        build_snapshot(context),
+        build_review(context),
+    )
+    use_case, dependencies, _, _, _, _ = build_use_case(
+        weekly_review_workflow=weekly_review_workflow,
+        context=context,
+    )
+    assessment = build_body_composition_assessment(
+        datetime.combine(context.today.date, datetime.min.time())
+    )
+    intelligence = replace(
+        dependencies["intelligence_workflow"].run.return_value,
+        body_composition=assessment,
+    )
+    dependencies["intelligence_workflow"].run.return_value = intelligence
+    original = deepcopy(assessment)
+
+    result = use_case.run()
+
+    assert result.body_composition is assessment
+    assert result.body_composition is intelligence.body_composition
+    assert result.body_composition.data_status is (
+        BodyCompositionDataStatus.INSUFFICIENT_DATA
+    )
+    assert result.body_composition.profile == BodyCompositionProfile()
+    assert assessment == original
+    with pytest.raises(FrozenInstanceError):
+        result.body_composition = None
+    assert not hasattr(result.report, "body_composition")
+
+
+def test_use_case_preserves_compatibility_when_workflow_has_no_assessment():
+    context = build_context()
+    weekly_review_workflow = Mock()
+    weekly_review_workflow.run_with_snapshot.return_value = (
+        build_snapshot(context),
+        build_review(context),
+    )
+    use_case, _, _, _, _, _ = build_use_case(
+        weekly_review_workflow=weekly_review_workflow,
+        context=context,
+    )
+
+    result = use_case.run()
+
+    assert result.body_composition is None
+
+
 def test_use_case_uses_health_context_date_for_weekly_review_period():
     context = build_context()
     weekly_review_workflow = Mock()
@@ -334,6 +418,13 @@ def test_use_case_passes_the_canonical_result_to_the_presenter():
     assert result.report is expected_report
 
 
+def test_presenter_does_not_interpret_or_present_body_composition():
+    source = inspect.getsource(MorningCoachPresenter)
+
+    assert "body_composition" not in source
+    assert "BodyCompositionAssessment" not in source
+
+
 def test_use_case_contains_no_alternative_decision_or_recommendation_pipeline():
     source = inspect.getsource(morning_coach_use_case_module)
 
@@ -394,8 +485,15 @@ def test_canonical_morning_coach_handles_a_neutral_day_end_to_end():
         "Increase hydration.",
     )
     assert intelligence.nutrition is not None
+    assert intelligence.body_composition is not None
+    assert result.body_composition is intelligence.body_composition
+    assert result.body_composition.data_status is (
+        BodyCompositionDataStatus.INSUFFICIENT_DATA
+    )
+    assert result.body_composition.profile == BodyCompositionProfile()
     assert result.decision is intelligence.plan
     assert result.report.explanation.summary == intelligence.explainability.summary
+    assert not hasattr(result.report, "body_composition")
 
 
 def test_canonical_morning_coach_exposes_nutrition_recommendations_in_explainability():
@@ -414,6 +512,11 @@ def test_canonical_morning_coach_exposes_nutrition_recommendations_in_explainabi
 
     assert intelligence.nutrition is not None
     assert intelligence.nutrition.data_status.value == "complete"
+    assert result.body_composition is intelligence.body_composition
+    assert result.body_composition is not None
+    assert result.body_composition.profile.body_mass is not None
+    assert result.body_composition.profile.body_mass.value == 80.0
+    assert result.body_composition.body_mass_trend is None
     assert tuple(
         recommendation.type
         for recommendation in intelligence.recommendations.recommendations
@@ -456,6 +559,60 @@ def test_canonical_morning_coach_handles_low_recovery_end_to_end():
     )
 
 
+def test_canonical_morning_coach_preserves_a_stale_body_mass_assessment():
+    context = build_context(sleep=480)
+    athlete = build_athlete(recovery_score=80, fatigue=20, freshness=20)
+    use_case, workflow = build_canonical_use_case(
+        context=context,
+        athlete=athlete,
+    )
+    stale = HealthDaily(
+        context.today.date - timedelta(days=31),
+        weight=81.0,
+    )
+    use_case.health_repository.load_daily.return_value = [stale, context.today]
+
+    result = use_case.run()
+    intelligence = workflow.results[0]
+
+    assert result.body_composition is intelligence.body_composition
+    assert result.body_composition is not None
+    assert result.body_composition.data_status is (
+        BodyCompositionDataStatus.INSUFFICIENT_DATA
+    )
+    assert result.body_composition.profile.body_mass is None
+    assert "stale_body_mass" in result.body_composition.limitations
+    use_case.health_repository.load_daily.assert_called_once_with()
+
+
+def test_canonical_morning_coach_preserves_the_full_body_mass_trend():
+    context = build_context(sleep=480)
+    context.today.weight = 80.0
+    athlete = build_athlete(recovery_score=80, fatigue=20, freshness=20)
+    use_case, workflow = build_canonical_use_case(
+        context=context,
+        athlete=athlete,
+    )
+    baseline = HealthDaily(
+        context.today.date - timedelta(days=28),
+        weight=81.0,
+    )
+    use_case.health_repository.load_daily.return_value = [
+        baseline,
+        context.today,
+    ]
+
+    result = use_case.run()
+    intelligence = workflow.results[0]
+
+    assert result.body_composition is intelligence.body_composition
+    assert result.body_composition is not None
+    assert result.body_composition.body_mass_trend is not None
+    assert result.body_composition.body_mass_trend.period_days == 28
+    assert result.body_composition.body_mass_trend.absolute_change_kg == -1.0
+    use_case.health_repository.load_daily.assert_called_once_with()
+
+
 def test_canonical_morning_coach_is_deterministic_with_sleep_debt_and_many_rules():
     context = build_context(sleep=360)
     context.sleep.average_7 = 420
@@ -477,6 +634,9 @@ def test_canonical_morning_coach_is_deterministic_with_sleep_debt_and_many_rules
 
     assert first_intelligence == second_intelligence
     assert first == second
+    assert first.body_composition is first_intelligence.body_composition
+    assert second.body_composition is second_intelligence.body_composition
+    assert first.body_composition == second.body_composition
     assert tuple(
         recommendation.type
         for recommendation in first_intelligence.recommendations.recommendations
