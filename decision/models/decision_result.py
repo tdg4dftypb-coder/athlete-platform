@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 
-from decision.prescription.models import TrainingObjective
+from decision.prescription.models import DecisionReason, TrainingObjective
 from decision.sports import Sport
 from workout.enums import WorkoutType
 
@@ -29,3 +29,5 @@ class DecisionResult:
     source_rules: list[str] = field(
         default_factory=list,
     )
+
+    decision_reasons: tuple[DecisionReason, ...] = ()

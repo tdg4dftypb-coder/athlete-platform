@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 
+from .decision_reason import DecisionReason
 from .training_objective import TrainingObjective
 
 
@@ -17,3 +18,5 @@ class TrainingPrescription:
     confidence: int
 
     reasons: list[str] = field(default_factory=list)
+
+    decision_reasons: tuple[DecisionReason, ...] = ()

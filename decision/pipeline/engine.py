@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from application.adaptation import AdaptationDirective
 from athlete.models import AthleteState
 
@@ -6,6 +8,9 @@ from decision.diagnosis.models import AthleteDiagnosis
 
 from decision.prescription import PrescriptionEngine
 from decision.prescription.models import TrainingPrescription
+
+if TYPE_CHECKING:
+    from athlete.intelligence.models import AthleteInsight
 
 
 class DecisionPipeline:
@@ -19,6 +24,7 @@ class DecisionPipeline:
         self,
         athlete: AthleteState,
         adaptation: AdaptationDirective | None = None,
+        insights: tuple["AthleteInsight", ...] = (),
     ) -> tuple[
         AthleteDiagnosis,
         TrainingPrescription,
@@ -31,6 +37,7 @@ class DecisionPipeline:
         prescription = self.prescription.prescribe(
             diagnosis,
             adaptation,
+            insights,
         )
 
         return (

@@ -196,9 +196,11 @@ class OrderedDecisionEngine:
     def __init__(self, calls: list[str]) -> None:
         self.calls = calls
         self.engine = DecisionEngine()
+        self.arguments = []
 
     def decide(self, *args, **kwargs):
         self.calls.append("decision")
+        self.arguments.append((args, kwargs))
         return self.engine.decide(*args, **kwargs)
 
 
@@ -492,6 +494,36 @@ def test_workflow_passes_exact_pipeline_outputs_through_recommendation_stage():
         (result.decision.decision_reasons, expected_recommendations)
     ]
     assert context == recommendation_engine.snapshots[0]
+
+
+def test_workflow_passes_built_insights_to_decision_engine_exactly_once():
+    calls: list[str] = []
+    decision_engine = OrderedDecisionEngine(calls)
+    health = HealthObservationInput(
+        observed_at=datetime(2026, 7, 1, 8),
+        hrv_delta_percent=-5.0,
+        sleep_duration_minutes=360.0,
+        sleep_baseline_minutes=420.0,
+        recovery_score=None,
+        evidence=("health-day-1",),
+    )
+
+    result = IntelligenceDecisionWorkflow(
+        decision_engine=decision_engine,
+    ).run(build_athlete(), health=health)
+
+    assert calls.count("decision") == 1
+    assert len(decision_engine.arguments) == 1
+    args, kwargs = decision_engine.arguments[0]
+    assert kwargs == {}
+    assert args[2] is result.insights
+
+
+def test_application_public_api_does_not_expose_decision_input():
+    import application
+
+    assert "DecisionInput" not in application.__all__
+    assert not hasattr(application, "DecisionInput")
 
 
 def test_workflow_supports_an_empty_recommendation_result():

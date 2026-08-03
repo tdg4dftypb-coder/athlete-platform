@@ -68,6 +68,8 @@ class SelectionEngine:
             source_rules=[
                 "SelectionEngine",
             ],
+
+            decision_reasons=prescription.decision_reasons,
         )
 
         plan.add_result(
