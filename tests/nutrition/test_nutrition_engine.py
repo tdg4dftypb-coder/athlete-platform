@@ -19,8 +19,12 @@ AS_OF = datetime(2026, 8, 3, 6, 0)
 ENERGY_DATE = date(2026, 8, 3)
 UNAVAILABLE_ASSESSMENT_LIMITATIONS = (
     "missing_estimated_daily_requirement",
+    "missing_fresh_body_mass",
     "missing_macro_targets",
+    "fat_target_unavailable",
+    "missing_training_plan",
     "missing_fueling_plan",
+    "electrolyte_target_unavailable",
     "missing_hydration_target",
     "missing_energy_intake",
 )
@@ -33,8 +37,6 @@ def _input(**changes) -> NutritionInput:
         resting_energy_kcal=1800.0,
         active_energy_kcal=700.0,
         energy_observed_for_date=ENERGY_DATE,
-        planned_duration_min=90,
-        planned_target_tss=100.0,
         evidence=(
             "health_daily:2026-08-03:active_energy",
             "health_daily:2026-08-03:resting_energy",
@@ -168,7 +170,7 @@ def test_single_energy_component_without_date_is_partial(
     )
 
 
-def test_stage_7_3_never_returns_complete_status():
+def test_energy_only_inputs_never_return_complete_status():
     assessments = (
         NutritionEngine().analyze(_input()),
         NutritionEngine().analyze(_input(active_energy_kcal=None)),
