@@ -10,6 +10,7 @@ from body_composition.models import (
     BodyCompositionInput,
     BodyCompositionObservation,
     BodyCompositionProfile,
+    BodyMassTrend,
     BodyMeasurement,
 )
 
@@ -24,6 +25,9 @@ class _MetricPolicy:
 
 
 _FRESHNESS_MAX_AGE_V1 = timedelta(days=30)
+_BODY_MASS_TREND_TARGET_DAYS_V1 = 28
+_BODY_MASS_TREND_MIN_DAYS_V1 = 21
+_BODY_MASS_TREND_MAX_DAYS_V1 = 35
 
 _METRIC_POLICIES_V1 = (
     _MetricPolicy(
@@ -73,7 +77,8 @@ class BodyCompositionEngine:
 
     Freshness Policy v1 treats measurements up to and including 30 days old
     as current. The threshold is an explicit MVP policy, not a physiological
-    or clinical constant.
+    or clinical constant. Body Mass Trend Policy v1 selects a baseline 21 to
+    35 days before current, preferring 28 days and then the older tied point.
     """
 
     def analyze(
@@ -93,7 +98,6 @@ class BodyCompositionEngine:
             if limitation is not None:
                 limitations.append(limitation)
 
-        limitations.append("insufficient_body_mass_history")
         profile = BodyCompositionProfile(
             body_mass=selected["body_mass_kg"],
             body_fat=selected["body_fat_percent"],
@@ -103,6 +107,12 @@ class BodyCompositionEngine:
             basal_metabolic_rate=selected["basal_metabolic_rate_kcal"],
             waist_circumference=selected["waist_circumference_cm"],
         )
+        body_mass_trend = self._build_body_mass_trend(
+            body_composition_input,
+            profile.body_mass,
+        )
+        if body_mass_trend is None:
+            limitations.append("insufficient_body_mass_history")
 
         confidence = sum(
             0.25
@@ -113,11 +123,15 @@ class BodyCompositionEngine:
             )
             if selected[field_name] is not None
         )
-        data_status = (
-            BodyCompositionDataStatus.PARTIAL
-            if confidence > 0.0
-            else BodyCompositionDataStatus.INSUFFICIENT_DATA
-        )
+        if body_mass_trend is not None:
+            confidence += 0.25
+
+        if confidence == 1.0:
+            data_status = BodyCompositionDataStatus.COMPLETE
+        elif confidence > 0.0:
+            data_status = BodyCompositionDataStatus.PARTIAL
+        else:
+            data_status = BodyCompositionDataStatus.INSUFFICIENT_DATA
 
         evidence = tuple(
             sorted(
@@ -131,7 +145,7 @@ class BodyCompositionEngine:
 
         return BodyCompositionAssessment(
             profile=profile,
-            body_mass_trend=None,
+            body_mass_trend=body_mass_trend,
             data_status=data_status,
             confidence=confidence,
             evidence=evidence,
@@ -218,10 +232,9 @@ class BodyCompositionEngine:
         body_composition_input: BodyCompositionInput,
         policy: _MetricPolicy,
     ) -> tuple[BodyMeasurement | None, str | None]:
-        candidates = tuple(
-            (observation.observed_for_date, getattr(observation, policy.input_field))
-            for observation in body_composition_input.observations
-            if getattr(observation, policy.input_field) is not None
+        candidates = cls._normalized_metric_history(
+            body_composition_input.observations,
+            policy,
         )
         if not candidates:
             return None, policy.missing_limitation
@@ -241,6 +254,69 @@ class BodyCompositionEngine:
             ),
             None,
         )
+
+    @classmethod
+    def _build_body_mass_trend(
+        cls,
+        body_composition_input: BodyCompositionInput,
+        current: BodyMeasurement | None,
+    ) -> BodyMassTrend | None:
+        if current is None:
+            return None
+
+        body_mass_policy = _METRIC_POLICIES_V1[0]
+        history = cls._normalized_metric_history(
+            body_composition_input.observations,
+            body_mass_policy,
+        )
+        current_date = current.observed_at.date()
+        baseline_candidates = tuple(
+            (observed_for_date, value, (current_date - observed_for_date).days)
+            for observed_for_date, value in history
+            if _BODY_MASS_TREND_MIN_DAYS_V1
+            <= (current_date - observed_for_date).days
+            <= _BODY_MASS_TREND_MAX_DAYS_V1
+        )
+        if not baseline_candidates:
+            return None
+
+        baseline_date, baseline_value, period_days = min(
+            baseline_candidates,
+            key=lambda candidate: (
+                abs(candidate[2] - _BODY_MASS_TREND_TARGET_DAYS_V1),
+                candidate[0],
+            ),
+        )
+        baseline = BodyMeasurement(
+            value=baseline_value,
+            observed_at=cls._at_start_of_day(
+                baseline_date,
+                body_composition_input.as_of,
+            ),
+        )
+        absolute_change_kg = current.value - baseline.value
+
+        return BodyMassTrend(
+            current=current,
+            baseline=baseline,
+            period_days=period_days,
+            absolute_change_kg=absolute_change_kg,
+            percentage_change=absolute_change_kg / baseline.value * 100.0,
+        )
+
+    @staticmethod
+    def _normalized_metric_history(
+        observations: tuple[BodyCompositionObservation, ...],
+        policy: _MetricPolicy,
+    ) -> tuple[tuple[date, float], ...]:
+        values_by_date = {
+            observation.observed_for_date: float(
+                getattr(observation, policy.input_field)
+            )
+            for observation in observations
+            if getattr(observation, policy.input_field) is not None
+        }
+        return tuple(sorted(values_by_date.items()))
 
     @staticmethod
     def _at_start_of_day(day: date, as_of: datetime) -> datetime:

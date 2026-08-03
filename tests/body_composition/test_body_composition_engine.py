@@ -475,6 +475,231 @@ def test_engine_is_deterministic_and_does_not_mutate_input():
         first.confidence = 0.0
 
 
+@pytest.mark.parametrize("period_days", (21, 28, 35))
+def test_body_mass_trend_accepts_policy_window_boundaries(period_days):
+    observations = (
+        _observation(VALID_FOR_DATE, body_mass_kg=80.0),
+        _observation(
+            VALID_FOR_DATE - timedelta(days=period_days),
+            body_mass_kg=78.0,
+        ),
+    )
+
+    result = BodyCompositionEngine().analyze(_input(observations))
+    trend = result.body_mass_trend
+
+    assert trend is not None
+    assert trend.period_days == period_days
+    assert trend.current is result.profile.body_mass
+    assert trend.baseline.value == 78.0
+    assert trend.absolute_change_kg == 2.0
+    assert trend.percentage_change == pytest.approx(2.0 / 78.0 * 100.0)
+
+
+@pytest.mark.parametrize(
+    ("current_value", "baseline_value", "expected_change"),
+    (
+        (82.0, 80.0, 2.0),
+        (78.0, 80.0, -2.0),
+        (80.0, 80.0, 0.0),
+    ),
+)
+def test_body_mass_trend_preserves_change_sign_without_classification(
+    current_value,
+    baseline_value,
+    expected_change,
+):
+    observations = (
+        _observation(VALID_FOR_DATE, body_mass_kg=current_value),
+        _observation(
+            VALID_FOR_DATE - timedelta(days=28),
+            body_mass_kg=baseline_value,
+        ),
+    )
+
+    trend = BodyCompositionEngine().analyze(_input(observations)).body_mass_trend
+
+    assert trend.absolute_change_kg == expected_change
+    assert trend.percentage_change == pytest.approx(
+        expected_change / baseline_value * 100.0
+    )
+
+
+def test_baseline_closest_to_28_days_is_selected():
+    observations = (
+        _observation(VALID_FOR_DATE, body_mass_kg=80.0),
+        _observation(VALID_FOR_DATE - timedelta(days=25), body_mass_kg=79.0),
+        _observation(VALID_FOR_DATE - timedelta(days=28), body_mass_kg=78.0),
+    )
+
+    trend = BodyCompositionEngine().analyze(_input(observations)).body_mass_trend
+
+    assert trend.period_days == 28
+    assert trend.baseline.value == 78.0
+
+
+def test_baseline_tie_selects_the_older_measurement():
+    observations = (
+        _observation(VALID_FOR_DATE, body_mass_kg=80.0),
+        _observation(VALID_FOR_DATE - timedelta(days=27), body_mass_kg=79.0),
+        _observation(VALID_FOR_DATE - timedelta(days=29), body_mass_kg=78.0),
+    )
+
+    trend = BodyCompositionEngine().analyze(_input(observations)).body_mass_trend
+
+    assert trend.period_days == 29
+    assert trend.baseline.value == 78.0
+
+
+def test_identical_baseline_duplicates_are_normalized_for_trend():
+    baseline_date = VALID_FOR_DATE - timedelta(days=28)
+    observations = (
+        _observation(VALID_FOR_DATE, body_mass_kg=80.0),
+        _observation(
+            baseline_date,
+            body_mass_kg=78.0,
+            evidence=("baseline:a",),
+        ),
+        _observation(
+            baseline_date,
+            body_mass_kg=78.0,
+            evidence=("baseline:b",),
+        ),
+    )
+
+    result = BodyCompositionEngine().analyze(_input(observations))
+
+    assert result.body_mass_trend.baseline.value == 78.0
+    assert result.evidence == ("baseline:a", "baseline:b")
+
+
+def test_conflicting_baseline_duplicates_are_rejected():
+    baseline_date = VALID_FOR_DATE - timedelta(days=28)
+    observations = (
+        _observation(VALID_FOR_DATE, body_mass_kg=80.0),
+        _observation(baseline_date, body_mass_kg=78.0),
+        _observation(baseline_date, body_mass_kg=79.0),
+    )
+
+    with pytest.raises(ValueError, match="conflicting body_mass_kg"):
+        BodyCompositionEngine().analyze(_input(observations))
+
+
+@pytest.mark.parametrize("period_days", (20, 36))
+def test_body_mass_trend_rejects_periods_outside_policy_window(period_days):
+    observations = (
+        _observation(VALID_FOR_DATE, body_mass_kg=80.0),
+        _observation(
+            VALID_FOR_DATE - timedelta(days=period_days),
+            body_mass_kg=78.0,
+        ),
+    )
+
+    result = BodyCompositionEngine().analyze(_input(observations))
+
+    assert result.body_mass_trend is None
+    assert result.confidence == 0.25
+    assert result.limitations.count("insufficient_body_mass_history") == 1
+
+
+def test_body_mass_trend_is_missing_without_current_body_mass():
+    result = BodyCompositionEngine().analyze(
+        _input((_observation(body_fat_percent=15.0),))
+    )
+
+    assert result.profile.body_mass is None
+    assert result.body_mass_trend is None
+    assert "insufficient_body_mass_history" in result.limitations
+
+
+def test_stale_current_body_mass_cannot_create_a_trend():
+    current_date = VALID_FOR_DATE - timedelta(days=31)
+    observations = (
+        _observation(current_date, body_mass_kg=80.0),
+        _observation(current_date - timedelta(days=28), body_mass_kg=78.0),
+    )
+
+    result = BodyCompositionEngine().analyze(_input(observations))
+
+    assert result.profile.body_mass is None
+    assert result.body_mass_trend is None
+    assert "stale_body_mass" in result.limitations
+    assert "insufficient_body_mass_history" in result.limitations
+
+
+def test_current_body_mass_and_trend_contribute_half_completeness():
+    observations = (
+        _observation(VALID_FOR_DATE, body_mass_kg=80.0),
+        _observation(VALID_FOR_DATE - timedelta(days=28), body_mass_kg=78.0),
+    )
+
+    result = BodyCompositionEngine().analyze(_input(observations))
+
+    assert result.confidence == 0.5
+    assert result.data_status is BodyCompositionDataStatus.PARTIAL
+    assert "insufficient_body_mass_history" not in result.limitations
+
+
+def test_all_four_sections_produce_a_complete_assessment():
+    observations = (
+        _observation(
+            VALID_FOR_DATE,
+            body_mass_kg=80.0,
+            body_fat_percent=15.0,
+            muscle_mass_kg=38.0,
+        ),
+        _observation(VALID_FOR_DATE - timedelta(days=28), body_mass_kg=78.0),
+    )
+
+    result = BodyCompositionEngine().analyze(_input(observations))
+
+    assert result.confidence == 1.0
+    assert result.data_status is BodyCompositionDataStatus.COMPLETE
+    assert result.body_mass_trend is not None
+    assert "insufficient_body_mass_history" not in result.limitations
+
+
+def test_trend_assessment_is_deterministic_and_does_not_mutate_input():
+    observations = (
+        _observation(
+            VALID_FOR_DATE,
+            body_mass_kg=80.0,
+            evidence=("current:b", "current:a"),
+        ),
+        _observation(
+            VALID_FOR_DATE - timedelta(days=27),
+            body_mass_kg=79.0,
+            evidence=("baseline:27",),
+        ),
+        _observation(
+            VALID_FOR_DATE - timedelta(days=29),
+            body_mass_kg=78.0,
+            evidence=("baseline:29",),
+        ),
+    )
+    body_input = _input(
+        observations,
+        evidence=("input:b", "input:a"),
+    )
+    original = deepcopy(body_input)
+    engine = BodyCompositionEngine()
+
+    first = engine.analyze(body_input)
+    second = engine.analyze(body_input)
+    reversed_result = engine.analyze(
+        _input(
+            tuple(reversed(observations)),
+            evidence=tuple(reversed(body_input.evidence)),
+        )
+    )
+
+    assert first == second == reversed_result
+    assert first.body_mass_trend.current is first.profile.body_mass
+    assert body_input == original
+    with pytest.raises(FrozenInstanceError):
+        first.body_mass_trend.period_days = 1
+
+
 def test_engine_is_public_and_has_no_forbidden_architecture_dependencies():
     from body_composition import BodyCompositionEngine as PublicEngine
 
