@@ -263,6 +263,9 @@ Kanonicznym composition root jest `application/composition.py`. Zawiera jawne, m
 | `build_decision_engine()` | `DecisionEngine` |
 | `build_planner_engine()` | `PlannerEngine` |
 | `build_recommendation_engine()` | sześć reguł, `RecommendationBuilder` i `RecommendationEngine` |
+| `build_athlete_goal_reader(goals=())` | immutable konfiguracja celów in-memory MVP |
+| `build_body_mass_trend_quality_evaluator()` | `BodyMassTrendQualityEvaluator` |
+| `build_goal_assessment_engine()` | `GoalAssessmentEngine` |
 | `build_intelligence_decision_workflow()` | kompletny workflow Intelligence |
 | `build_weekly_review_workflow(database)` | reader Memory, analityka i review service |
 | `build_morning_coach_use_case(database, health_repository=None)` | pełny graf MorningCoach |
@@ -286,6 +289,10 @@ flowchart TD
     IW --> DE["DecisionEngine"]
     IW --> BCIB["BodyCompositionInputBuilder"]
     IW --> BCE["BodyCompositionEngine"]
+    IW --> TQB["BodyMassTrendQualityInputBuilder"]
+    IW --> TQE["BodyMassTrendQualityEvaluator"]
+    IW --> GR["AthleteGoalReader"]
+    IW --> GAE["GoalAssessmentEngine"]
     IW --> NIB["NutritionInputBuilder"]
     IW --> NE["NutritionEngine"]
     IW --> RE["RecommendationEngine"]
@@ -297,14 +304,14 @@ flowchart TD
 
 Entry point `scripts/morning_coach.py` tworzy `Database`, przekazuje ją do `build_morning_coach_use_case()` i uruchamia gotowy use case. Skrypt nie konfiguruje samodzielnie silników.
 
-`_DeferredHealthHistoryReader` opóźnia utworzenie domyślnego `HealthRepository` do pierwszego odczytu. Pozwala zbudować graf bez wykonania zapytania do bazy i zachowuje możliwość wstrzyknięcia testowego `HealthHistoryReader`.
+`_DeferredHealthHistoryReader` opóźnia utworzenie domyślnego `HealthRepository` do pierwszego odczytu. Pozwala zbudować graf bez wykonania zapytania do bazy i zachowuje możliwość wstrzyknięcia testowego `HealthHistoryReader`. `InMemoryAthleteGoalReader` jest konfiguracyjnym źródłem MVP opartym na immutable tuple; nie wykonuje I/O. Trwały adapter celu pozostaje przyszłą odpowiedzialnością Infrastructure.
 
 ## Dependency Injection
 
 Projekt stosuje constructor injection bez frameworka DI:
 
 - use case otrzymuje gotowe workflow, silniki, builders i presenter;
-- `IntelligenceDecisionWorkflow` otrzymuje projector, insight builder, Decision Engine, Body Composition Input Builder, Body Composition Engine, Nutrition Input Builder, Nutrition Engine, Recommendation Engine i explainability builder;
+- `IntelligenceDecisionWorkflow` otrzymuje projector, insight builder, Decision Engine, komponenty Body Composition i trend quality, `AthleteGoalReader`, `GoalAssessmentEngine`, komponenty Nutrition, Recommendation Engine i explainability builder;
 - `RecommendationEngine` otrzymuje immutable tuple reguł oraz builder;
 - `WeeklyReviewWorkflow` otrzymuje reader, silniki analityczne i review service;
 - adaptery infrastrukturalne otrzymują połączenie lub `Database` w composition root.
@@ -347,6 +354,17 @@ flowchart TD
     BCIN --> BCE["BodyCompositionEngine"]
     BCE --> BCA["BodyCompositionAssessment"]
 
+    BCIN --> TQI["BodyMassTrendQualityInputBuilder"]
+    BCA --> TQI
+    TQI --> TQE["BodyMassTrendQualityEvaluator"]
+    TQE --> TQ["BodyMassTrendQuality"]
+    GS["AthleteGoalReader"] --> AG["active AthleteGoal"]
+    AG --> GAE["GoalAssessmentEngine"]
+    BCA --> GAE
+    TQ --> GAE
+    AD --> GAE
+    GAE --> GA["GoalAssessment"]
+
     DR --> NI["NutritionInputBuilder"]
     HI --> NI
     NI --> NIN["NutritionInput"]
@@ -357,6 +375,7 @@ flowchart TD
     INS --> RC
     OBS --> RC
     NA --> RC
+    GA --> RC
     RC --> RE["RecommendationEngine"]
     RE --> RRES["RecommendationResult"]
 
@@ -372,6 +391,8 @@ Wynikiem workflow jest immutable `IntelligenceDecisionResult`, który zawiera:
 - `WorkoutPlan`;
 - wyodrębniony `DecisionResult`;
 - `BodyCompositionAssessment` zbudowany przed Nutrition z istniejącej historii health;
+- `BodyMassTrendQuality` zbudowany z tych samych `BodyCompositionInput` i `BodyCompositionAssessment`;
+- `GoalAssessment` zbudowany z aktywnego celu, trend quality i tej samej dyrektywy adaptacyjnej;
 - `NutritionAssessment` zbudowany z tego samego kanonicznego przebiegu;
 - `RecommendationResult`;
 - `ExplainabilityResult`.
@@ -418,8 +439,8 @@ Istotne granice:
 - `MorningCoachUseCase` nie uruchamia `NutritionEngine` ani Recommendation Engine bezpośrednio;
 - Planner otrzymuje `DecisionResult`, a nie `RecommendationResult`;
 - Presenter otrzymuje gotowe wyniki i nie uruchamia Decision ani Recommendation Engine;
-- `MorningCoachResult.decision` przechowuje `WorkoutPlan`, a `MorningCoachResult.body_composition` zachowuje dokładnie ten sam immutable assessment co wynik Intelligence;
-- `MorningCoachPresenter` i `MorningCoachReport` nie interpretują ani nie prezentują Body Composition; pełny wynik Intelligence pozostaje wejściem Presentera.
+- `MorningCoachResult.decision` przechowuje `WorkoutPlan`, a pola Body Composition, trend quality i Goal Assessment zachowują dokładnie te same immutable obiekty co wynik Intelligence;
+- `MorningCoachPresenter` i `MorningCoachReport` nie interpretują ani nie prezentują Body Composition, trend quality ani Goal Assessment; pełny wynik Intelligence pozostaje wejściem Presentera.
 
 `MorningCoachBuilder` i `ExplanationBuilder` pozostają dostępne jako API kompatybilnościowe. Nie uczestniczą w aktywnej ścieżce `MorningCoachUseCase`.
 
@@ -493,7 +514,9 @@ Reguła Nutrition zwraca pusty wynik, gdy context nie zawiera assessmentu. Kanon
 
 `NutritionRecommendationRule` aktywuje zwiększenie podaży węglowodanów wyłącznie przy dostępnym celu. Enum `RecommendationType` zawiera również ograniczenie dodatkowej aktywności, dla którego obecnie nie istnieje reguła aktywująca.
 
-Pole `goal_assessment` pozostaje opcjonalne. Stage 9.5 konfiguruje regułę i explainability, ale kanoniczny workflow nie przekazuje jeszcze assessmentu, dlatego reguła zwraca w tej ścieżce pusty wynik.
+Pole `goal_assessment` pozostaje kompatybilnie opcjonalne. W datowanym canonical run workflow przekazuje dokładnie ten sam assessment do `RecommendationContext` i `IntelligenceDecisionResult`; brak aktywnego celu tworzy stabilny wynik `INSUFFICIENT_DATA` i nie aktywuje reguły.
+
+Domyślny adapter trend quality zachowuje `source_consistency_unknown`, ponieważ aktualne fakty health nie dostarczają potwierdzonego provenance źródła. Pełna aktywacja reguły wymaga jawnie przygotowanego `BodyMassTrendQuality` o statusie `COMPLETE`; workflow nie zgaduje tej informacji.
 
 ### Normalizacja
 

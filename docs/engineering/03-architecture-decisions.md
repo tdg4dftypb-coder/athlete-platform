@@ -13,6 +13,7 @@
 - [ADR-006 — Kanoniczny MorningCoach](#adr-006---kanoniczny-morningcoach)
 - [ADR-007 — Kanoniczna integracja Nutrition](#adr-007---kanoniczna-integracja-nutrition)
 - [ADR-008 — Body Composition Assessment](#adr-008---body-composition-assessment)
+- [ADR-009 — Adaptive Goals](#adr-009---adaptive-goals)
 - [Rejestr ADR](#rejestr-adr)
 - [Powiązane dokumenty](#powiązane-dokumenty)
 
@@ -324,13 +325,50 @@ Body Composition wymaga deterministycznej oceny aktualnego profilu i trendu masy
 - istnieje jeden canonical pipeline i jeden odczyt historii health;
 - Body Composition pozostaje niezależne od Recommendation, Explainability, MorningCoach i infrastruktury;
 - `MorningCoachReport` pozostaje kompatybilny i nie zawiera sekcji Body Composition;
-- Recommendation integration oraz prezentacyjne explainability wymagają późniejszej, osobnej decyzji;
+- integracja Adaptive Goal Recommendation i odpowiadające explainability są regulowane osobno przez ADR-009 i pozostają poza zakresem decyzji Stage 8;
 
 ### Alternatives considered
 
 - **Body Composition Recommendation Rule w Stage 8** — odroczona; brak wymaganej historii, polityk i celów użytkownika.
 - **Uruchamianie silnika w MorningCoachUseCase** — odrzucone; use case przekazuje dane do canonical workflow.
 - **Osobny workflow Body Composition** — odrzucony; tworzyłby równoległy pipeline.
+
+## ADR-009 — Adaptive Goals
+
+### Status
+
+**Accepted**
+
+### Context
+
+Ocena celu masy ciała wymaga jawnego celu, gotowego Body Composition Assessment, osobnej oceny jakości trendu oraz istniejącego sygnału bezpieczeństwa adaptacji. Reguła Recommendation nie może odtwarzać tych danych ani interpretować surowego trendu.
+
+### Decision
+
+- `AthleteGoal` jest immutable konfiguracją i encją domenową poza Athlete Memory; `BodyMassTrendQuality` oraz efemeryczny `GoalAssessment` są immutable projekcjami domenowymi;
+- `AthleteGoalReader` jest portem źródła aktywnego celu, a konfiguracja MVP używa bezstanowego `InMemoryAthleteGoalReader` bez I/O;
+- `IntelligenceDecisionWorkflow` używa tych samych `BodyCompositionInput` i `BodyCompositionAssessment` do jednorazowej oceny trend quality;
+- `GoalAssessmentEngine` otrzymuje aktywny cel, gotowe assessmenty i tę samą `AdaptationDirective`; nie tworzy rekomendacji;
+- dokładnie ten sam `GoalAssessment` trafia do `RecommendationContext`, `IntelligenceDecisionResult` i `MorningCoachResult`;
+- jedyny globalny Recommendation Engine uruchamia `AdaptiveGoalRecommendationRule`, która może wygenerować wyłącznie neutralne `REVIEW_BODY_COMPOSITION_TREND`;
+- `GoalAssessment` nie zmienia `DecisionResult` ani decyzji treningowej;
+- Presenter i `MorningCoachReport` nie analizują celu ani assessmentu i nie otrzymują nowej sekcji tekstowej;
+- trwałe persistence celu wymaga przyszłego adaptera Infrastructure i nie należy do konfiguracji in-memory MVP;
+- Energy Balance nie może powstać bez rzeczywistego Nutrition Intake; oba elementy pozostają poza Stage 9.
+
+### Consequences
+
+- cel nie zmienia decyzji treningowej ani Body Composition Assessment;
+- brak celu, niepełna jakość trendu lub aktywny safety gate prowadzą do kontrolowanego braku adaptive recommendation;
+- canonical workflow zachowuje jeden Recommendation Engine i jedno Explainability;
+- Athlete Memory nie przechowuje konfiguracji `AthleteGoal`.
+
+### Alternatives considered
+
+- **Osobny Adaptive Recommendation Engine** — odrzucony jako konkurencyjny pipeline.
+- **Analiza trendu w RecommendationRule** — odrzucona; reguła konsumuje wyłącznie gotowy `GoalAssessment`.
+- **Reader lub GoalAssessmentEngine w MorningCoachUseCase** — odrzucone; orkiestracja należy do Intelligence Workflow.
+- **DuckDB goal repository w MVP** — odroczone do osobnej decyzji persistence.
 
 ## Rejestr ADR
 
@@ -344,6 +382,7 @@ Body Composition wymaga deterministycznej oceny aktualnego profilu i trendu masy
 | ADR-006 | Kanoniczny MorningCoach | Accepted | `application/morning_coach_use_case.py` |
 | ADR-007 | Kanoniczna integracja Nutrition | Accepted | `application/nutrition_input.py`, `application/intelligence_decision_workflow.py` |
 | ADR-008 | Body Composition Assessment | Accepted | `body_composition/`, `application/body_composition_input.py` |
+| ADR-009 | Adaptive Goals | Accepted | `adaptive/`, `application/intelligence_decision_workflow.py` |
 
 ## Powiązane dokumenty
 

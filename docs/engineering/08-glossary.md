@@ -39,6 +39,10 @@ Niezmienny historyczny zapis jednego obsługiwanego zdarzenia z identity, czasem
 
 Odtwarzalna, typowana projekcja eventów Memory z zakresu czasu `[start, end)`; jest wejściem analityki, a nie źródłem prawdy.
 
+### Athlete Goal
+
+Immutable, datowany cel zawodnika wybierany przez `AthleteGoalReader`; obecne typy MVP to utrzymanie lub redukcja masy ciała. Nie jest rekomendacją ani decyzją treningową.
+
 ### Athlete State
 
 Bieżący agregat danych potrzebnych do decyzji i planowania, złożony m.in. ze stanu health, recovery, performance i contextu.
@@ -50,6 +54,10 @@ Immutable wynik `BodyCompositionEngine` zawierający aktualny profil, opcjonalny
 ### Body Composition Input
 
 Immutable, znormalizowana historia pomiarów składu ciała przygotowana w Application Layer; obecny adapter mapuje wyłącznie dostępne `HealthDaily.weight` bez dodatkowego I/O.
+
+### Body Mass Trend Quality
+
+Immutable ocena kompletności faktów potrzebnych do bezpiecznego użycia gotowego trendu masy. Nie klasyfikuje kierunku trendu ani jego zgodności z celem.
 
 ### Decision
 
@@ -81,7 +89,11 @@ Efemeryczna, deterministyczna interpretacja jednej lub wielu observations, zawie
 
 ### MorningCoach
 
-Kanoniczny dzienny use case przygotowujący stan i historię zawodnika, uruchamiający Intelligence Workflow raz, planujący trening i prezentujący kompatybilny raport. `MorningCoachResult` udostępnia canonical Body Composition Assessment bez jego interpretacji przez Presenter.
+Kanoniczny dzienny use case przygotowujący stan i historię zawodnika, uruchamiający Intelligence Workflow raz, planujący trening i prezentujący kompatybilny raport. `MorningCoachResult` udostępnia canonical Body Composition, Body Mass Trend Quality i Goal Assessment bez ich interpretacji przez Presenter.
+
+### Goal Assessment
+
+Immutable completeness assessment odpowiadający, czy kontekst aktywnego celu, masy ciała, trend quality i bezpieczeństwa jest wystarczający dla późniejszej reguły Recommendation. Nie interpretuje kierunku trendu i nie generuje rekomendacji.
 
 ### Nutrition Assessment
 
@@ -117,7 +129,7 @@ Immutable, pozatreningowe działanie wspierające z typem, priorytetem, confiden
 
 ### Recommendation Context
 
-Immutable wejście reguł Recommendation zawierające `DecisionResult`, tuple insights, tuple observations, opcjonalny `NutritionAssessment` oraz opcjonalne deterministyczne `as_of`.
+Immutable wejście reguł Recommendation zawierające `DecisionResult`, tuple insights, tuple observations, opcjonalny `NutritionAssessment`, opcjonalne `GoalAssessment` oraz opcjonalne deterministyczne `as_of`.
 
 ### Recommendation Result
 
@@ -167,7 +179,7 @@ Komponent tworzący lub normalizujący model wynikowy z gotowych danych, bez prz
 
 ### Canonical Pipeline
 
-Jedyna zaakceptowana kolejność wykonania danej zdolności; dla workflow dziennego jest to Observation → Insight → Decision → Body Composition Assessment → Nutrition Assessment → Recommendation → Explainability.
+Jedyna zaakceptowana kolejność wykonania danej zdolności; dla datowanego workflow dziennego jest to Observation → Insight → Decision → Body Composition Assessment → Body Mass Trend Quality → Goal Assessment → Nutrition Assessment → Recommendation → Explainability.
 
 ### Composition Root
 

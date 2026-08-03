@@ -109,6 +109,7 @@ Przykłady obowiązujących asercji:
 - CLI korzysta z `build_morning_coach_use_case()`;
 - reguły i domena nie importują repository, DuckDB ani presentation;
 - publiczne symbole można zaimportować w świeżym procesie bez cyklicznego importu.
+- Adaptive Goals używa dokładnie jednego readera, jednego trend-quality evaluation i jednego Goal Assessment na datowany przebieg, zachowując identity assessmentu w contextach i wynikach;
 
 Takie testy mogą używać spies, introspekcji sygnatur, analizy importów lub minimalnego smoke procesu. Nie powinny zakładać nazw prywatnych pól, jeżeli kontrakt nie zależy od nich.
 
