@@ -1,5 +1,6 @@
 from collections.abc import Callable
 
+from adaptive import AdaptiveGoalRecommendationRule
 from application.adaptation import AdaptationPolicy
 from application.athlete_assessment import AthleteAssessmentBuilder
 from application.body_composition_input import BodyCompositionInputBuilder
@@ -75,6 +76,7 @@ def build_recommendation_engine() -> RecommendationEngine:
             RecoveryRecommendationRule(),
             MobilityRecommendationRule(),
             NutritionRecommendationRule(),
+            AdaptiveGoalRecommendationRule(),
         ),
         builder=RecommendationBuilder(),
     )

@@ -96,6 +96,30 @@ def test_builder_keeps_different_recommendation_types_separate():
     }
 
 
+def test_builder_normalizes_adaptive_goal_recommendation_with_stable_id():
+    candidate = _candidate(
+        RecommendationType.REVIEW_BODY_COMPOSITION_TREND,
+        evidence=("quality", "goal"),
+        source_rules=("AdaptiveGoalRecommendationRule",),
+    )
+
+    recommendation = RecommendationBuilder().build(
+        (candidate,)
+    ).recommendations[0]
+
+    assert (
+        recommendation.type
+        is RecommendationType.REVIEW_BODY_COMPOSITION_TREND
+    )
+    assert recommendation.evidence == ("goal", "quality")
+    assert recommendation.id == _expected_id(
+        RecommendationType.REVIEW_BODY_COMPOSITION_TREND,
+        ("goal", "quality"),
+        ("AdaptiveGoalRecommendationRule",),
+    )
+    assert RecommendationBuilder._TYPE_ORDER == tuple(RecommendationType)
+
+
 def test_builder_merges_duplicates_by_type():
     later = AS_OF + timedelta(hours=2)
     candidates = (

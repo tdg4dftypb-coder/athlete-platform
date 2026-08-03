@@ -163,7 +163,7 @@ Decyzja jest utrwalona przez pakiet `recommendation/`, testy oraz integrację w 
 
 - `DecisionEngine` pozostaje jedynym właścicielem decyzji treningowej.
 - `RecommendationRule` analizuje wyłącznie `RecommendationContext` i zwraca `tuple[Recommendation, ...]`.
-- `RecommendationContext` zawiera `DecisionResult`, insights, observations, opcjonalne `NutritionAssessment` i opcjonalne deterministyczne `as_of`.
+- `RecommendationContext` zawiera `DecisionResult`, insights, observations, opcjonalne `NutritionAssessment`, opcjonalne `GoalAssessment` i opcjonalne deterministyczne `as_of`.
 - `RecommendationEngine` tylko uruchamia wstrzyknięte reguły i przekazuje kandydatów do buildera.
 - `RecommendationBuilder` deduplikuje po typie, normalizuje, generuje stabilne ID i sortuje wynik.
 - modele Recommendation są immutable i nie zawierają tekstów UI.

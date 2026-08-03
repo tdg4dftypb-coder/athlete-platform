@@ -1,7 +1,17 @@
+from datetime import date, datetime
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import application.composition as composition
 
+from adaptive import (
+    AdaptiveGoalRecommendationRule,
+    AthleteGoal,
+    AthleteGoalType,
+    GoalAssessment,
+    GoalAssessmentDataStatus,
+)
+from application.body_composition_input import BodyCompositionInputBuilder
 from application.composition import (
     build_decision_engine,
     build_intelligence_decision_workflow,
@@ -11,13 +21,12 @@ from application.composition import (
     build_weekly_review_workflow,
 )
 from application.intelligence_decision_workflow import IntelligenceDecisionWorkflow
-from application.body_composition_input import BodyCompositionInputBuilder
 from application.morning_coach_use_case import MorningCoachUseCase
+from application.nutrition_input import NutritionInputBuilder
 from application.weekly_review import WeeklyReviewWorkflow
 from body_composition import BodyCompositionEngine
 from decision.engine import DecisionEngine
 from nutrition import NutritionEngine, NutritionRecommendationRule
-from application.nutrition_input import NutritionInputBuilder
 from planner.engine import PlannerEngine
 from recommendation import (
     HydrationRecommendationRule,
@@ -40,6 +49,7 @@ def test_build_recommendation_engine_uses_the_canonical_configuration():
         RecoveryRecommendationRule,
         MobilityRecommendationRule,
         NutritionRecommendationRule,
+        AdaptiveGoalRecommendationRule,
     )
     assert isinstance(engine._builder, RecommendationBuilder)
 
@@ -64,6 +74,53 @@ def test_canonical_engine_runs_nutrition_rule_once():
     engine.evaluate(context)
 
     nutrition_rule.evaluate.assert_called_once_with(context)
+
+
+def test_canonical_engine_runs_each_of_six_rules_once():
+    engine = build_recommendation_engine()
+    context = RecommendationContext(
+        decision=SimpleNamespace(decision_reasons=(), confidence=0.0),
+        insights=(),
+        observations=(),
+    )
+    for rule in engine._rules:
+        rule.evaluate = Mock(wraps=rule.evaluate)
+
+    result = engine.evaluate(context)
+
+    assert result.recommendations == ()
+    for rule in engine._rules:
+        rule.evaluate.assert_called_once_with(context)
+
+
+def test_canonical_adaptive_rule_is_order_independent_after_building():
+    engine = build_recommendation_engine()
+    as_of = datetime(2026, 8, 10, 6)
+    goal = AthleteGoal(
+        id="goal-1",
+        goal_type=AthleteGoalType.MAINTAIN,
+        valid_from=date(2026, 8, 10),
+        recorded_at=as_of,
+    )
+    assessment = GoalAssessment(
+        goal=goal,
+        data_status=GoalAssessmentDataStatus.COMPLETE,
+        confidence=1.0,
+        valid_for_date=date(2026, 8, 10),
+        as_of=as_of,
+    )
+    context = RecommendationContext(
+        decision=SimpleNamespace(decision_reasons=(), confidence=0.0),
+        insights=(),
+        observations=(),
+        goal_assessment=assessment,
+    )
+    reversed_engine = RecommendationEngine(
+        rules=tuple(reversed(engine._rules)),
+        builder=RecommendationBuilder(),
+    )
+
+    assert engine.evaluate(context) == reversed_engine.evaluate(context)
 
 
 def test_build_intelligence_workflow_injects_ready_dependencies():
@@ -134,6 +191,17 @@ def test_all_factories_return_fresh_instances():
     ) is not build_morning_coach_use_case(database, health_repository)
 
 
+def test_recommendation_factory_creates_fresh_rules_and_builder():
+    first = build_recommendation_engine()
+    second = build_recommendation_engine()
+
+    assert first._builder is not second._builder
+    assert all(
+        first_rule is not second_rule
+        for first_rule, second_rule in zip(first._rules, second._rules)
+    )
+
+
 def test_intelligence_workflow_factory_injects_fresh_nutrition_dependencies():
     first = build_intelligence_decision_workflow()
     second = build_intelligence_decision_workflow()
@@ -151,7 +219,7 @@ def test_intelligence_workflow_factory_injects_fresh_body_composition_dependenci
         is not second.body_composition_input_builder
     )
     assert first.body_composition_engine is not second.body_composition_engine
-    assert len(first.recommendation_engine._rules) == 5
+    assert len(first.recommendation_engine._rules) == 6
     assert all(
         "BodyCompositionRecommendationRule" not in type(rule).__name__
         for rule in first.recommendation_engine._rules

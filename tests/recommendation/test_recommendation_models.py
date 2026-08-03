@@ -50,6 +50,7 @@ def test_recommendation_type_and_priority_sets_match_the_v1_contract():
         RecommendationType.PERFORM_MOBILITY,
         RecommendationType.LIMIT_ADDITIONAL_ACTIVITY,
         RecommendationType.APPLY_RECOVERY_PROTOCOL,
+        RecommendationType.REVIEW_BODY_COMPOSITION_TREND,
     }
     assert set(RecommendationPriority) == {
         RecommendationPriority.HIGH,
@@ -94,5 +95,6 @@ def test_recommendation_context_is_immutable_and_keeps_prepared_inputs():
     assert context.insights == (insight,)
     assert context.observations == (observation,)
     assert context.nutrition_assessment is None
+    assert context.goal_assessment is None
     with pytest.raises(FrozenInstanceError):
         context.insights = ()

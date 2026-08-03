@@ -111,6 +111,10 @@ def test_builder_returns_a_neutral_result_for_empty_decision_reasons():
             RecommendationType.APPLY_RECOVERY_PROTOCOL,
             "Apply recovery protocol.",
         ),
+        (
+            RecommendationType.REVIEW_BODY_COMPOSITION_TREND,
+            "Review your body composition trend.",
+        ),
     ],
 )
 def test_builder_maps_every_recommendation_type(
@@ -176,6 +180,34 @@ def test_builder_maps_nutrition_recommendations_without_analysis_or_mutation():
         "Increase hydration.",
     )
     assert recommendations == original
+
+
+def test_builder_preserves_adaptive_recommendation_order_and_duplicates():
+    recommendations = RecommendationResult(
+        (
+            _recommendation(
+                RecommendationType.REVIEW_BODY_COMPOSITION_TREND,
+                "goal-review-1",
+            ),
+            _recommendation(RecommendationType.EXTEND_SLEEP, "sleep-1"),
+            _recommendation(
+                RecommendationType.REVIEW_BODY_COMPOSITION_TREND,
+                "goal-review-2",
+            ),
+        ),
+        AS_OF,
+    )
+    builder = DecisionExplainabilityBuilder()
+
+    first = builder.build((), recommendations)
+    second = builder.build((), recommendations)
+
+    assert first == second
+    assert first.recommendations == (
+        "Review your body composition trend.",
+        "Extend sleep duration.",
+        "Review your body composition trend.",
+    )
 
 
 def test_canonical_pipeline_explains_nutrition_recommendations():

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from athlete.intelligence.models import AthleteInsight, AthleteObservation
 
 if TYPE_CHECKING:
+    from adaptive.models import GoalAssessment
     from decision.models import DecisionResult
     from nutrition.models import NutritionAssessment
 
@@ -19,6 +20,7 @@ class RecommendationType(Enum):
     PERFORM_MOBILITY = "perform_mobility"
     LIMIT_ADDITIONAL_ACTIVITY = "limit_additional_activity"
     APPLY_RECOVERY_PROTOCOL = "apply_recovery_protocol"
+    REVIEW_BODY_COMPOSITION_TREND = "review_body_composition_trend"
 
 
 class RecommendationPriority(Enum):
@@ -51,3 +53,4 @@ class RecommendationContext:
     observations: tuple[AthleteObservation, ...]
     as_of: datetime | None = None
     nutrition_assessment: NutritionAssessment | None = None
+    goal_assessment: GoalAssessment | None = None

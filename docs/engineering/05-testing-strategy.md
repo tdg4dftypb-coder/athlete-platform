@@ -105,7 +105,7 @@ Przykłady obowiązujących asercji:
 - Recommendation Engine nie analizuje pól contextu i przekazuje wszystkich kandydatów builderowi;
 - Recommendation Builder nie uruchamia reguł;
 - Planner otrzymuje `DecisionResult`, nie `RecommendationResult`;
-- composition root tworzy świeże instancje i dokładnie pięć aktualnych Recommendation Rules;
+- composition root tworzy świeże instancje i dokładnie sześć aktualnych Recommendation Rules;
 - CLI korzysta z `build_morning_coach_use_case()`;
 - reguły i domena nie importują repository, DuckDB ani presentation;
 - publiczne symbole można zaimportować w świeżym procesie bez cyklicznego importu.

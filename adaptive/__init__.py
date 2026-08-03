@@ -10,10 +10,12 @@ from adaptive.models import (
     GoalAssessmentDataStatus,
 )
 from adaptive.ports import AthleteGoalReader
+from adaptive.recommendation import AdaptiveGoalRecommendationRule
 from adaptive.trend_quality import BodyMassTrendQualityEvaluator
 
 __all__ = [
     "ActiveGoalSelector",
+    "AdaptiveGoalRecommendationRule",
     "AthleteGoal",
     "AthleteGoalReader",
     "AthleteGoalType",

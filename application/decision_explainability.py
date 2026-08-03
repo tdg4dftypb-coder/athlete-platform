@@ -47,6 +47,9 @@ class DecisionExplainabilityBuilder:
         RecommendationType.APPLY_RECOVERY_PROTOCOL: (
             "Apply recovery protocol."
         ),
+        RecommendationType.REVIEW_BODY_COMPOSITION_TREND: (
+            "Review your body composition trend."
+        ),
     }
 
     def __init__(self) -> None:
