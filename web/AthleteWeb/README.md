@@ -60,7 +60,9 @@ Morning Briefing jest light-first. Jawne tokeny Theme definiują neutralne powie
 
 Opcjonalny tryb developerski `?source=payload&fixture=<name>` uruchamia pełny przepływ `unknown → runtime parser → AthleteDashboardPayloadV1 → mapper → presentation state`. Obsługiwane fixtures to `ready`, `partial`, `unavailable`, `stale`, `invalid-version`, `missing-section`, `invalid-enum`, `invalid-date`, `invalid-timestamp` i `malformed`. Nieznany fixture kończy się bezpiecznym stanem `failure`. Domyślne Preview Data oraz istniejący `?state=` pozostają bez zmian.
 
-Próg świeżości sześciu godzin jest jawną konfiguracją wyłącznie deterministycznego Preview i wymaga formalnej decyzji przed integracją transportową. `loading` nie pochodzi z mappera payloadu.
+Zaakceptowana polityka przyjmuje sześć godzin jako nazwany `MORNING_BRIEFING_MAX_AGE_MS`. `valid_for_date` ma pierwszeństwo przed wiekiem `as_of`, a lokalna data jest wyznaczana w jawnej strefie użytkownika. `loading` nie pochodzi z mappera payloadu.
+
+Payload v1.0 nie zawiera rzeczywistego postępu celu ani porównania z poprzednim dniem. W `source=payload` postęp jest jawnie niedostępny, a porównanie pozostaje puste; demonstracyjne `75%`, „Tydzień 3 z 12” i przykładowe zmiany występują wyłącznie w klasycznym Preview. Pełne zasady opisuje [Temporal and Presentation Contract Policy](../../docs/product/athlete-dashboard-temporal-and-presentation-policy.md).
 
 Web i zachowany klient SwiftUI mają docelowo konsumować ten sam wersjonowany kontrakt backendowy. Logika domenowa pozostaje wyłącznie w backendzie; klienci odpowiadają za mapowanie prezentacyjne i renderowanie.
 

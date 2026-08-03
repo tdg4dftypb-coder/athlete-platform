@@ -5,11 +5,12 @@ import "./styles/main.css";
 import { createApp } from "./app/create-app";
 import { resolveApplicationPreviewState } from "./app/preview-state";
 import { morningBriefingPreviewStates } from "./preview-data/morning-briefing-preview-data";
+import { MORNING_BRIEFING_MAX_AGE_MS } from "./mappers/mapping-context";
 
 const root = requireRoot();
 const previewMappingContext = {
   now: new Date("2026-08-03T08:00:00+02:00"),
-  staleAfterMs: 6 * 60 * 60 * 1000,
+  staleAfterMs: MORNING_BRIEFING_MAX_AGE_MS,
   athleteName: "Marcin",
   locale: "pl-PL",
   timeZone: "Europe/Warsaw",

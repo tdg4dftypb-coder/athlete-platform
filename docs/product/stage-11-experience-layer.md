@@ -54,3 +54,5 @@ Stany prezentacyjne korzystają z tokenów operacyjnych bez zmiany swojej semant
 Sprint 5 dodaje ścisłą granicę `unknown → parser → AthleteDashboardPayloadV1 → mapper → MorningBriefingPresentationState`. Kontrakt frontendowy pozostaje oddzielony od modeli prezentacyjnych i nie importuje modeli domenowych. Validation failure prowadzi do `failure`, natomiast poprawny kontrakt bez wystarczającej decyzji prowadzi do `unavailable`. `loading` należy do przyszłej warstwy transportowej i nie jest wynikiem mappera.
 
 Szczegółowy kontrakt, reguły świeżości, ograniczenia payloadu i fixtures opisuje [AthleteDashboard — frontend contract boundary](athlete-dashboard-frontend-contract.md).
+
+Temporal semantics i presentation ownership mają status **Accepted** w [AthleteDashboard Temporal and Presentation Contract Policy](athlete-dashboard-temporal-and-presentation-policy.md). Kanoniczna nowa emisja używa aware timestampów; v1.0 zachowuje przejściową obsługę naive timestamp interpretowanego jako UTC. `valid_for_date` ma pierwszeństwo przed sześciogodzinnym maksymalnym wiekiem `as_of`. Preview-only wartości nie mogą pojawiać się po wybraniu `source=payload`.

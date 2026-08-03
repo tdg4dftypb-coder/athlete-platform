@@ -8,7 +8,7 @@ export interface MorningBriefingGoal {
   readonly title: string;
   readonly progressAccessibilityLabel: string;
   readonly progressLabel: string;
-  readonly progressValue: number;
+  readonly progressValue: number | null;
   readonly timeline: string;
 }
 

@@ -401,6 +401,7 @@ Warstwa prezentacji potrzebuje jednego, typowanego kontraktu odczytowego obejmuj
 - brak danych i pusty wynik są rozróżniane przez jawne statusy sekcji;
 - integracja jest testowalna bez infrastruktury, zegara systemowego i efektów ubocznych;
 - snapshoty payloadu oraz round-trip tests chronią stabilność kontraktu v1.0 bez zależności od frameworka JSON lub HTTP.
+- temporal semantics, freshness i presentation ownership na granicy klientów są regulowane przez zaakceptowaną [AthleteDashboard Temporal and Presentation Contract Policy](../product/athlete-dashboard-temporal-and-presentation-policy.md); polityka nie rozszerza strict shape v1.0.
 
 ### Alternatives considered
 

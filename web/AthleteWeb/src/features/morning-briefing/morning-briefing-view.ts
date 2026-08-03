@@ -226,10 +226,15 @@ function createGoal(model: MorningBriefingPresentation): HTMLElement {
   progress.setAttribute("aria-label", model.goal.progressAccessibilityLabel);
   progress.setAttribute("aria-valuemin", "0");
   progress.setAttribute("aria-valuemax", "100");
-  progress.setAttribute("aria-valuenow", String(model.goal.progressValue * 100));
   progress.setAttribute("aria-valuetext", model.goal.progressLabel);
+  if (model.goal.progressValue !== null) {
+    progress.setAttribute("aria-valuenow", String(model.goal.progressValue * 100));
+  }
   const progressFill = document.createElement("span");
-  progressFill.style.setProperty("--goal-progress", `${model.goal.progressValue * 100}%`);
+  progressFill.style.setProperty(
+    "--goal-progress",
+    model.goal.progressValue === null ? "0%" : `${model.goal.progressValue * 100}%`,
+  );
   progress.append(progressFill);
 
   const timeline = document.createElement("p");

@@ -19,12 +19,15 @@ import {
   mapAthleteDashboardToMorningBriefing,
   parseAndMapAthleteDashboardToMorningBriefing,
 } from "../src/mappers/morning-briefing-mapper";
-import type { MappingContext } from "../src/mappers/mapping-context";
+import {
+  MORNING_BRIEFING_MAX_AGE_MS,
+  type MappingContext,
+} from "../src/mappers/mapping-context";
 import { morningBriefingPreviewStates } from "../src/preview-data/morning-briefing-preview-data";
 
 const context: MappingContext = {
   now: new Date("2026-08-03T08:00:00+02:00"),
-  staleAfterMs: 6 * 60 * 60 * 1000,
+  staleAfterMs: MORNING_BRIEFING_MAX_AGE_MS,
   athleteName: "Marcin",
   locale: "pl-PL",
   timeZone: "Europe/Warsaw",
@@ -69,6 +72,20 @@ describe("AthleteDashboard payload boundary", () => {
     expect(parseAthleteDashboardPayloadV1(payload).success).toBe(true);
   });
 
+  it.each(["2026-08-03T06:30:15Z", "2026-08-03T08:30:15+02:00"])(
+    "accepts an aware timestamp: %s",
+    (asOf) => {
+      expect(parseAthleteDashboardPayloadV1({ ...clone(readyPayloadFixture), as_of: asOf }).success).toBe(true);
+    },
+  );
+
+  it("rejects an invalid timezone offset", () => {
+    expect(parseAthleteDashboardPayloadV1({
+      ...clone(readyPayloadFixture),
+      as_of: "2026-08-03T06:30:15+25:00",
+    }).success).toBe(false);
+  });
+
   it("maps valid fixtures to deterministic presentation states", () => {
     expect(mapAthleteDashboardToMorningBriefing(readyPayloadFixture, context).kind).toBe("ready");
     expect(mapAthleteDashboardToMorningBriefing(partialPayloadFixture, context).kind).toBe("partial");
@@ -76,13 +93,33 @@ describe("AthleteDashboard payload boundary", () => {
     expect(mapAthleteDashboardToMorningBriefing(stalePayloadFixture, context).kind).toBe("stale");
   });
 
-  it("labels goal completeness without presenting it as goal achievement", () => {
+  it("does not turn goal completeness into fictional goal progress", () => {
     const result = mapAthleteDashboardToMorningBriefing(readyPayloadFixture, context);
     expect(result.kind).toBe("ready");
     if (result.kind !== "ready") return;
 
-    expect(result.briefing.goal.progressAccessibilityLabel).toBe("Kompletność danych celu");
-    expect(result.briefing.goal.progressLabel).toBe("100% danych");
+    expect(result.briefing.goal.progressAccessibilityLabel).toBe("Postęp celu");
+    expect(result.briefing.goal.progressLabel).toBe("Postęp niedostępny");
+    expect(result.briefing.goal.progressValue).toBeNull();
+  });
+
+  it("does not create a comparison when the payload has no yesterday data", () => {
+    const result = mapAthleteDashboardToMorningBriefing(readyPayloadFixture, context);
+    expect(result.kind).toBe("ready");
+    if (result.kind !== "ready") return;
+
+    expect(result.briefing.changesSinceYesterday).toEqual([]);
+  });
+
+  it("takes athlete identity explicitly from client context", () => {
+    const result = mapAthleteDashboardToMorningBriefing(readyPayloadFixture, {
+      ...context,
+      athleteName: "Alicja",
+    });
+    expect(result.kind).toBe("ready");
+    if (result.kind !== "ready") return;
+
+    expect(result.briefing.athleteName).toBe("Alicja");
   });
 
   it.each([
@@ -131,6 +168,40 @@ describe("AthleteDashboard payload boundary", () => {
 
     expect(atBoundary.kind).toBe("ready");
     expect(beyondBoundary.kind).toBe("stale");
+  });
+
+  it("uses the user's time zone deterministically for valid_for_date", () => {
+    const payload: AthleteDashboardPayloadV1 = {
+      ...clone(readyPayloadFixture),
+      as_of: "2026-08-02T23:30:00Z",
+      valid_for_date: "2026-08-03",
+    };
+    const instant = new Date("2026-08-03T00:30:00Z");
+
+    expect(mapAthleteDashboardToMorningBriefing(payload, {
+      ...context,
+      now: instant,
+      timeZone: "Europe/Warsaw",
+    }).kind).toBe("ready");
+    expect(mapAthleteDashboardToMorningBriefing(payload, {
+      ...context,
+      now: instant,
+      timeZone: "America/Los_Angeles",
+    }).kind).toBe("stale");
+  });
+
+  it("does not leak Preview-only briefing or goal progress into payload mode", () => {
+    const result = resolveApplicationPreviewState(
+      "?source=payload&fixture=ready",
+      morningBriefingPreviewStates,
+      context,
+    );
+    expect(result.kind).toBe("ready");
+    if (result.kind !== "ready") return;
+
+    expect(result.briefing.coachMessage).not.toContain("Dzień zapowiada się bardzo dobrze.");
+    expect(result.briefing.goal.progressLabel).not.toBe("75%");
+    expect(result.briefing.changesSinceYesterday).toEqual([]);
   });
 
   it.each(["ready", "partial", "unavailable", "stale"] as const)(

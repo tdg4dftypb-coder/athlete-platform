@@ -162,6 +162,14 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 - `MappingContext` jawnie dostarcza czas, locale, strefę, identity i konfigurowalny próg świeżości;
 - fixtures oraz `?source=payload` uruchamiają cały przepływ bez HTTP, cache i zmian backendu.
 
+#### Sprint 5.1 — Temporal and Presentation Contract Policy
+
+- polityka ma status Accepted i formalizuje aware timestamps jako format nowej emisji przy zachowaniu kompatybilności legacy naive w v1.0;
+- `valid_for_date` ma pierwszeństwo, a jawny `MORNING_BRIEFING_MAX_AGE_MS` wynosi startowo sześć godzin;
+- ownership matrix oddziela payload, client context, Preview-only data oraz kandydatów kontraktu v1.1;
+- payload Preview nie przedstawia completeness jako goal achievement i nie generuje porównania bez danych;
+- transport pozostaje zablokowany do czasu potwierdzenia aware emisji przez źródło produkcyjne.
+
 ### Stage 11.2 — Experience Architecture, Sprint 1
 
 - natywny projekt `AthleteApp` dla iOS 18+ jest przygotowany w SwiftUI bez UIKit i z granicą MVVM;

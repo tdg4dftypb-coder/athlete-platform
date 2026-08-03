@@ -32,11 +32,6 @@ export function mapAthleteDashboardToMorningBriefing(
   if (!Number.isFinite(ageMs) || ageMs < 0 || context.staleAfterMs < 0) {
     return failureState("Payload zawiera niespójny kontekst czasu.", context);
   }
-  const goalCompleteness = payload.goal.metadata.completeness_score;
-  if (goalCompleteness !== null && (goalCompleteness < 0 || goalCompleteness > 1)) {
-    return failureState("Kompletność danych celu jest poza obsługiwanym zakresem.", context);
-  }
-
   const header = createHeader(payload, context);
   if (!hasKeyDecision(payload)) {
     return {
@@ -98,7 +93,6 @@ function createBriefing(payload: AthleteDashboardPayloadV1, context: MappingCont
   const primaryRecommendation = recommendationMessages[0];
   if (primaryRecommendation) plan.push(primaryRecommendation);
 
-  const goalCompleteness = payload.goal.metadata.completeness_score ?? 0;
   return {
     ...header,
     coachMessage: [
@@ -115,11 +109,9 @@ function createBriefing(payload: AthleteDashboardPayloadV1, context: MappingCont
     todayPlan: plan,
     goal: {
       title: goalLabel(payload.goal.goal_type, payload.goal.target_body_mass_kg, context),
-      progressAccessibilityLabel: "Kompletność danych celu",
-      progressLabel: payload.goal.metadata.completeness_score === null
-        ? "Brak danych"
-        : `${Math.round(goalCompleteness * 100)}% danych`,
-      progressValue: goalCompleteness,
+      progressAccessibilityLabel: "Postęp celu",
+      progressLabel: "Postęp niedostępny",
+      progressValue: null,
       timeline: goalTimeline(payload.goal.valid_from, payload.goal.valid_until, context),
     },
     shortcuts: [
