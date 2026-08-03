@@ -1,13 +1,35 @@
 from dashboard.engine import DashboardEngine
 from dashboard.models import (
+    DASHBOARD_CONTRACT_VERSION,
     AthleteDashboard,
-    DashboardSection,
+    DashboardBodyCompositionSection,
+    DashboardDataQualitySection,
+    DashboardGoalSection,
+    DashboardHealthSection,
+    DashboardNutritionSection,
+    DashboardPerformanceSection,
+    DashboardRecommendationItem,
+    DashboardRecommendationsSection,
+    DashboardRecoverySection,
+    DashboardSectionMetadata,
     DashboardSectionStatus,
+    DashboardTrainingSection,
 )
 
 __all__ = [
     "AthleteDashboard",
+    "DASHBOARD_CONTRACT_VERSION",
+    "DashboardBodyCompositionSection",
+    "DashboardDataQualitySection",
     "DashboardEngine",
-    "DashboardSection",
+    "DashboardGoalSection",
+    "DashboardHealthSection",
+    "DashboardNutritionSection",
+    "DashboardPerformanceSection",
+    "DashboardRecommendationItem",
+    "DashboardRecommendationsSection",
+    "DashboardRecoverySection",
+    "DashboardSectionMetadata",
     "DashboardSectionStatus",
+    "DashboardTrainingSection",
 ]
