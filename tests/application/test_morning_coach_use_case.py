@@ -45,9 +45,22 @@ from body_composition import (
 )
 from core.database import Database
 from core.models import HealthDaily
+from dashboard import (
+    DASHBOARD_CONTRACT_VERSION,
+    DashboardEngine,
+    DashboardSectionStatus,
+)
 from decision.models import DecisionResult, WorkoutPlan
 from decision.sports import Sport
 from engines.context_builder import ContextBuilder
+from nutrition import (
+    EnergyRequirement,
+    FuelingPlan,
+    HydrationTarget,
+    MacroTargets,
+    NutritionAssessment,
+    NutritionDataStatus,
+)
 from planner.models import PlannedWorkout
 from planner.engine import PlannerEngine
 from recommendation import RecommendationResult, RecommendationType
@@ -185,16 +198,17 @@ def build_use_case(
     athlete = athlete or build_athlete(recovery_score=70, fatigue=79)
     plan = build_plan()
     planned_workout = build_planned_workout()
+    as_of = datetime.combine(context.today.date, datetime.min.time())
     intelligence = IntelligenceDecisionResult(
         observations=(),
         insights=(),
         plan=plan,
         decision=plan.decision,
-        recommendations=RecommendationResult((), None),
+        recommendations=RecommendationResult((), as_of),
         explainability=ExplainabilityResult(
             summary="Canonical summary.",
             contributing_factors=("Canonical factor.",),
-            recommendations=("Canonical recommendation.",),
+            recommendations=(),
         ),
     )
     dependencies = {
@@ -212,6 +226,7 @@ def build_use_case(
         "intelligence_workflow": Mock(),
         "planner_engine": Mock(),
         "morning_coach_presenter": MorningCoachPresenter(),
+        "dashboard_engine": Mock(spec=DashboardEngine),
     }
     dependencies["health_repository"].load_daily.return_value = [context.today]
     if isinstance(dependencies["context_builder"], Mock):
@@ -222,6 +237,7 @@ def build_use_case(
     dependencies["athlete_state_builder"].build.return_value = athlete
     dependencies["intelligence_workflow"].run.return_value = intelligence
     dependencies["planner_engine"].build.return_value = planned_workout
+    dependencies["dashboard_engine"].build.return_value = Mock()
 
     return MorningCoachUseCase(**dependencies), dependencies, context, athlete, plan, planned_workout
 
@@ -236,6 +252,7 @@ def test_use_case_composes_happy_path_and_preserves_all_results():
     )
     use_case, dependencies, _, athlete, plan, planned_workout = build_use_case(
         weekly_review_workflow=weekly_review_workflow,
+        context=context,
     )
 
     result = use_case.run()
@@ -280,13 +297,49 @@ def test_use_case_composes_happy_path_and_preserves_all_results():
     assert result.report.explanation.summary == "Canonical summary."
     assert result.report.explanation.reasons == (
         "Canonical factor.",
-        "Canonical recommendation.",
     )
     assert not hasattr(use_case, "decision_engine")
     dependencies["planner_engine"].build.assert_called_once_with(
         plan.decision,
         athlete,
     )
+    intelligence = dependencies["intelligence_workflow"].run.return_value
+    dependencies["dashboard_engine"].build.assert_called_once_with(
+        valid_for_date=context.today.date,
+        as_of=datetime.combine(context.today.date, datetime.min.time()),
+        health=context.today,
+        recovery=dependencies["recovery_engine"].analyze.return_value,
+        performance=dependencies["performance_engine"].analyze.return_value,
+        decision=intelligence.decision,
+        planned_workout=planned_workout,
+        nutrition=intelligence.nutrition,
+        body_composition=intelligence.body_composition,
+        body_mass_trend_quality=intelligence.body_mass_trend_quality,
+        goal=intelligence.goal_assessment,
+        recommendation_result=intelligence.recommendations,
+        explainability=intelligence.explainability,
+    )
+    dashboard_inputs = dependencies["dashboard_engine"].build.call_args.kwargs
+    assert dashboard_inputs["health"] is context.today
+    assert dashboard_inputs["recovery"] is (
+        dependencies["recovery_engine"].analyze.return_value
+    )
+    assert dashboard_inputs["performance"] is (
+        dependencies["performance_engine"].analyze.return_value
+    )
+    assert dashboard_inputs["decision"] is intelligence.decision
+    assert dashboard_inputs["planned_workout"] is planned_workout
+    assert dashboard_inputs["nutrition"] is intelligence.nutrition
+    assert dashboard_inputs["body_composition"] is intelligence.body_composition
+    assert dashboard_inputs["body_mass_trend_quality"] is (
+        intelligence.body_mass_trend_quality
+    )
+    assert dashboard_inputs["goal"] is intelligence.goal_assessment
+    assert dashboard_inputs["recommendation_result"] is (
+        intelligence.recommendations
+    )
+    assert dashboard_inputs["explainability"] is intelligence.explainability
+    assert result.dashboard is dependencies["dashboard_engine"].build.return_value
 
 
 def test_use_case_preserves_canonical_body_composition_assessment_identity():
@@ -486,6 +539,128 @@ def test_use_case_passes_the_canonical_result_to_the_presenter():
     assert result.report is expected_report
 
 
+def test_use_case_runs_workflow_planner_presenter_and_dashboard_once_in_order():
+    context = build_context()
+    weekly_review_workflow = Mock()
+    weekly_review_workflow.run_with_snapshot.return_value = (
+        build_snapshot(context),
+        build_review(context),
+    )
+    use_case, dependencies, _, _, _, _ = build_use_case(
+        weekly_review_workflow=weekly_review_workflow,
+        context=context,
+    )
+    calls = []
+    intelligence = dependencies["intelligence_workflow"].run.return_value
+    planned_workout = dependencies["planner_engine"].build.return_value
+    presenter = Mock()
+    dashboard_engine = Mock(spec=DashboardEngine)
+    presenter.present.return_value = Mock()
+    dashboard_engine.build.return_value = Mock()
+    dependencies["intelligence_workflow"].run.side_effect = (
+        lambda *args, **kwargs: calls.append("intelligence") or intelligence
+    )
+    dependencies["planner_engine"].build.side_effect = (
+        lambda *args, **kwargs: calls.append("planner") or planned_workout
+    )
+    presenter.present.side_effect = (
+        lambda *args, **kwargs: calls.append("presenter")
+        or presenter.present.return_value
+    )
+    dashboard_engine.build.side_effect = (
+        lambda *args, **kwargs: calls.append("dashboard")
+        or dashboard_engine.build.return_value
+    )
+    use_case.morning_coach_presenter = presenter
+    use_case.dashboard_engine = dashboard_engine
+
+    result = use_case.run()
+
+    assert calls == ["intelligence", "planner", "presenter", "dashboard"]
+    dependencies["intelligence_workflow"].run.assert_called_once()
+    dependencies["planner_engine"].build.assert_called_once()
+    presenter.present.assert_called_once()
+    dashboard_engine.build.assert_called_once()
+    dependencies["health_repository"].load_daily.assert_called_once()
+    assert result.dashboard is dashboard_engine.build.return_value
+
+
+def test_dashboard_integration_distinguishes_missing_sources_from_empty_results():
+    context = build_context()
+    weekly_review_workflow = Mock()
+    weekly_review_workflow.run_with_snapshot.return_value = (
+        build_snapshot(context),
+        build_review(context),
+    )
+    use_case, _, _, _, _, _ = build_use_case(
+        weekly_review_workflow=weekly_review_workflow,
+        context=context,
+    )
+    use_case.dashboard_engine = DashboardEngine()
+
+    result = use_case.run()
+
+    assert result.dashboard is not None
+    assert result.dashboard.body_composition.metadata.status is (
+        DashboardSectionStatus.UNAVAILABLE
+    )
+    assert result.dashboard.goal.metadata.status is (
+        DashboardSectionStatus.UNAVAILABLE
+    )
+    assert result.dashboard.recommendations.metadata.status is (
+        DashboardSectionStatus.READY
+    )
+    assert result.dashboard.recommendations.items == ()
+    assert result.dashboard.data_quality.metadata.status is (
+        DashboardSectionStatus.UNAVAILABLE
+    )
+
+
+def test_dashboard_integration_preserves_partial_nutrition_completeness():
+    context = build_context()
+    weekly_review_workflow = Mock()
+    weekly_review_workflow.run_with_snapshot.return_value = (
+        build_snapshot(context),
+        build_review(context),
+    )
+    use_case, dependencies, _, _, _, _ = build_use_case(
+        weekly_review_workflow=weekly_review_workflow,
+        context=context,
+    )
+    as_of = datetime.combine(context.today.date, datetime.min.time())
+    nutrition = NutritionAssessment(
+        energy_requirement=EnergyRequirement(),
+        macro_targets=MacroTargets(),
+        fueling_plan=FuelingPlan(),
+        hydration_target=HydrationTarget(),
+        data_status=NutritionDataStatus.PARTIAL,
+        confidence=0.25,
+        evidence=("nutrition:partial",),
+        limitations=("missing_energy_intake",),
+        valid_for_date=context.today.date,
+        as_of=as_of,
+    )
+    dependencies["intelligence_workflow"].run.return_value = replace(
+        dependencies["intelligence_workflow"].run.return_value,
+        nutrition=nutrition,
+    )
+    use_case.dashboard_engine = DashboardEngine()
+
+    result = use_case.run()
+
+    assert result.dashboard is not None
+    assert result.dashboard.nutrition.metadata.status is (
+        DashboardSectionStatus.PARTIAL
+    )
+    assert result.dashboard.nutrition.metadata.completeness_score == 0.25
+
+
+def test_morning_coach_result_keeps_dashboard_optional_for_compatibility():
+    dashboard_field = MorningCoachResult.__dataclass_fields__["dashboard"]
+
+    assert dashboard_field.default is None
+
+
 def test_presenter_does_not_interpret_or_present_body_composition():
     source = inspect.getsource(MorningCoachPresenter)
 
@@ -494,6 +669,8 @@ def test_presenter_does_not_interpret_or_present_body_composition():
     assert "goal_assessment" not in source
     assert "body_mass_trend_quality" not in source
     assert "AthleteGoal" not in source
+    assert "dashboard" not in source.lower()
+    assert "AthleteDashboard" not in source
 
 
 def test_use_case_contains_no_alternative_decision_or_recommendation_pipeline():
@@ -536,6 +713,7 @@ def build_canonical_use_case(*, context, athlete):
     recording_workflow = RecordingIntelligenceWorkflow()
     use_case.intelligence_workflow = recording_workflow
     use_case.planner_engine = PlannerEngine()
+    use_case.dashboard_engine = DashboardEngine()
     dependencies["recovery_engine"].analyze.return_value = athlete.recovery
     return use_case, recording_workflow
 
@@ -577,6 +755,17 @@ def test_canonical_morning_coach_handles_a_neutral_day_end_to_end():
     assert result.decision is intelligence.plan
     assert result.report.explanation.summary == intelligence.explainability.summary
     assert not hasattr(result.report, "body_composition")
+    assert result.dashboard is not None
+    assert result.dashboard.contract_version == DASHBOARD_CONTRACT_VERSION
+    assert result.dashboard.goal.metadata.status is (
+        DashboardSectionStatus.UNAVAILABLE
+    )
+    assert result.dashboard.recommendations.metadata.status is (
+        DashboardSectionStatus.READY
+    )
+    assert tuple(
+        item.message for item in result.dashboard.recommendations.items
+    ) == ("Increase hydration.",)
 
 
 def test_canonical_morning_coach_exposes_nutrition_recommendations_in_explainability():
@@ -614,6 +803,17 @@ def test_canonical_morning_coach_exposes_nutrition_recommendations_in_explainabi
     assert result.report.explanation.reasons == (
         intelligence.explainability.contributing_factors
         + intelligence.explainability.recommendations
+    )
+    assert result.dashboard is not None
+    assert result.dashboard.nutrition.metadata.status is (
+        DashboardSectionStatus.READY
+    )
+    assert tuple(
+        item.recommendation_type
+        for item in result.dashboard.recommendations.items
+    ) == (
+        "increase_hydration",
+        "increase_carbohydrate_intake",
     )
 
 

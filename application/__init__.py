@@ -51,6 +51,7 @@ from application.weekly_review import WeeklyReviewWorkflow
 from application.composition import (
     build_athlete_goal_reader,
     build_body_mass_trend_quality_evaluator,
+    build_dashboard_engine,
     build_decision_engine,
     build_goal_assessment_engine,
     build_intelligence_decision_workflow,
@@ -72,6 +73,7 @@ __all__ = [
     "AthleteKnowledgeContextBuilder",
     "build_athlete_goal_reader",
     "build_body_mass_trend_quality_evaluator",
+    "build_dashboard_engine",
     "build_decision_engine",
     "build_goal_assessment_engine",
     "build_intelligence_decision_workflow",

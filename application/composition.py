@@ -38,6 +38,7 @@ from body_composition import BodyCompositionEngine
 from core.database import Database
 from core.models import HealthDaily
 from decision.engine import DecisionEngine
+from dashboard import DashboardEngine
 from engines.context_builder import ContextBuilder
 from health.engine import HealthEngine
 from nutrition import NutritionEngine, NutritionRecommendationRule
@@ -75,6 +76,10 @@ def build_decision_engine() -> DecisionEngine:
 
 def build_planner_engine() -> PlannerEngine:
     return PlannerEngine()
+
+
+def build_dashboard_engine() -> DashboardEngine:
+    return DashboardEngine()
 
 
 def build_recommendation_engine() -> RecommendationEngine:
@@ -164,4 +169,5 @@ def build_morning_coach_use_case(
         ),
         planner_engine=build_planner_engine(),
         morning_coach_presenter=MorningCoachPresenter(),
+        dashboard_engine=build_dashboard_engine(),
     )

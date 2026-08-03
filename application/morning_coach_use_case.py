@@ -26,6 +26,7 @@ from athlete.review.models import WeeklyTrainingReview
 from athlete.state_builder import AthleteStateBuilder
 from body_composition import BodyCompositionAssessment
 from core.models import HealthDaily
+from dashboard import AthleteDashboard, DashboardEngine
 from decision.models import WorkoutPlan
 from engines.context_builder import ContextBuilder
 from health.engine import HealthEngine
@@ -55,6 +56,7 @@ class MorningCoachResult:
     body_composition: BodyCompositionAssessment | None = None
     goal_assessment: GoalAssessment | None = None
     body_mass_trend_quality: BodyMassTrendQuality | None = None
+    dashboard: AthleteDashboard | None = None
 
 
 class MorningCoachUseCase:
@@ -76,6 +78,7 @@ class MorningCoachUseCase:
         intelligence_workflow: IntelligenceDecisionWorkflow,
         planner_engine: PlannerEngine,
         morning_coach_presenter: MorningCoachPresenter,
+        dashboard_engine: DashboardEngine,
     ) -> None:
         self.health_repository = health_repository
         self.context_builder = context_builder
@@ -91,6 +94,7 @@ class MorningCoachUseCase:
         self.intelligence_workflow = intelligence_workflow
         self.planner_engine = planner_engine
         self.morning_coach_presenter = morning_coach_presenter
+        self.dashboard_engine = dashboard_engine
 
     def run(self) -> MorningCoachResult:
         health_history = self.health_repository.load_daily()
@@ -155,6 +159,21 @@ class MorningCoachUseCase:
             weekly_review=weekly_review,
             adaptation=adaptation,
         )
+        dashboard = self.dashboard_engine.build(
+            valid_for_date=health_context.today.date,
+            as_of=as_of,
+            health=health_context.today,
+            recovery=recovery,
+            performance=performance,
+            decision=intelligence.decision,
+            planned_workout=planned_workout,
+            nutrition=intelligence.nutrition,
+            body_composition=intelligence.body_composition,
+            body_mass_trend_quality=intelligence.body_mass_trend_quality,
+            goal=intelligence.goal_assessment,
+            recommendation_result=intelligence.recommendations,
+            explainability=intelligence.explainability,
+        )
 
         return MorningCoachResult(
             athlete_state=athlete,
@@ -169,4 +188,5 @@ class MorningCoachUseCase:
             body_composition=intelligence.body_composition,
             goal_assessment=intelligence.goal_assessment,
             body_mass_trend_quality=intelligence.body_mass_trend_quality,
+            dashboard=dashboard,
         )

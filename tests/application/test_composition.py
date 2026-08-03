@@ -21,6 +21,7 @@ from application.body_composition_input import BodyCompositionInputBuilder
 from application.composition import (
     build_athlete_goal_reader,
     build_body_mass_trend_quality_evaluator,
+    build_dashboard_engine,
     build_decision_engine,
     build_goal_assessment_engine,
     build_intelligence_decision_workflow,
@@ -34,6 +35,7 @@ from application.morning_coach_use_case import MorningCoachUseCase
 from application.nutrition_input import NutritionInputBuilder
 from application.weekly_review import WeeklyReviewWorkflow
 from body_composition import BodyCompositionEngine
+from dashboard import DashboardEngine
 from decision.engine import DecisionEngine
 from nutrition import NutritionEngine, NutritionRecommendationRule
 from planner.engine import PlannerEngine
@@ -178,6 +180,7 @@ def test_build_morning_coach_use_case_preserves_the_current_pipeline():
     assert isinstance(use_case.intelligence_workflow, IntelligenceDecisionWorkflow)
     assert not hasattr(use_case, "decision_engine")
     assert isinstance(use_case.planner_engine, PlannerEngine)
+    assert isinstance(use_case.dashboard_engine, DashboardEngine)
 
 
 def test_small_engine_factories_return_fresh_instances():
@@ -185,11 +188,15 @@ def test_small_engine_factories_return_fresh_instances():
     second_decision = build_decision_engine()
     first_planner = build_planner_engine()
     second_planner = build_planner_engine()
+    first_dashboard = build_dashboard_engine()
+    second_dashboard = build_dashboard_engine()
 
     assert isinstance(first_decision, DecisionEngine)
     assert isinstance(first_planner, PlannerEngine)
     assert first_decision is not second_decision
     assert first_planner is not second_planner
+    assert isinstance(first_dashboard, DashboardEngine)
+    assert first_dashboard is not second_dashboard
     assert build_athlete_goal_reader() is not build_athlete_goal_reader()
     assert (
         build_body_mass_trend_quality_evaluator()
@@ -311,6 +318,7 @@ def test_public_application_exports_include_composition_factories():
     from application import (
         build_athlete_goal_reader as public_goal_reader_factory,
         build_body_mass_trend_quality_evaluator as public_quality_factory,
+        build_dashboard_engine as public_dashboard_factory,
         build_goal_assessment_engine as public_assessment_factory,
         build_intelligence_decision_workflow as public_intelligence_factory,
         build_morning_coach_use_case as public_morning_factory,
@@ -322,4 +330,5 @@ def test_public_application_exports_include_composition_factories():
     assert public_recommendation_factory is build_recommendation_engine
     assert public_goal_reader_factory is build_athlete_goal_reader
     assert public_quality_factory is build_body_mass_trend_quality_evaluator
+    assert public_dashboard_factory is build_dashboard_engine
     assert public_assessment_factory is build_goal_assessment_engine
