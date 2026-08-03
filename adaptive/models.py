@@ -42,9 +42,10 @@ class GoalAssessment:
     ``data_status`` describes completeness of the entire assessment.
     ``confidence`` is a deterministic completeness score, not an estimate of
     accuracy, source quality, or clinical certainty.
+    ``goal`` is absent only when no active goal is available for assessment.
     """
 
-    goal: AthleteGoal
+    goal: AthleteGoal | None
     data_status: GoalAssessmentDataStatus
     confidence: float
     valid_for_date: date

@@ -1,3 +1,4 @@
+from adaptive.assessment import GoalAssessmentEngine
 from adaptive.goals import ActiveGoalSelector
 from adaptive.models import (
     AthleteGoal,
@@ -22,4 +23,5 @@ __all__ = [
     "BodyMassTrendQualityInput",
     "GoalAssessment",
     "GoalAssessmentDataStatus",
+    "GoalAssessmentEngine",
 ]
