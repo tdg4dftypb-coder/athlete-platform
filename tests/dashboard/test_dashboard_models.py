@@ -296,12 +296,15 @@ def test_dashboard_public_exports_are_exact():
         "DashboardHealthSection",
         "DashboardNutritionSection",
         "DashboardPerformanceSection",
+        "DashboardPayloadError",
         "DashboardRecommendationItem",
         "DashboardRecommendationsSection",
         "DashboardRecoverySection",
         "DashboardSectionMetadata",
         "DashboardSectionStatus",
+        "DashboardSerializer",
         "DashboardTrainingSection",
+        "UnsupportedDashboardContractVersion",
     ]
     for name in dashboard.__all__:
         assert getattr(dashboard, name) is not None

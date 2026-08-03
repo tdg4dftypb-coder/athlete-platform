@@ -15,6 +15,11 @@ from dashboard.models import (
     DashboardSectionStatus,
     DashboardTrainingSection,
 )
+from dashboard.serialization import (
+    DashboardPayloadError,
+    DashboardSerializer,
+    UnsupportedDashboardContractVersion,
+)
 
 __all__ = [
     "AthleteDashboard",
@@ -26,10 +31,13 @@ __all__ = [
     "DashboardHealthSection",
     "DashboardNutritionSection",
     "DashboardPerformanceSection",
+    "DashboardPayloadError",
     "DashboardRecommendationItem",
     "DashboardRecommendationsSection",
     "DashboardRecoverySection",
     "DashboardSectionMetadata",
     "DashboardSectionStatus",
+    "DashboardSerializer",
     "DashboardTrainingSection",
+    "UnsupportedDashboardContractVersion",
 ]
