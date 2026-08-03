@@ -223,7 +223,7 @@ function createGoal(model: MorningBriefingPresentation): HTMLElement {
   const progress = document.createElement("div");
   progress.className = "progress-track";
   progress.setAttribute("role", "progressbar");
-  progress.setAttribute("aria-label", "Postęp celu");
+  progress.setAttribute("aria-label", model.goal.progressAccessibilityLabel);
   progress.setAttribute("aria-valuemin", "0");
   progress.setAttribute("aria-valuemax", "100");
   progress.setAttribute("aria-valuenow", String(model.goal.progressValue * 100));

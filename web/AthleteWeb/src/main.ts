@@ -3,10 +3,17 @@ import "./theme/tokens.css";
 import "./styles/main.css";
 
 import { createApp } from "./app/create-app";
-import { resolvePreviewState } from "./app/preview-state";
+import { resolveApplicationPreviewState } from "./app/preview-state";
 import { morningBriefingPreviewStates } from "./preview-data/morning-briefing-preview-data";
 
 const root = requireRoot();
+const previewMappingContext = {
+  now: new Date("2026-08-03T08:00:00+02:00"),
+  staleAfterMs: 6 * 60 * 60 * 1000,
+  athleteName: "Marcin",
+  locale: "pl-PL",
+  timeZone: "Europe/Warsaw",
+} as const;
 
 function requireRoot(): HTMLDivElement {
   const element = document.querySelector<HTMLDivElement>("#app");
@@ -15,7 +22,11 @@ function requireRoot(): HTMLDivElement {
 }
 
 function renderPreview(focusHeading = false): void {
-  const state = resolvePreviewState(window.location.search, morningBriefingPreviewStates);
+  const state = resolveApplicationPreviewState(
+    window.location.search,
+    morningBriefingPreviewStates,
+    previewMappingContext,
+  );
   root.replaceChildren(createApp(state, retry));
 
   if (focusHeading) {

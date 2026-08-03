@@ -37,6 +37,7 @@ export const morningBriefingPreviewData: MorningBriefingPresentation = Object.fr
   ]),
   goal: Object.freeze({
     title: "Budowa wydolności",
+    progressAccessibilityLabel: "Postęp celu",
     progressLabel: "75%",
     progressValue: 0.75,
     timeline: "Tydzień 3 z 12",

@@ -35,6 +35,7 @@ describe("Morning Briefing", () => {
     expect(document.querySelector(".hero-card")?.textContent).toContain("Dzisiaj warto wykonać trening progowy.");
     expect(document.querySelector(".hero-card")?.textContent).not.toContain("AI Coach");
     expect(document.querySelector(".decision-details")?.textContent).toBe("60–75 minut • Strefa 3–4");
+    expect(document.querySelector('[role="progressbar"]')?.getAttribute("aria-label")).toBe("Postęp celu");
     expect(document.querySelectorAll(".shortcut-list li")).toHaveLength(4);
   });
 

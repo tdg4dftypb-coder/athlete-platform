@@ -48,3 +48,9 @@ Kolory mają stałe znaczenie: zieleń opisuje regenerację, HRV i cele; błęki
 Stany prezentacyjne korzystają z tokenów operacyjnych bez zmiany swojej semantyki: `partial` używa spokojnego `info`, `unavailable` wariantu neutralnego, `stale` tokenu `warning`, a `failure` stonowanego `error`. `ready` korzysta z pełnej palety obszarów, natomiast `loading` używa powierzchni neutralnych i łagodnego skeletonu respektującego `prefers-reduced-motion`.
 
 Źródłem kolorów jest jeden katalog Theme w `src/theme/tokens.css`. Katalog obejmuje powierzchnie, trzy poziomy tekstu, akcenty produktowe, statusy operacyjne, focus, postęp, cień oraz trzy punkty gradientu hero. Komponenty nie przechowują własnych wartości kolorów.
+
+## AthleteDashboard mapping boundary
+
+Sprint 5 dodaje ścisłą granicę `unknown → parser → AthleteDashboardPayloadV1 → mapper → MorningBriefingPresentationState`. Kontrakt frontendowy pozostaje oddzielony od modeli prezentacyjnych i nie importuje modeli domenowych. Validation failure prowadzi do `failure`, natomiast poprawny kontrakt bez wystarczającej decyzji prowadzi do `unavailable`. `loading` należy do przyszłej warstwy transportowej i nie jest wynikiem mappera.
+
+Szczegółowy kontrakt, reguły świeżości, ograniczenia payloadu i fixtures opisuje [AthleteDashboard — frontend contract boundary](athlete-dashboard-frontend-contract.md).

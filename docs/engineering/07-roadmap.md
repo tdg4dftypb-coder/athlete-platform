@@ -154,6 +154,14 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 - stany `partial`, `unavailable`, `stale` i `failure` otrzymują odrębne tokeny informacyjne, neutralne, ostrzegawcze i błędu bez zmiany komunikatów ani semantyki;
 - struktura informacji, dane, modele prezentacyjne, nawigacja i kontrakty pozostają bez zmian.
 
+#### Sprint 5 — AthleteDashboard Payload Mapping Boundary
+
+- ścisły typ `AthleteDashboardPayloadV1` odwzorowuje wyłącznie publiczny wynik `DashboardSerializer` bez zależności od modeli domenowych;
+- lekki runtime parser waliduje pełną strukturę, enumy, daty, timestampy, nullability i wersję kontraktu bez wyjątków jako mechanizmu przepływu;
+- deterministyczny mapper rozdziela `failure` kontraktu od produktowego `unavailable` oraz mapuje kompletność i świeżość do sześciostanowej warstwy prezentacyjnej;
+- `MappingContext` jawnie dostarcza czas, locale, strefę, identity i konfigurowalny próg świeżości;
+- fixtures oraz `?source=payload` uruchamiają cały przepływ bez HTTP, cache i zmian backendu.
+
 ### Stage 11.2 — Experience Architecture, Sprint 1
 
 - natywny projekt `AthleteApp` dla iOS 18+ jest przygotowany w SwiftUI bez UIKit i z granicą MVVM;
