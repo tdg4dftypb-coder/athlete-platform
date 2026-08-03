@@ -45,7 +45,7 @@ Bieżący agregat danych potrzebnych do decyzji i planowania, złożony m.in. ze
 
 ### Body Composition Assessment
 
-Immutable wynik `BodyCompositionEngine` zawierający aktualny profil, opcjonalny trend masy, completeness metadata, evidence, limitations, datę obowiązywania i `as_of`; w Stage 8.5 nie jest źródłem Recommendation ani Explainability.
+Immutable wynik `BodyCompositionEngine` zawierający aktualny profil, opcjonalny trend masy, completeness metadata, evidence, limitations, datę obowiązywania i `as_of`. Ta sama instancja jest dostępna w `IntelligenceDecisionResult` oraz `MorningCoachResult`, ale nie jest źródłem Recommendation, Explainability ani tekstu prezentacyjnego.
 
 ### Body Composition Input
 
@@ -81,7 +81,7 @@ Efemeryczna, deterministyczna interpretacja jednej lub wielu observations, zawie
 
 ### MorningCoach
 
-Kanoniczny dzienny use case przygotowujący stan i historię zawodnika, uruchamiający Intelligence Workflow raz, planujący trening i prezentujący kompatybilny raport.
+Kanoniczny dzienny use case przygotowujący stan i historię zawodnika, uruchamiający Intelligence Workflow raz, planujący trening i prezentujący kompatybilny raport. `MorningCoachResult` udostępnia canonical Body Composition Assessment bez jego interpretacji przez Presenter.
 
 ### Nutrition Assessment
 

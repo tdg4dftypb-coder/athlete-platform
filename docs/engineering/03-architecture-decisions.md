@@ -305,7 +305,7 @@ NutritionInput
 
 ### Status
 
-**Proposed**
+**Accepted**
 
 ### Context
 
@@ -316,15 +316,15 @@ Body Composition wymaga deterministycznej oceny aktualnego profilu i trendu masy
 - `BodyCompositionInputBuilder` normalizuje in-memory `HealthDaily.weight` bez I/O i użycia zegara;
 - `BodyCompositionEngine` jest właścicielem walidacji, freshness, profilu oraz trendu;
 - workflow uruchamia Body Composition po Decision i przed Nutrition;
-- `BodyCompositionAssessment` jest częścią `IntelligenceDecisionResult`, ale nie trafia do `RecommendationContext` ani Explainability;
-- MorningCoach może przekazać istniejącą historię health, lecz nie interpretuje assessmentu i nie tworzy osobnej prezentacji w Stage 8.5.
+- ten sam `BodyCompositionAssessment` jest częścią `IntelligenceDecisionResult` i `MorningCoachResult`, ale nie trafia do `RecommendationContext` ani Explainability;
+- MorningCoach przekazuje istniejącą historię health i zachowuje referencję assessmentu bez interpretacji, kopiowania ani osobnej prezentacji.
 
 ### Consequences
 
 - istnieje jeden canonical pipeline i jeden odczyt historii health;
 - Body Composition pozostaje niezależne od Recommendation, Explainability, MorningCoach i infrastruktury;
+- `MorningCoachReport` pozostaje kompatybilny i nie zawiera sekcji Body Composition;
 - Recommendation integration oraz prezentacyjne explainability wymagają późniejszej, osobnej decyzji;
-- status pozostaje Proposed do finalnego review Stage 8.
 
 ### Alternatives considered
 
@@ -343,7 +343,7 @@ Body Composition wymaga deterministycznej oceny aktualnego profilu i trendu masy
 | ADR-005 | Jawny composition root | Accepted | `application/composition.py` |
 | ADR-006 | Kanoniczny MorningCoach | Accepted | `application/morning_coach_use_case.py` |
 | ADR-007 | Kanoniczna integracja Nutrition | Accepted | `application/nutrition_input.py`, `application/intelligence_decision_workflow.py` |
-| ADR-008 | Body Composition Assessment | Proposed | `body_composition/`, `application/body_composition_input.py` |
+| ADR-008 | Body Composition Assessment | Accepted | `body_composition/`, `application/body_composition_input.py` |
 
 ## Powiązane dokumenty
 

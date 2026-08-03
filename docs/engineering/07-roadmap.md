@@ -82,16 +82,16 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 - ten sam `NutritionAssessment` jest udostępniany w `IntelligenceDecisionResult` i `RecommendationContext`;
 - MorningCoach przekazuje jeden odczyt health history i zachowuje kompatybilny raport.
 
-**TODO:** Repozytorium nie zawiera źródłowego dokumentu przypisującego oficjalne nazwy do Stage 1–3. Powyższe nazwy porządkują wyłącznie zaimplementowane rezultaty widoczne w kodzie i historii Git; wymagają potwierdzenia, jeśli mają stać się oficjalnymi nazwami etapów.
-
-## Current
-
 ### Stage 8 — Body Composition
 
 - immutable modele, deterministyczny assessment i trend masy są zaimplementowane;
-- adapter in-memory i integracja z `IntelligenceDecisionWorkflow` są w trakcie review;
-- prezentacyjna integracja MorningCoach i finalne zamknięcie Stage 8 pozostają nieukończone;
-- Recommendation i Explainability nie należą do MVP Stage 8.
+- adapter in-memory i integracja z `IntelligenceDecisionWorkflow` są zaimplementowane;
+- ten sam assessment jest udostępniany w `IntelligenceDecisionResult` oraz `MorningCoachResult` bez warstwy prezentacyjnej;
+- Recommendation i Explainability Body Composition pozostają poza zakresem Stage 8.
+
+**TODO:** Repozytorium nie zawiera źródłowego dokumentu przypisującego oficjalne nazwy do Stage 1–3. Powyższe nazwy porządkują wyłącznie zaimplementowane rezultaty widoczne w kodzie i historii Git; wymagają potwierdzenia, jeśli mają stać się oficjalnymi nazwami etapów.
+
+## Current
 
 ### Engineering Handbook v1.0
 

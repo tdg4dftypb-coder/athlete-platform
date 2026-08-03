@@ -418,7 +418,8 @@ Istotne granice:
 - `MorningCoachUseCase` nie uruchamia `NutritionEngine` ani Recommendation Engine bezpośrednio;
 - Planner otrzymuje `DecisionResult`, a nie `RecommendationResult`;
 - Presenter otrzymuje gotowe wyniki i nie uruchamia Decision ani Recommendation Engine;
-- `MorningCoachResult.decision` przechowuje `WorkoutPlan`, natomiast pełny wynik Intelligence pozostaje wejściem Presentera.
+- `MorningCoachResult.decision` przechowuje `WorkoutPlan`, a `MorningCoachResult.body_composition` zachowuje dokładnie ten sam immutable assessment co wynik Intelligence;
+- `MorningCoachPresenter` i `MorningCoachReport` nie interpretują ani nie prezentują Body Composition; pełny wynik Intelligence pozostaje wejściem Presentera.
 
 `MorningCoachBuilder` i `ExplanationBuilder` pozostają dostępne jako API kompatybilnościowe. Nie uczestniczą w aktywnej ścieżce `MorningCoachUseCase`.
 
