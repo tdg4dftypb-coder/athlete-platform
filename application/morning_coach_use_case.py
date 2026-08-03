@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 from typing import Protocol
 
+from adaptive import BodyMassTrendQuality, GoalAssessment
 from application.adaptation import AdaptationDirective, AdaptationPolicy
 from application.athlete_assessment import (
     AthleteAssessment,
@@ -52,6 +53,8 @@ class MorningCoachResult:
     planned_workout: PlannedWorkout
     report: MorningCoachReport
     body_composition: BodyCompositionAssessment | None = None
+    goal_assessment: GoalAssessment | None = None
+    body_mass_trend_quality: BodyMassTrendQuality | None = None
 
 
 class MorningCoachUseCase:
@@ -164,4 +167,6 @@ class MorningCoachUseCase:
             planned_workout=planned_workout,
             report=report,
             body_composition=intelligence.body_composition,
+            goal_assessment=intelligence.goal_assessment,
+            body_mass_trend_quality=intelligence.body_mass_trend_quality,
         )

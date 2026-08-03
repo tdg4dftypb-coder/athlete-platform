@@ -1,8 +1,17 @@
 from collections.abc import Callable
 
-from adaptive import AdaptiveGoalRecommendationRule
+from adaptive import (
+    AdaptiveGoalRecommendationRule,
+    AthleteGoal,
+    BodyMassTrendQualityEvaluator,
+    GoalAssessmentEngine,
+    InMemoryAthleteGoalReader,
+)
 from application.adaptation import AdaptationPolicy
 from application.athlete_assessment import AthleteAssessmentBuilder
+from application.body_mass_trend_quality_input import (
+    BodyMassTrendQualityInputBuilder,
+)
 from application.body_composition_input import BodyCompositionInputBuilder
 from application.decision_explainability import DecisionExplainabilityBuilder
 from application.intelligence_decision_workflow import IntelligenceDecisionWorkflow
@@ -82,7 +91,23 @@ def build_recommendation_engine() -> RecommendationEngine:
     )
 
 
-def build_intelligence_decision_workflow() -> IntelligenceDecisionWorkflow:
+def build_athlete_goal_reader(
+    goals: tuple[AthleteGoal, ...] = (),
+) -> InMemoryAthleteGoalReader:
+    return InMemoryAthleteGoalReader(goals=goals)
+
+
+def build_body_mass_trend_quality_evaluator() -> BodyMassTrendQualityEvaluator:
+    return BodyMassTrendQualityEvaluator()
+
+
+def build_goal_assessment_engine() -> GoalAssessmentEngine:
+    return GoalAssessmentEngine()
+
+
+def build_intelligence_decision_workflow(
+    athlete_goals: tuple[AthleteGoal, ...] = (),
+) -> IntelligenceDecisionWorkflow:
     return IntelligenceDecisionWorkflow(
         observation_projector=ObservationProjector(),
         insight_builder=InsightBuilder(),
@@ -93,6 +118,14 @@ def build_intelligence_decision_workflow() -> IntelligenceDecisionWorkflow:
         nutrition_engine=NutritionEngine(),
         body_composition_input_builder=BodyCompositionInputBuilder(),
         body_composition_engine=BodyCompositionEngine(),
+        athlete_goal_reader=build_athlete_goal_reader(athlete_goals),
+        body_mass_trend_quality_input_builder=(
+            BodyMassTrendQualityInputBuilder()
+        ),
+        body_mass_trend_quality_evaluator=(
+            build_body_mass_trend_quality_evaluator()
+        ),
+        goal_assessment_engine=build_goal_assessment_engine(),
     )
 
 
@@ -108,6 +141,7 @@ def build_weekly_review_workflow(database: Database) -> WeeklyReviewWorkflow:
 def build_morning_coach_use_case(
     database: Database,
     health_repository: HealthHistoryReader | None = None,
+    athlete_goals: tuple[AthleteGoal, ...] = (),
 ) -> MorningCoachUseCase:
     return MorningCoachUseCase(
         health_repository=(
@@ -125,7 +159,9 @@ def build_morning_coach_use_case(
         training_assessment_builder=TrainingAssessmentBuilder(),
         athlete_assessment_builder=AthleteAssessmentBuilder(),
         adaptation_policy=AdaptationPolicy(),
-        intelligence_workflow=build_intelligence_decision_workflow(),
+        intelligence_workflow=build_intelligence_decision_workflow(
+            athlete_goals
+        ),
         planner_engine=build_planner_engine(),
         morning_coach_presenter=MorningCoachPresenter(),
     )

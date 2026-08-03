@@ -1,10 +1,22 @@
 from copy import deepcopy
-from dataclasses import FrozenInstanceError
-from datetime import date, datetime
+from dataclasses import FrozenInstanceError, replace
+from datetime import date, datetime, timedelta
 
 import pytest
 
-from adaptive import AdaptiveGoalRecommendationRule
+from adaptive import (
+    AdaptiveGoalRecommendationRule,
+    AthleteGoal,
+    AthleteGoalType,
+    BodyMassTrendQuality,
+    BodyMassTrendQualityDataStatus,
+    BodyMassTrendQualityEvaluator,
+    BodyMassTrendQualityInput,
+    GoalAssessment,
+    GoalAssessmentDataStatus,
+    GoalAssessmentEngine,
+    InMemoryAthleteGoalReader,
+)
 from application import (
     AdaptationDirective,
     AdaptationStatus,
@@ -13,6 +25,9 @@ from application import (
     build_default_recommendation_engine,
 )
 from application.body_composition_input import BodyCompositionInputBuilder
+from application.body_mass_trend_quality_input import (
+    BodyMassTrendQualityInputBuilder,
+)
 from athlete.intelligence.models import (
     AthleteInsightType,
     AthleteObservationType,
@@ -193,6 +208,54 @@ class SpyBodyCompositionEngine:
         return self.result
 
 
+class SpyTrendQualityInputBuilder:
+    def __init__(self, result: BodyMassTrendQualityInput, calls: list[str]):
+        self.result = result
+        self.calls = calls
+        self.arguments = []
+
+    def build(self, assessment, body_composition_input):
+        self.calls.append("trend_quality_input")
+        self.arguments.append((assessment, body_composition_input))
+        return self.result
+
+
+class SpyTrendQualityEvaluator:
+    def __init__(self, result: BodyMassTrendQuality, calls: list[str]):
+        self.result = result
+        self.calls = calls
+        self.inputs = []
+
+    def evaluate(self, quality_input):
+        self.calls.append("trend_quality")
+        self.inputs.append(quality_input)
+        return self.result
+
+
+class SpyGoalReader:
+    def __init__(self, result: AthleteGoal | None, calls: list[str]):
+        self.result = result
+        self.calls = calls
+        self.arguments = []
+
+    def load_active_goal(self, **kwargs):
+        self.calls.append("active_goal")
+        self.arguments.append(kwargs)
+        return self.result
+
+
+class SpyGoalAssessmentEngine:
+    def __init__(self, result: GoalAssessment, calls: list[str]):
+        self.result = result
+        self.calls = calls
+        self.arguments = []
+
+    def analyze(self, **kwargs):
+        self.calls.append("goal_assessment")
+        self.arguments.append(kwargs)
+        return self.result
+
+
 class OrderedDecisionEngine:
     def __init__(self, calls: list[str]) -> None:
         self.calls = calls
@@ -264,6 +327,39 @@ def _body_composition_assessment(
     )
 
 
+def _trend_quality(
+    as_of: datetime,
+    *,
+    status: BodyMassTrendQualityDataStatus = (
+        BodyMassTrendQualityDataStatus.INSUFFICIENT_DATA
+    ),
+) -> BodyMassTrendQuality:
+    return BodyMassTrendQuality(
+        measurement_count=0,
+        period_days=None,
+        current_is_fresh=False,
+        baseline_window_valid=False,
+        source_consistency_known=False,
+        data_status=status,
+        confidence=0.0,
+        evidence=(),
+        limitations=("missing_body_mass_trend",),
+        valid_for_date=as_of.date(),
+        as_of=as_of,
+    )
+
+
+def _goal_assessment(as_of: datetime) -> GoalAssessment:
+    return GoalAssessment(
+        goal=None,
+        data_status=GoalAssessmentDataStatus.INSUFFICIENT_DATA,
+        confidence=0.0,
+        valid_for_date=as_of.date(),
+        as_of=as_of,
+        limitations=("missing_active_goal",),
+    )
+
+
 def test_workflow_runs_body_composition_once_in_canonical_order():
     as_of = datetime(2026, 8, 3, 6)
     health = HealthObservationInput(
@@ -277,11 +373,24 @@ def test_workflow_runs_body_composition_once_in_canonical_order():
     health_history = (HealthDaily(as_of.date(), weight=80.0),)
     body_input = BodyCompositionInput((), as_of.date(), as_of)
     body_assessment = _body_composition_assessment(as_of)
+    quality_input = BodyMassTrendQualityInput(
+        assessment=body_assessment,
+        measurement_count=0,
+        source_consistency_known=False,
+        valid_for_date=as_of.date(),
+        as_of=as_of,
+    )
+    quality = _trend_quality(as_of)
+    goal_assessment = _goal_assessment(as_of)
     nutrition_input = NutritionInput(valid_for_date=as_of.date(), as_of=as_of)
     nutrition_assessment = _nutrition_assessment(as_of)
     calls: list[str] = []
     body_input_builder = SpyBodyCompositionInputBuilder(body_input, calls)
     body_engine = SpyBodyCompositionEngine(body_assessment, calls)
+    quality_input_builder = SpyTrendQualityInputBuilder(quality_input, calls)
+    quality_evaluator = SpyTrendQualityEvaluator(quality, calls)
+    goal_reader = SpyGoalReader(None, calls)
+    goal_engine = SpyGoalAssessmentEngine(goal_assessment, calls)
     nutrition_input_builder = SpyNutritionInputBuilder(nutrition_input, calls)
     nutrition_engine = SpyNutritionEngine(nutrition_assessment, calls)
     recommendation_engine = OrderedRecommendationEngine(
@@ -289,12 +398,17 @@ def test_workflow_runs_body_composition_once_in_canonical_order():
         calls,
     )
     explainability_builder = OrderedExplainabilityBuilder(calls)
+    adaptation = _neutral_adaptation(as_of)
     original_history = deepcopy(health_history)
 
     result = IntelligenceDecisionWorkflow(
         decision_engine=OrderedDecisionEngine(calls),
         body_composition_input_builder=body_input_builder,
         body_composition_engine=body_engine,
+        body_mass_trend_quality_input_builder=quality_input_builder,
+        body_mass_trend_quality_evaluator=quality_evaluator,
+        athlete_goal_reader=goal_reader,
+        goal_assessment_engine=goal_engine,
         nutrition_input_builder=nutrition_input_builder,
         nutrition_engine=nutrition_engine,
         recommendation_engine=recommendation_engine,
@@ -302,6 +416,7 @@ def test_workflow_runs_body_composition_once_in_canonical_order():
     ).run(
         build_athlete(),
         health=health,
+        adaptation=adaptation,
         nutrition_health_history=health_history,
         body_composition_health_history=health_history,
     )
@@ -310,6 +425,10 @@ def test_workflow_runs_body_composition_once_in_canonical_order():
         "decision",
         "body_composition_input",
         "body_composition",
+        "trend_quality_input",
+        "trend_quality",
+        "active_goal",
+        "goal_assessment",
         "nutrition_input",
         "nutrition",
         "recommendation",
@@ -319,13 +438,33 @@ def test_workflow_runs_body_composition_once_in_canonical_order():
         {"health_history": health_history, "as_of": as_of}
     ]
     assert body_engine.inputs == [body_input]
+    assert quality_input_builder.arguments == [(body_assessment, body_input)]
+    assert quality_evaluator.inputs == [quality_input]
+    assert goal_reader.arguments == [
+        {"valid_for_date": as_of.date(), "as_of": as_of}
+    ]
+    assert goal_engine.arguments == [
+        {
+            "goal": None,
+            "body_composition": body_assessment,
+            "trend_quality": quality,
+            "adaptation": adaptation,
+            "valid_for_date": as_of.date(),
+            "as_of": as_of,
+        }
+    ]
     assert nutrition_engine.inputs == [nutrition_input]
     assert result.body_composition is body_assessment
     assert result.nutrition is nutrition_assessment
+    assert result.body_mass_trend_quality is quality
+    assert result.goal_assessment is goal_assessment
     assert len(recommendation_engine.contexts) == 1
     recommendation_context = recommendation_engine.contexts[0]
     assert not hasattr(recommendation_context, "body_composition")
     assert not hasattr(recommendation_context, "body_composition_assessment")
+    assert not hasattr(recommendation_context, "body_mass_trend_quality")
+    assert not hasattr(recommendation_context, "athlete_goal")
+    assert recommendation_context.goal_assessment is goal_assessment
     assert explainability_builder.calls == [
         (result.decision.decision_reasons, result.recommendations)
     ]
@@ -589,3 +728,230 @@ def test_application_exports_intelligence_decision_workflow_contracts():
 
     assert IntelligenceDecisionResult
     assert IntelligenceDecisionWorkflow
+
+
+class KnownSourceTrendQualityInputBuilder(BodyMassTrendQualityInputBuilder):
+    def build(self, assessment, body_composition_input):
+        quality_input = super().build(assessment, body_composition_input)
+        return replace(quality_input, source_consistency_known=True)
+
+
+def _adaptive_goal(
+    as_of: datetime,
+    *,
+    goal_id: str = "goal-1",
+    goal_type: AthleteGoalType = AthleteGoalType.MAINTAIN,
+    target_body_mass_kg: float | None = None,
+) -> AthleteGoal:
+    return AthleteGoal(
+        id=goal_id,
+        goal_type=goal_type,
+        valid_from=as_of.date() - timedelta(days=30),
+        recorded_at=as_of - timedelta(days=30),
+        target_body_mass_kg=target_body_mass_kg,
+        evidence=(f"athlete_goal:{goal_id}",),
+    )
+
+
+def _adaptive_health(as_of: datetime) -> HealthObservationInput:
+    return HealthObservationInput(
+        observed_at=as_of,
+        hrv_delta_percent=0.0,
+        sleep_duration_minutes=480.0,
+        sleep_baseline_minutes=480.0,
+        recovery_score=80.0,
+        evidence=(f"health_daily:{as_of.date().isoformat()}",),
+    )
+
+
+def _body_mass_history(as_of: datetime) -> tuple[HealthDaily, ...]:
+    return (
+        HealthDaily(as_of.date() - timedelta(days=28), weight=81.0),
+        HealthDaily(as_of.date(), weight=80.0),
+    )
+
+
+def _neutral_adaptation(as_of: datetime) -> AdaptationDirective:
+    return AdaptationDirective(
+        as_of=as_of,
+        status=AdaptationStatus.MAINTAIN,
+        source_reasons=(),
+    )
+
+
+def _run_adaptive_workflow(
+    *,
+    goal: AthleteGoal | None,
+    as_of: datetime,
+    known_source: bool = True,
+    adaptation_status: AdaptationStatus = AdaptationStatus.MAINTAIN,
+    history: tuple[HealthDaily, ...] | None = None,
+):
+    workflow = IntelligenceDecisionWorkflow(
+        athlete_goal_reader=InMemoryAthleteGoalReader(
+            () if goal is None else (goal,)
+        ),
+        body_mass_trend_quality_input_builder=(
+            KnownSourceTrendQualityInputBuilder()
+            if known_source
+            else BodyMassTrendQualityInputBuilder()
+        ),
+    )
+    adaptation = AdaptationDirective(
+        as_of=as_of,
+        status=adaptation_status,
+        source_reasons=(),
+    )
+    return workflow.run(
+        build_athlete(recovery_score=80, fatigue=20, freshness=20),
+        health=_adaptive_health(as_of),
+        adaptation=adaptation,
+        body_composition_health_history=(
+            _body_mass_history(as_of) if history is None else history
+        ),
+    )
+
+
+def test_dated_workflow_without_goal_returns_both_adaptive_assessments():
+    as_of = datetime(2026, 8, 10, 6)
+
+    result = _run_adaptive_workflow(goal=None, as_of=as_of)
+
+    assert result.body_mass_trend_quality is not None
+    assert result.goal_assessment is not None
+    assert result.goal_assessment.goal is None
+    assert result.goal_assessment.data_status is (
+        GoalAssessmentDataStatus.INSUFFICIENT_DATA
+    )
+    assert result.goal_assessment.limitations == ("missing_active_goal",)
+    assert RecommendationType.REVIEW_BODY_COMPOSITION_TREND not in {
+        item.type for item in result.recommendations.recommendations
+    }
+
+
+@pytest.mark.parametrize(
+    ("goal_type", "target_body_mass_kg"),
+    (
+        (AthleteGoalType.MAINTAIN, None),
+        (AthleteGoalType.REDUCE_BODY_MASS, 75.0),
+    ),
+)
+def test_complete_goal_context_activates_neutral_review_recommendation(
+    goal_type,
+    target_body_mass_kg,
+):
+    as_of = datetime(2026, 8, 10, 6)
+    goal = _adaptive_goal(
+        as_of,
+        goal_type=goal_type,
+        target_body_mass_kg=target_body_mass_kg,
+    )
+
+    result = _run_adaptive_workflow(goal=goal, as_of=as_of)
+
+    assert result.body_mass_trend_quality is not None
+    assert result.body_mass_trend_quality.data_status is (
+        BodyMassTrendQualityDataStatus.COMPLETE
+    )
+    assert result.goal_assessment is not None
+    assert result.goal_assessment.data_status is GoalAssessmentDataStatus.COMPLETE
+    assert RecommendationType.REVIEW_BODY_COMPOSITION_TREND in {
+        item.type for item in result.recommendations.recommendations
+    }
+    assert "Review your body composition trend." in (
+        result.explainability.recommendations
+    )
+
+
+def test_reduce_body_mass_without_target_remains_partial_and_inactive():
+    as_of = datetime(2026, 8, 10, 6)
+    goal = _adaptive_goal(
+        as_of,
+        goal_type=AthleteGoalType.REDUCE_BODY_MASS,
+    )
+
+    result = _run_adaptive_workflow(goal=goal, as_of=as_of)
+
+    assert result.goal_assessment is not None
+    assert result.goal_assessment.data_status is GoalAssessmentDataStatus.PARTIAL
+    assert "missing_target_body_mass" in result.goal_assessment.limitations
+    assert RecommendationType.REVIEW_BODY_COMPOSITION_TREND not in {
+        item.type for item in result.recommendations.recommendations
+    }
+
+
+def test_unknown_source_consistency_prevents_adaptive_recommendation():
+    as_of = datetime(2026, 8, 10, 6)
+
+    result = _run_adaptive_workflow(
+        goal=_adaptive_goal(as_of),
+        as_of=as_of,
+        known_source=False,
+    )
+
+    assert result.body_mass_trend_quality is not None
+    assert result.body_mass_trend_quality.data_status is (
+        BodyMassTrendQualityDataStatus.PARTIAL
+    )
+    assert result.goal_assessment is not None
+    assert result.goal_assessment.data_status is GoalAssessmentDataStatus.PARTIAL
+    assert "source_consistency_unknown" in result.goal_assessment.limitations
+    assert RecommendationType.REVIEW_BODY_COMPOSITION_TREND not in {
+        item.type for item in result.recommendations.recommendations
+    }
+
+
+def test_restrictive_adaptation_activates_safety_gate_only():
+    as_of = datetime(2026, 8, 10, 6)
+
+    result = _run_adaptive_workflow(
+        goal=_adaptive_goal(as_of),
+        as_of=as_of,
+        adaptation_status=AdaptationStatus.REDUCE_LOAD,
+    )
+
+    assert result.goal_assessment is not None
+    assert result.goal_assessment.data_status is GoalAssessmentDataStatus.PARTIAL
+    assert "training_recovery_safety_active" in (
+        result.goal_assessment.limitations
+    )
+    assert RecommendationType.REVIEW_BODY_COMPOSITION_TREND not in {
+        item.type for item in result.recommendations.recommendations
+    }
+
+
+def test_stale_body_mass_cannot_activate_adaptive_recommendation():
+    as_of = datetime(2026, 8, 10, 6)
+    stale_history = (
+        HealthDaily(as_of.date() - timedelta(days=59), weight=81.0),
+        HealthDaily(as_of.date() - timedelta(days=31), weight=80.0),
+    )
+
+    result = _run_adaptive_workflow(
+        goal=_adaptive_goal(as_of),
+        as_of=as_of,
+        history=stale_history,
+    )
+
+    assert result.goal_assessment is not None
+    assert result.goal_assessment.data_status is not GoalAssessmentDataStatus.COMPLETE
+    assert RecommendationType.REVIEW_BODY_COMPOSITION_TREND not in {
+        item.type for item in result.recommendations.recommendations
+    }
+
+
+def test_overlapping_goal_configuration_propagates_controlled_error():
+    as_of = datetime(2026, 8, 10, 6)
+    workflow = IntelligenceDecisionWorkflow(
+        athlete_goal_reader=InMemoryAthleteGoalReader(
+            (_adaptive_goal(as_of, goal_id="a"), _adaptive_goal(as_of, goal_id="b"))
+        )
+    )
+
+    with pytest.raises(ValueError, match="multiple active athlete goals"):
+        workflow.run(
+            build_athlete(),
+            health=_adaptive_health(as_of),
+            adaptation=_neutral_adaptation(as_of),
+            body_composition_health_history=_body_mass_history(as_of),
+        )

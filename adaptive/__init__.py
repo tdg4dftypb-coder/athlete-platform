@@ -11,6 +11,7 @@ from adaptive.models import (
 )
 from adaptive.ports import AthleteGoalReader
 from adaptive.recommendation import AdaptiveGoalRecommendationRule
+from adaptive.readers import InMemoryAthleteGoalReader
 from adaptive.trend_quality import BodyMassTrendQualityEvaluator
 
 __all__ = [
@@ -26,4 +27,5 @@ __all__ = [
     "GoalAssessment",
     "GoalAssessmentDataStatus",
     "GoalAssessmentEngine",
+    "InMemoryAthleteGoalReader",
 ]

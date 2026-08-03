@@ -1,7 +1,18 @@
 from dataclasses import dataclass
 from datetime import datetime, time
 
+from adaptive import (
+    AthleteGoalReader,
+    BodyMassTrendQuality,
+    BodyMassTrendQualityEvaluator,
+    GoalAssessment,
+    GoalAssessmentEngine,
+    InMemoryAthleteGoalReader,
+)
 from application.adaptation import AdaptationDirective
+from application.body_mass_trend_quality_input import (
+    BodyMassTrendQualityInputBuilder,
+)
 from application.body_composition_input import BodyCompositionInputBuilder
 from application.decision_explainability import ExplainabilityResult
 from application.decision_explainability import DecisionExplainabilityBuilder
@@ -43,6 +54,8 @@ class IntelligenceDecisionResult:
     explainability: ExplainabilityResult
     nutrition: NutritionAssessment | None = None
     body_composition: BodyCompositionAssessment | None = None
+    goal_assessment: GoalAssessment | None = None
+    body_mass_trend_quality: BodyMassTrendQuality | None = None
 
 
 class IntelligenceDecisionWorkflow:
@@ -61,6 +74,14 @@ class IntelligenceDecisionWorkflow:
             BodyCompositionInputBuilder | None
         ) = None,
         body_composition_engine: BodyCompositionEngine | None = None,
+        athlete_goal_reader: AthleteGoalReader | None = None,
+        body_mass_trend_quality_input_builder: (
+            BodyMassTrendQualityInputBuilder | None
+        ) = None,
+        body_mass_trend_quality_evaluator: (
+            BodyMassTrendQualityEvaluator | None
+        ) = None,
+        goal_assessment_engine: GoalAssessmentEngine | None = None,
     ) -> None:
         self.observation_projector = observation_projector or ObservationProjector()
         self.insight_builder = insight_builder or InsightBuilder()
@@ -80,6 +101,20 @@ class IntelligenceDecisionWorkflow:
         )
         self.body_composition_engine = (
             body_composition_engine or BodyCompositionEngine()
+        )
+        self.athlete_goal_reader = (
+            athlete_goal_reader or InMemoryAthleteGoalReader()
+        )
+        self.body_mass_trend_quality_input_builder = (
+            body_mass_trend_quality_input_builder
+            or BodyMassTrendQualityInputBuilder()
+        )
+        self.body_mass_trend_quality_evaluator = (
+            body_mass_trend_quality_evaluator
+            or BodyMassTrendQualityEvaluator()
+        )
+        self.goal_assessment_engine = (
+            goal_assessment_engine or GoalAssessmentEngine()
         )
 
     def run(
@@ -129,6 +164,8 @@ class IntelligenceDecisionWorkflow:
             default=None,
         )
         body_composition = None
+        body_mass_trend_quality = None
+        goal_assessment = None
         nutrition = None
         if as_of is not None:
             body_composition_input = self.body_composition_input_builder.build(
@@ -137,6 +174,29 @@ class IntelligenceDecisionWorkflow:
             )
             body_composition = self.body_composition_engine.analyze(
                 body_composition_input
+            )
+            trend_quality_input = (
+                self.body_mass_trend_quality_input_builder.build(
+                    body_composition,
+                    body_composition_input,
+                )
+            )
+            body_mass_trend_quality = (
+                self.body_mass_trend_quality_evaluator.evaluate(
+                    trend_quality_input
+                )
+            )
+            active_goal = self.athlete_goal_reader.load_active_goal(
+                valid_for_date=as_of.date(),
+                as_of=as_of,
+            )
+            goal_assessment = self.goal_assessment_engine.analyze(
+                goal=active_goal,
+                body_composition=body_composition,
+                trend_quality=body_mass_trend_quality,
+                adaptation=adaptation,
+                valid_for_date=as_of.date(),
+                as_of=as_of,
             )
             nutrition_input = self.nutrition_input_builder.build(
                 decision,
@@ -157,6 +217,7 @@ class IntelligenceDecisionWorkflow:
                 observations=observations,
                 as_of=as_of,
                 nutrition_assessment=nutrition,
+                goal_assessment=goal_assessment,
             )
         )
         explainability = self.explainability_builder.build(
@@ -173,4 +234,6 @@ class IntelligenceDecisionWorkflow:
             explainability=explainability,
             nutrition=nutrition,
             body_composition=body_composition,
+            goal_assessment=goal_assessment,
+            body_mass_trend_quality=body_mass_trend_quality,
         )

@@ -7,6 +7,12 @@ from unittest.mock import Mock
 import pytest
 import application.morning_coach_use_case as morning_coach_use_case_module
 
+from adaptive import (
+    BodyMassTrendQuality,
+    BodyMassTrendQualityDataStatus,
+    GoalAssessment,
+    GoalAssessmentDataStatus,
+)
 from application import (
     AdaptationPolicy,
     AthleteAssessmentBuilder,
@@ -138,6 +144,33 @@ def build_body_composition_assessment(
         ),
         valid_for_date=as_of.date(),
         as_of=as_of,
+    )
+
+
+def build_body_mass_trend_quality(as_of: datetime) -> BodyMassTrendQuality:
+    return BodyMassTrendQuality(
+        measurement_count=0,
+        period_days=None,
+        current_is_fresh=False,
+        baseline_window_valid=False,
+        source_consistency_known=False,
+        data_status=BodyMassTrendQualityDataStatus.INSUFFICIENT_DATA,
+        confidence=0.0,
+        evidence=(),
+        limitations=("missing_body_mass_trend",),
+        valid_for_date=as_of.date(),
+        as_of=as_of,
+    )
+
+
+def build_goal_assessment(as_of: datetime) -> GoalAssessment:
+    return GoalAssessment(
+        goal=None,
+        data_status=GoalAssessmentDataStatus.INSUFFICIENT_DATA,
+        confidence=0.0,
+        valid_for_date=as_of.date(),
+        as_of=as_of,
+        limitations=("missing_active_goal",),
     )
 
 
@@ -306,6 +339,41 @@ def test_use_case_preserves_compatibility_when_workflow_has_no_assessment():
     result = use_case.run()
 
     assert result.body_composition is None
+    assert result.goal_assessment is None
+    assert result.body_mass_trend_quality is None
+
+
+def test_use_case_transports_adaptive_assessments_without_copying():
+    context = build_context()
+    weekly_review_workflow = Mock()
+    weekly_review_workflow.run_with_snapshot.return_value = (
+        build_snapshot(context),
+        build_review(context),
+    )
+    use_case, dependencies, _, _, _, _ = build_use_case(
+        weekly_review_workflow=weekly_review_workflow,
+        context=context,
+    )
+    as_of = datetime.combine(context.today.date, datetime.min.time())
+    quality = build_body_mass_trend_quality(as_of)
+    assessment = build_goal_assessment(as_of)
+    intelligence = replace(
+        dependencies["intelligence_workflow"].run.return_value,
+        body_mass_trend_quality=quality,
+        goal_assessment=assessment,
+    )
+    dependencies["intelligence_workflow"].run.return_value = intelligence
+
+    result = use_case.run()
+
+    assert result.goal_assessment is intelligence.goal_assessment is assessment
+    assert (
+        result.body_mass_trend_quality
+        is intelligence.body_mass_trend_quality
+        is quality
+    )
+    assert not hasattr(result.report, "goal_assessment")
+    assert not hasattr(result.report, "body_mass_trend_quality")
 
 
 def test_use_case_uses_health_context_date_for_weekly_review_period():
@@ -423,6 +491,9 @@ def test_presenter_does_not_interpret_or_present_body_composition():
 
     assert "body_composition" not in source
     assert "BodyCompositionAssessment" not in source
+    assert "goal_assessment" not in source
+    assert "body_mass_trend_quality" not in source
+    assert "AthleteGoal" not in source
 
 
 def test_use_case_contains_no_alternative_decision_or_recommendation_pipeline():
@@ -435,6 +506,9 @@ def test_use_case_contains_no_alternative_decision_or_recommendation_pipeline():
     assert "BodyCompositionInputBuilder" not in source
     assert "DecisionExplainabilityBuilder" not in source
     assert "ExplanationBuilder" not in source
+    assert "AthleteGoalReader" not in source
+    assert "BodyMassTrendQualityEvaluator" not in source
+    assert "GoalAssessmentEngine" not in source
 
 
 class RecordingIntelligenceWorkflow:
@@ -487,6 +561,15 @@ def test_canonical_morning_coach_handles_a_neutral_day_end_to_end():
     assert intelligence.nutrition is not None
     assert intelligence.body_composition is not None
     assert result.body_composition is intelligence.body_composition
+    assert result.goal_assessment is intelligence.goal_assessment
+    assert result.goal_assessment is not None
+    assert result.goal_assessment.data_status is (
+        GoalAssessmentDataStatus.INSUFFICIENT_DATA
+    )
+    assert result.body_mass_trend_quality is (
+        intelligence.body_mass_trend_quality
+    )
+    assert result.body_mass_trend_quality is not None
     assert result.body_composition.data_status is (
         BodyCompositionDataStatus.INSUFFICIENT_DATA
     )

@@ -8,12 +8,21 @@ from adaptive import (
     AdaptiveGoalRecommendationRule,
     AthleteGoal,
     AthleteGoalType,
+    BodyMassTrendQualityEvaluator,
     GoalAssessment,
     GoalAssessmentDataStatus,
+    GoalAssessmentEngine,
+    InMemoryAthleteGoalReader,
+)
+from application.body_mass_trend_quality_input import (
+    BodyMassTrendQualityInputBuilder,
 )
 from application.body_composition_input import BodyCompositionInputBuilder
 from application.composition import (
+    build_athlete_goal_reader,
+    build_body_mass_trend_quality_evaluator,
     build_decision_engine,
+    build_goal_assessment_engine,
     build_intelligence_decision_workflow,
     build_morning_coach_use_case,
     build_planner_engine,
@@ -136,6 +145,16 @@ def test_build_intelligence_workflow_injects_ready_dependencies():
         BodyCompositionInputBuilder,
     )
     assert isinstance(workflow.body_composition_engine, BodyCompositionEngine)
+    assert isinstance(workflow.athlete_goal_reader, InMemoryAthleteGoalReader)
+    assert isinstance(
+        workflow.body_mass_trend_quality_input_builder,
+        BodyMassTrendQualityInputBuilder,
+    )
+    assert isinstance(
+        workflow.body_mass_trend_quality_evaluator,
+        BodyMassTrendQualityEvaluator,
+    )
+    assert isinstance(workflow.goal_assessment_engine, GoalAssessmentEngine)
 
 
 def test_build_weekly_review_workflow_uses_the_supplied_database():
@@ -171,6 +190,12 @@ def test_small_engine_factories_return_fresh_instances():
     assert isinstance(first_planner, PlannerEngine)
     assert first_decision is not second_decision
     assert first_planner is not second_planner
+    assert build_athlete_goal_reader() is not build_athlete_goal_reader()
+    assert (
+        build_body_mass_trend_quality_evaluator()
+        is not build_body_mass_trend_quality_evaluator()
+    )
+    assert build_goal_assessment_engine() is not build_goal_assessment_engine()
 
 
 def test_all_factories_return_fresh_instances():
@@ -226,6 +251,45 @@ def test_intelligence_workflow_factory_injects_fresh_body_composition_dependenci
     )
 
 
+def test_adaptive_factories_use_empty_or_explicit_immutable_goal_configuration():
+    as_of = datetime(2026, 8, 10, 6)
+    goal = AthleteGoal(
+        id="goal-1",
+        goal_type=AthleteGoalType.MAINTAIN,
+        valid_from=as_of.date(),
+        recorded_at=as_of,
+    )
+
+    empty_workflow = build_intelligence_decision_workflow()
+    configured_workflow = build_intelligence_decision_workflow((goal,))
+
+    assert empty_workflow.athlete_goal_reader.goals == ()
+    assert configured_workflow.athlete_goal_reader.goals == (goal,)
+    assert configured_workflow.athlete_goal_reader.load_active_goal(
+        valid_for_date=as_of.date(),
+        as_of=as_of,
+    ) is goal
+    assert len(configured_workflow.recommendation_engine._rules) == 6
+
+
+def test_morning_coach_factory_passes_explicit_goals_to_canonical_workflow():
+    database = Mock()
+    goal = AthleteGoal(
+        id="goal-1",
+        goal_type=AthleteGoalType.MAINTAIN,
+        valid_from=date(2026, 8, 10),
+        recorded_at=datetime(2026, 8, 10, 6),
+    )
+
+    use_case = build_morning_coach_use_case(
+        database,
+        Mock(),
+        (goal,),
+    )
+
+    assert use_case.intelligence_workflow.athlete_goal_reader.goals == (goal,)
+
+
 def test_default_morning_coach_composition_defers_health_repository_io(
     monkeypatch,
 ):
@@ -245,6 +309,9 @@ def test_default_morning_coach_composition_defers_health_repository_io(
 
 def test_public_application_exports_include_composition_factories():
     from application import (
+        build_athlete_goal_reader as public_goal_reader_factory,
+        build_body_mass_trend_quality_evaluator as public_quality_factory,
+        build_goal_assessment_engine as public_assessment_factory,
         build_intelligence_decision_workflow as public_intelligence_factory,
         build_morning_coach_use_case as public_morning_factory,
         build_recommendation_engine as public_recommendation_factory,
@@ -253,3 +320,6 @@ def test_public_application_exports_include_composition_factories():
     assert public_intelligence_factory is build_intelligence_decision_workflow
     assert public_morning_factory is build_morning_coach_use_case
     assert public_recommendation_factory is build_recommendation_engine
+    assert public_goal_reader_factory is build_athlete_goal_reader
+    assert public_quality_factory is build_body_mass_trend_quality_evaluator
+    assert public_assessment_factory is build_goal_assessment_engine

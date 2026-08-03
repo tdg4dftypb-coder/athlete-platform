@@ -4,6 +4,9 @@ from application.adaptation import (
     AdaptationStatus,
 )
 from application.body_composition_input import BodyCompositionInputBuilder
+from application.body_mass_trend_quality_input import (
+    BodyMassTrendQualityInputBuilder,
+)
 from application.decision_explainability import (
     DecisionExplainabilityBuilder,
     ExplainabilityMappingError,
@@ -46,7 +49,10 @@ from application.training_assessment import (
 )
 from application.weekly_review import WeeklyReviewWorkflow
 from application.composition import (
+    build_athlete_goal_reader,
+    build_body_mass_trend_quality_evaluator,
     build_decision_engine,
+    build_goal_assessment_engine,
     build_intelligence_decision_workflow,
     build_morning_coach_use_case,
     build_planner_engine,
@@ -64,13 +70,17 @@ __all__ = [
     "AthleteAssessmentStatus",
     "AthleteKnowledgeContext",
     "AthleteKnowledgeContextBuilder",
+    "build_athlete_goal_reader",
+    "build_body_mass_trend_quality_evaluator",
     "build_decision_engine",
+    "build_goal_assessment_engine",
     "build_intelligence_decision_workflow",
     "build_morning_coach_use_case",
     "build_planner_engine",
     "build_recommendation_engine",
     "build_weekly_review_workflow",
     "BodyCompositionInputBuilder",
+    "BodyMassTrendQualityInputBuilder",
     "DecisionExplainabilityBuilder",
     "ExplainabilityMappingError",
     "ExplainabilityResult",
