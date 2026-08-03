@@ -30,7 +30,11 @@ function createHeader(model: MorningBriefingPresentation): HTMLElement {
   header.className = "briefing-header reveal";
 
   const title = document.createElement("h1");
-  title.textContent = `${model.greeting}, ${model.athleteName}`;
+  const greeting = document.createElement("span");
+  greeting.textContent = `${model.greeting},`;
+  const athleteName = document.createElement("strong");
+  athleteName.textContent = `${model.athleteName}.`;
+  title.append(greeting, document.createTextNode(" "), athleteName);
 
   const context = document.createElement("p");
   context.className = "date-line";
@@ -43,12 +47,7 @@ function createHeader(model: MorningBriefingPresentation): HTMLElement {
 function createHero(model: MorningBriefingPresentation): HTMLElement {
   const article = document.createElement("article");
   article.className = "hero-card reveal";
-  article.setAttribute("aria-labelledby", "coach-heading");
-
-  const eyebrow = document.createElement("p");
-  eyebrow.id = "coach-heading";
-  eyebrow.className = "eyebrow";
-  eyebrow.textContent = "AI Coach";
+  article.setAttribute("aria-label", "Poranna odprawa");
 
   const message = document.createElement("div");
   message.className = "coach-message";
@@ -58,7 +57,7 @@ function createHero(model: MorningBriefingPresentation): HTMLElement {
     message.append(text);
   }
 
-  article.append(eyebrow, message);
+  article.append(message);
   return article;
 }
 
@@ -70,24 +69,13 @@ function createDecision(model: MorningBriefingPresentation): HTMLElement {
   title.className = "decision-title";
   title.textContent = model.decision.title;
 
-  const details = document.createElement("dl");
+  const details = document.createElement("p");
   details.className = "decision-details";
-  appendDetail(details, "Czas", model.decision.duration);
-  appendDetail(details, "Intensywność", model.decision.intensity);
+  details.textContent = `${model.decision.duration} • ${model.decision.intensity}`;
 
   card.append(title, details);
   section.append(card);
   return section;
-}
-
-function appendDetail(list: HTMLDListElement, label: string, value: string): void {
-  const item = document.createElement("div");
-  const term = document.createElement("dt");
-  const description = document.createElement("dd");
-  term.textContent = label;
-  description.textContent = value;
-  item.append(term, description);
-  list.append(item);
 }
 
 function createListSection(
@@ -139,7 +127,7 @@ function createGoal(model: MorningBriefingPresentation): HTMLElement {
 function createShortcuts(model: MorningBriefingPresentation): HTMLElement {
   const section = createSection("Skróty", "shortcuts");
   const list = document.createElement("ul");
-  list.className = "shortcut-grid";
+  list.className = "shortcut-list";
 
   for (const shortcut of model.shortcuts) {
     const item = document.createElement("li");
@@ -148,7 +136,13 @@ function createShortcuts(model: MorningBriefingPresentation): HTMLElement {
     button.disabled = true;
     button.dataset.shortcut = shortcut.id;
     button.title = "Dostępne w kolejnych sprintach";
-    button.textContent = shortcut.label;
+    const label = document.createElement("span");
+    label.textContent = shortcut.label;
+    const chevron = document.createElement("span");
+    chevron.className = "shortcut-chevron";
+    chevron.setAttribute("aria-hidden", "true");
+    chevron.textContent = "›";
+    button.append(label, chevron);
     item.append(button);
     list.append(item);
   }

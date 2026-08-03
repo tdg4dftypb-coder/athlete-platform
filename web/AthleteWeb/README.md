@@ -31,6 +31,8 @@ AthleteDashboard payload v1.0
 
 W bieżącym sprincie UI otrzymuje wyłącznie deterministyczne Preview Data. Mapper payloadu nie jest jeszcze zaimplementowany. `MorningBriefingPresentation` nie zna backendu, domeny ani reguł biznesowych.
 
+Sprint 2 dopracowuje wyłącznie jakość tego samego ekranu: lżejszy briefing, większą typografię i whitespace, uproszczoną decyzję, czytelniejszy postęp celu oraz skróty w formie spokojnej listy ustawień. Zakres funkcjonalny pozostaje bez zmian.
+
 Web i zachowany klient SwiftUI mają docelowo konsumować ten sam wersjonowany kontrakt backendowy. Logika domenowa pozostaje wyłącznie w backendzie; klienci odpowiadają za mapowanie prezentacyjne i renderowanie.
 
 ## PWA

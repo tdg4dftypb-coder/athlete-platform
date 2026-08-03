@@ -13,7 +13,7 @@ export const morningBriefingPreviewData: MorningBriefingPresentation = Object.fr
   ]),
   decision: Object.freeze({
     title: "Trening progowy",
-    duration: "60–75 min",
+    duration: "60–75 minut",
     intensity: "Strefa 3–4",
   }),
   reasons: Object.freeze([

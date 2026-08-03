@@ -122,6 +122,14 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 - backend, kontrakt payloadu v1.0 i zachowany klient SwiftUI pozostają bez zmian;
 - mapper backendowy, API, trwały stan oraz aktywne trasy nawigacji nie należą do bieżącego zakresu.
 
+#### Sprint 2 — Morning Briefing Polish
+
+- uproszczono Hero Card i hierarchię nagłówka bez zmiany treści odprawy;
+- zwiększono typografię, whitespace oraz rytm sekcji;
+- decyzja używa jednej spokojnej linii szczegółów zamiast badge'y;
+- pasek celu i lista skrótów zostały dopracowane zgodnie z wzorcami HIG;
+- zakres funkcjonalny, Preview Data flow i granice backendu pozostają bez zmian.
+
 ### Stage 11.2 — Experience Architecture, Sprint 1
 
 - natywny projekt `AthleteApp` dla iOS 18+ jest przygotowany w SwiftUI bez UIKit i z granicą MVVM;

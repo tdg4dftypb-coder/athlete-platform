@@ -19,7 +19,7 @@ describe("Morning Briefing", () => {
     const app = createApp(morningBriefingPreviewData);
     document.body.append(app);
 
-    expect(document.querySelector("h1")?.textContent).toBe("Dzień dobry, Marcin");
+    expect(document.querySelector("h1")?.textContent).toBe("Dzień dobry, Marcin.");
     expect(Array.from(document.querySelectorAll("h2"), (heading) => heading.textContent)).toEqual([
       "Dzisiejsza decyzja",
       "Dlaczego właśnie taki plan?",
@@ -29,6 +29,9 @@ describe("Morning Briefing", () => {
       "Skróty",
     ]);
     expect(document.querySelector(".hero-card")?.textContent).toContain("Dzisiaj warto wykonać trening progowy.");
+    expect(document.querySelector(".hero-card")?.textContent).not.toContain("AI Coach");
+    expect(document.querySelector(".decision-details")?.textContent).toBe("60–75 minut • Strefa 3–4");
+    expect(document.querySelectorAll(".shortcut-list li")).toHaveLength(4);
   });
 
   it("marks only Dzisiaj as the active navigation tab", () => {
