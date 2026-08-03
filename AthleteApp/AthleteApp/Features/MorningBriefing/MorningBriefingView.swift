@@ -1,7 +1,10 @@
 import SwiftUI
 
 struct MorningBriefingView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var viewModel: MorningBriefingViewModel
+    @State private var hasAppeared = false
+    @State private var displayedGoalProgress = 0.0
 
     init(viewModel: MorningBriefingViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -18,9 +21,11 @@ struct MorningBriefingView: View {
                     todayPlan
                     goal
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 32)
+                .padding(.horizontal, 24)
+                .padding(.top, 24)
+                .padding(.bottom, 40)
+                .opacity(hasAppeared ? 1 : 0)
+                .offset(y: reduceMotion || hasAppeared ? 0 : 8)
             }
             .background(AthleteTheme.pageBackground)
             .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -29,48 +34,65 @@ struct MorningBriefingView: View {
             .toolbar(.hidden, for: .navigationBar)
         }
         .tint(AthleteTheme.accent)
+        .onAppear {
+            guard !hasAppeared else { return }
+
+            if reduceMotion {
+                hasAppeared = true
+                displayedGoalProgress = viewModel.briefing.goal.progress
+            } else {
+                withAnimation(.easeOut(duration: 0.35)) {
+                    hasAppeared = true
+                }
+                withAnimation(.easeOut(duration: 0.65).delay(0.15)) {
+                    displayedGoalProgress = viewModel.briefing.goal.progress
+                }
+            }
+        }
     }
 
     private var greeting: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Text("\(viewModel.briefing.greeting), \(viewModel.briefing.athleteName)")
-                .font(.largeTitle.bold())
+                .font(.largeTitle.weight(.bold))
+                .tracking(-0.6)
                 .foregroundStyle(.primary)
             Text(viewModel.briefing.dateText)
-                .font(.headline)
+                .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
     }
 
     private var heroBriefing: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 20) {
             Label("AI Coach", systemImage: "sparkles")
-                .font(.headline.weight(.semibold))
+                .font(.caption.weight(.bold))
+                .textCase(.uppercase)
+                .tracking(0.8)
                 .foregroundStyle(AthleteTheme.secondaryAccent)
 
             Text(viewModel.briefing.coachMessage)
-                .font(.title3)
-                .fontWeight(.medium)
+                .font(.title3.weight(.regular))
                 .foregroundStyle(.white)
-                .lineSpacing(5)
+                .lineSpacing(6)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(24)
+        .padding(26)
         .background(
-            LinearGradient(
-                colors: [AthleteTheme.coachBackground, AthleteTheme.coachBackground.opacity(0.88)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: RoundedRectangle(cornerRadius: AthleteTheme.cardRadius)
+            AthleteTheme.coachBackground,
+            in: RoundedRectangle(
+                cornerRadius: AthleteTheme.cardRadius,
+                style: .continuous
+            )
         )
-        .shadow(color: AthleteTheme.coachBackground.opacity(0.18), radius: 16, y: 8)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Odprawa AI Coacha. \(viewModel.briefing.coachMessage)")
     }
 
     private var todayDecision: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             SectionHeading(title: "Dzisiejsza decyzja")
             BriefingCard {
                 VStack(alignment: .leading, spacing: 14) {
@@ -88,6 +110,10 @@ struct MorningBriefingView: View {
                     }
                 }
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(
+                "\(viewModel.briefing.decision.title), \(viewModel.briefing.decision.duration), \(viewModel.briefing.decision.intensity)"
+            )
         }
     }
 
@@ -98,10 +124,10 @@ struct MorningBriefingView: View {
     }
 
     private var reasons: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             SectionHeading(title: "Dlaczego właśnie taki plan?")
             BriefingCard {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 18) {
                     ForEach(viewModel.briefing.reasons, id: \.self) { reason in
                         Label(reason, systemImage: "checkmark.circle.fill")
                             .font(.body)
@@ -115,7 +141,7 @@ struct MorningBriefingView: View {
     }
 
     private var todayPlan: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             SectionHeading(title: "Plan na dziś")
             BriefingCard {
                 VStack(alignment: .leading, spacing: 0) {
@@ -124,7 +150,7 @@ struct MorningBriefingView: View {
                             .font(.body.weight(.medium))
                             .foregroundStyle(.primary)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 12)
+                            .padding(.vertical, 14)
 
                         if index < viewModel.briefing.planItems.count - 1 {
                             Divider()
@@ -136,22 +162,26 @@ struct MorningBriefingView: View {
     }
 
     private var goal: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             SectionHeading(title: "Twój cel")
             BriefingCard {
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(viewModel.briefing.goal.title)
-                            .font(.headline)
-                        Spacer()
-                        Text(viewModel.briefing.goal.progress, format: .percent.precision(.fractionLength(0)))
-                            .font(.title2.bold())
-                            .foregroundStyle(AthleteTheme.accent)
+                VStack(alignment: .leading, spacing: 16) {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .firstTextBaseline) {
+                            goalHeader
+                        }
+                        VStack(alignment: .leading, spacing: 8) {
+                            goalHeader
+                        }
                     }
 
-                    ProgressView(value: viewModel.briefing.goal.progress)
+                    ProgressView(value: displayedGoalProgress)
                         .tint(AthleteTheme.accent)
                         .accessibilityLabel("Postęp celu")
+                        .accessibilityValue(
+                            viewModel.briefing.goal.progress,
+                            format: .percent.precision(.fractionLength(0))
+                        )
 
                     Text(viewModel.briefing.goal.timeline)
                         .font(.subheadline)
@@ -159,6 +189,16 @@ struct MorningBriefingView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private var goalHeader: some View {
+        Text(viewModel.briefing.goal.title)
+            .font(.headline)
+        Spacer()
+        Text(viewModel.briefing.goal.progress, format: .percent.precision(.fractionLength(0)))
+            .font(.title2.bold())
+            .foregroundStyle(AthleteTheme.accent)
     }
 }
 
@@ -201,6 +241,8 @@ private struct BottomNavigationBar: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(!isActive)
+                .accessibilityLabel(title)
+                .accessibilityValue(isActive ? "Wybrano" : "Niedostępne")
                 .accessibilityAddTraits(isActive ? .isSelected : [])
                 .accessibilityHint(isActive ? "Aktualna karta" : "Funkcja będzie dostępna w przyszłości")
             }
@@ -218,4 +260,22 @@ private struct BottomNavigationBar: View {
             briefing: MorningBriefingPreviewData.marcin
         )
     )
+}
+
+#Preview("Morning Briefing — Dark") {
+    MorningBriefingView(
+        viewModel: MorningBriefingViewModel(
+            briefing: MorningBriefingPreviewData.marcin
+        )
+    )
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Morning Briefing — Accessibility Text") {
+    MorningBriefingView(
+        viewModel: MorningBriefingViewModel(
+            briefing: MorningBriefingPreviewData.marcin
+        )
+    )
+    .environment(\.dynamicTypeSize, .accessibility2)
 }

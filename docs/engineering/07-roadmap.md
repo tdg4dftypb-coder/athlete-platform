@@ -122,6 +122,15 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 - backend, API, Apple Health i logika biznesowa pozostają poza zakresem Sprintu 1;
 - build oraz uruchomienie SwiftUI Preview wymagają końcowej walidacji w pełnym Xcode 17+ z SDK iOS 18; bieżące środowisko udostępnia tylko Command Line Tools.
 
+### Stage 11.2 — Experience Architecture, Sprint 2
+
+- Morning Briefing ma dopracowaną hierarchię typograficzną, spokojniejszy Hero Card i większy rytm przestrzeni;
+- semantyczne powierzchnie i adaptacyjne kolory zapewniają obsługę Light oraz Dark Mode;
+- Dynamic Type, VoiceOver, minimalne cele dotykowe i Reduce Motion są uwzględnione w implementacji;
+- subtelne animacje wejścia i postępu nie zmieniają funkcji ani danych ekranu;
+- warianty Preview pokrywają wygląd domyślny, Dark Mode oraz rozmiar tekstu accessibility;
+- build oraz renderowanie Preview nadal wymagają końcowej walidacji w pełnym Xcode 17+ z SDK iOS 18.
+
 ### Engineering Handbook v1.0
 
 - ujednolicenie referencji architektonicznej, ADR-ów, standardów i strategii testowej;

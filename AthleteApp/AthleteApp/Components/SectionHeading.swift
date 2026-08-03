@@ -5,7 +5,7 @@ struct SectionHeading: View {
 
     var body: some View {
         Text(title)
-            .font(.title3.weight(.semibold))
+            .font(.headline.weight(.semibold))
             .foregroundStyle(.primary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityAddTraits(.isHeader)
