@@ -1,6 +1,12 @@
+html,
 body {
-  min-width: 20rem;
+  overflow-x: clip;
+}
+
+body {
+  min-width: 320px;
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--color-page);
   color: var(--color-text);
   font-family: var(--font-sans);
@@ -15,16 +21,25 @@ button:focus-visible {
 }
 
 .app-shell {
+  display: flex;
+  flex-direction: column;
   width: min(100%, 30rem);
   min-height: 100vh;
+  min-height: 100dvh;
   margin-inline: auto;
   background: var(--color-shell);
 }
 
 .briefing {
   display: grid;
+  flex: 1 0 auto;
+  min-width: 0;
   gap: 2.75rem;
   padding: 2.5rem var(--space-page) 3.75rem;
+}
+
+.briefing > * {
+  min-width: 0;
 }
 
 .briefing-header {
@@ -151,6 +166,7 @@ h2 {
 
 .goal-heading {
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
   align-items: baseline;
   justify-content: space-between;
@@ -236,7 +252,9 @@ h2 {
   z-index: 10;
   bottom: 0;
   display: grid;
+  flex: 0 0 auto;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 100%;
   padding: 0.45rem max(0.75rem, env(safe-area-inset-left)) max(0.45rem, env(safe-area-inset-bottom));
   border-top: 1px solid var(--color-border);
   background: color-mix(in srgb, var(--color-shell) 92%, transparent);
@@ -254,6 +272,8 @@ h2 {
   color: var(--color-muted);
   font-size: clamp(0.66rem, 2.7vw, 0.76rem);
   font-weight: 650;
+  overflow-wrap: anywhere;
+  text-align: center;
 }
 
 .bottom-navigation button:disabled {
@@ -302,12 +322,13 @@ h2 {
 
 @media (min-width: 48rem) {
   body {
-    padding-block: 2.5rem;
+    padding-top: 2.5rem;
   }
 
   .app-shell {
-    min-height: calc(100vh - 5rem);
-    overflow: hidden;
+    min-height: calc(100vh - 2.5rem);
+    min-height: calc(100dvh - 2.5rem);
+    overflow: clip;
     border: 1px solid var(--color-border);
     border-radius: 2rem;
     box-shadow: 0 24px 80px rgba(22, 58, 54, 0.11);

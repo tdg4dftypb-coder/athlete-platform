@@ -130,6 +130,13 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 - pasek celu i lista skrótów zostały dopracowane zgodnie z wzorcami HIG;
 - zakres funkcjonalny, Preview Data flow i granice backendu pozostają bez zmian.
 
+#### Sprint 2.1 — Mobile Shell and Bottom Navigation Fix
+
+- shell korzysta z elastycznej kolumny i pełnej dostępnej wysokości `100dvh` z fallbackiem `100vh`;
+- główna zawartość wypełnia wolne miejsce bez wymuszania wysokości większej od treści;
+- sticky bottom navigation pozostaje ostatnim elementem shella, respektuje safe area i nie traci sticky containment na desktopie;
+- treść, modele prezentacyjne, Preview Data oraz kontrakty backendu pozostają bez zmian.
+
 ### Stage 11.2 — Experience Architecture, Sprint 1
 
 - natywny projekt `AthleteApp` dla iOS 18+ jest przygotowany w SwiftUI bez UIKit i z granicą MVVM;
