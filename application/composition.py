@@ -10,6 +10,7 @@ from application.morning_coach_use_case import (
     HealthHistoryReader,
     MorningCoachUseCase,
 )
+from application.nutrition_input import NutritionInputBuilder
 from application.training_assessment import TrainingAssessmentBuilder
 from application.weekly_review import WeeklyReviewWorkflow
 from athlete.intelligence.insights import InsightBuilder
@@ -27,7 +28,7 @@ from core.models import HealthDaily
 from decision.engine import DecisionEngine
 from engines.context_builder import ContextBuilder
 from health.engine import HealthEngine
-from nutrition import NutritionRecommendationRule
+from nutrition import NutritionEngine, NutritionRecommendationRule
 from performance.engine import PerformanceEngine
 from planner.engine import PlannerEngine
 from recommendation import (
@@ -84,6 +85,8 @@ def build_intelligence_decision_workflow() -> IntelligenceDecisionWorkflow:
         decision_engine=build_decision_engine(),
         recommendation_engine=build_recommendation_engine(),
         explainability_builder=DecisionExplainabilityBuilder(),
+        nutrition_input_builder=NutritionInputBuilder(),
+        nutrition_engine=NutritionEngine(),
     )
 
 

@@ -148,7 +148,7 @@ def build_use_case(
         "planner_engine": Mock(),
         "morning_coach_presenter": MorningCoachPresenter(),
     }
-    dependencies["health_repository"].load_daily.return_value = [object()]
+    dependencies["health_repository"].load_daily.return_value = [context.today]
     if isinstance(dependencies["context_builder"], Mock):
         dependencies["context_builder"].build.return_value = context
     dependencies["health_engine"].analyze.return_value = build_health()
@@ -189,6 +189,8 @@ def test_use_case_composes_happy_path_and_preserves_all_results():
     assert result.planned_workout is planned_workout
     assert result.report.workout is planned_workout
     dependencies["intelligence_workflow"].run.assert_called_once()
+    dependencies["health_repository"].load_daily.assert_called_once_with()
+    weekly_review_workflow.run_with_snapshot.assert_called_once()
     workflow_call = dependencies["intelligence_workflow"].run.call_args
     assert workflow_call.args == (athlete,)
     assert workflow_call.kwargs["snapshot"] is snapshot
@@ -327,6 +329,7 @@ def test_use_case_contains_no_alternative_decision_or_recommendation_pipeline():
 
     assert "DecisionEngine" not in source
     assert "RecommendationEngine" not in source
+    assert "NutritionEngine" not in source
     assert "DecisionExplainabilityBuilder" not in source
     assert "ExplanationBuilder" not in source
 
@@ -371,10 +374,49 @@ def test_canonical_morning_coach_handles_a_neutral_day_end_to_end():
     result = use_case.run()
     intelligence = workflow.results[0]
 
-    assert intelligence.recommendations.recommendations == ()
-    assert intelligence.explainability.recommendations == ()
+    assert tuple(
+        recommendation.type
+        for recommendation in intelligence.recommendations.recommendations
+    ) == (RecommendationType.INCREASE_HYDRATION,)
+    assert intelligence.explainability.recommendations == (
+        "Increase hydration.",
+    )
+    assert intelligence.nutrition is not None
     assert result.decision is intelligence.plan
     assert result.report.explanation.summary == intelligence.explainability.summary
+
+
+def test_canonical_morning_coach_exposes_nutrition_recommendations_in_explainability():
+    context = build_context(sleep=480)
+    context.today.weight = 80.0
+    context.today.resting_energy = 1800
+    context.today.active_energy = 700
+    athlete = build_athlete(recovery_score=80, fatigue=20, freshness=20)
+    use_case, workflow = build_canonical_use_case(
+        context=context,
+        athlete=athlete,
+    )
+
+    result = use_case.run()
+    intelligence = workflow.results[0]
+
+    assert intelligence.nutrition is not None
+    assert intelligence.nutrition.data_status.value == "complete"
+    assert tuple(
+        recommendation.type
+        for recommendation in intelligence.recommendations.recommendations
+    ) == (
+        RecommendationType.INCREASE_HYDRATION,
+        RecommendationType.INCREASE_CARBOHYDRATE_INTAKE,
+    )
+    assert intelligence.explainability.recommendations == (
+        "Increase hydration.",
+        "Increase carbohydrate intake.",
+    )
+    assert result.report.explanation.reasons == (
+        intelligence.explainability.contributing_factors
+        + intelligence.explainability.recommendations
+    )
 
 
 def test_canonical_morning_coach_handles_low_recovery_end_to_end():
@@ -392,7 +434,10 @@ def test_canonical_morning_coach_handles_low_recovery_end_to_end():
     assert tuple(
         recommendation.type
         for recommendation in intelligence.recommendations.recommendations
-    ) == (RecommendationType.APPLY_RECOVERY_PROTOCOL,)
+    ) == (
+        RecommendationType.APPLY_RECOVERY_PROTOCOL,
+        RecommendationType.INCREASE_HYDRATION,
+    )
     assert result.report.explanation.reasons == (
         intelligence.explainability.contributing_factors
         + intelligence.explainability.recommendations

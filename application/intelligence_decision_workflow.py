@@ -1,8 +1,10 @@
 from dataclasses import dataclass
+from datetime import datetime, time
 
 from application.adaptation import AdaptationDirective
 from application.decision_explainability import ExplainabilityResult
 from application.decision_explainability import DecisionExplainabilityBuilder
+from application.nutrition_input import NutritionInputBuilder
 from athlete.intelligence.insights import InsightBuilder
 from athlete.intelligence.models import (
     AthleteInsight,
@@ -12,8 +14,10 @@ from athlete.intelligence.models import (
 from athlete.intelligence.observation_projector import ObservationProjector
 from athlete.memory.models import AthleteMemorySnapshot
 from athlete.models import AthleteState
+from core.models import HealthDaily
 from decision.engine import DecisionEngine
 from decision.models import DecisionResult, WorkoutPlan
+from nutrition import NutritionAssessment, NutritionEngine
 from recommendation import (
     RecommendationContext,
     RecommendationEngine,
@@ -35,6 +39,7 @@ class IntelligenceDecisionResult:
     decision: DecisionResult
     recommendations: RecommendationResult
     explainability: ExplainabilityResult
+    nutrition: NutritionAssessment | None = None
 
 
 class IntelligenceDecisionWorkflow:
@@ -47,6 +52,8 @@ class IntelligenceDecisionWorkflow:
         decision_engine: DecisionEngine | None = None,
         recommendation_engine: RecommendationEngine | None = None,
         explainability_builder: DecisionExplainabilityBuilder | None = None,
+        nutrition_input_builder: NutritionInputBuilder | None = None,
+        nutrition_engine: NutritionEngine | None = None,
     ) -> None:
         self.observation_projector = observation_projector or ObservationProjector()
         self.insight_builder = insight_builder or InsightBuilder()
@@ -57,6 +64,10 @@ class IntelligenceDecisionWorkflow:
         self.explainability_builder = (
             explainability_builder or DecisionExplainabilityBuilder()
         )
+        self.nutrition_input_builder = (
+            nutrition_input_builder or NutritionInputBuilder()
+        )
+        self.nutrition_engine = nutrition_engine or NutritionEngine()
 
     def run(
         self,
@@ -64,6 +75,8 @@ class IntelligenceDecisionWorkflow:
         health: HealthObservationInput | None = None,
         snapshot: AthleteMemorySnapshot | None = None,
         adaptation: AdaptationDirective | None = None,
+        nutrition_health_history: tuple[HealthDaily, ...] = (),
+        workout_start: datetime | None = None,
     ) -> IntelligenceDecisionResult:
         observations = self.observation_projector.project(snapshot, health)
         insights = self.insight_builder.build(
@@ -76,22 +89,44 @@ class IntelligenceDecisionWorkflow:
             insights,
         )
         decision = plan.decision
+        dated_inputs = (
+            *((health.observed_at,) if health is not None else ()),
+            *((adaptation.as_of,) if adaptation is not None else ()),
+            *(observation.observed_at for observation in observations),
+        )
+        history_timestamps = tuple(
+            datetime.combine(
+                item.date,
+                time.min,
+                tzinfo=None,
+            )
+            for item in nutrition_health_history
+        )
+        as_of = max(
+            dated_inputs if dated_inputs else history_timestamps,
+            default=None,
+        )
+        nutrition = None
+        if as_of is not None:
+            nutrition_input = self.nutrition_input_builder.build(
+                decision,
+                valid_for_date=as_of.date(),
+                as_of=as_of,
+                health_history=nutrition_health_history,
+                recovery_score=(
+                    health.recovery_score if health is not None else None
+                ),
+                workout_start=workout_start,
+                evidence=health.evidence if health is not None else (),
+            )
+            nutrition = self.nutrition_engine.analyze(nutrition_input)
         recommendations = self.recommendation_engine.evaluate(
             RecommendationContext(
                 decision=decision,
                 insights=insights,
                 observations=observations,
-                as_of=max(
-                    (
-                        *((health.observed_at,) if health is not None else ()),
-                        *((adaptation.as_of,) if adaptation is not None else ()),
-                        *(
-                            observation.observed_at
-                            for observation in observations
-                        ),
-                    ),
-                    default=None,
-                ),
+                as_of=as_of,
+                nutrition_assessment=nutrition,
             )
         )
         explainability = self.explainability_builder.build(
@@ -106,4 +141,5 @@ class IntelligenceDecisionWorkflow:
             decision=decision,
             recommendations=recommendations,
             explainability=explainability,
+            nutrition=nutrition,
         )

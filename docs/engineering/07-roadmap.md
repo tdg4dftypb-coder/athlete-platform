@@ -60,7 +60,7 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 - jeden composition root w `application/composition.py`;
 - jawne factories Decision, Planner, Recommendation, Intelligence, Weekly Review i MorningCoach;
 - constructor injection bez frameworka DI, singletonów i service locatora;
-- produkcyjna konfiguracja czterech Recommendation Rules w jednym miejscu.
+- produkcyjna konfiguracja Recommendation Rules w jednym miejscu.
 
 ### Stage 6 — MorningCoach Canonical Migration
 
@@ -71,6 +71,16 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 - jeden snapshot Memory zasila weekly review i Intelligence;
 - aktywny CLI korzysta z composition root;
 - legacy builders pozostają poza aktywnym pipeline'em.
+
+### Stage 7 — Nutrition domain i canonical integration
+
+- immutable modele `NutritionInput` i `NutritionAssessment` wraz z modelami sekcji;
+- deterministyczny `NutritionEngine` dla energii, makroskładników, fueling i hydration;
+- `NutritionRecommendationRule` zintegrowana z jednym globalnym Recommendation Engine;
+- aplikacyjny `NutritionInputBuilder` wykorzystujący dane dostępne w canonical workflow bez dodatkowego I/O;
+- `NutritionEngine` wstrzykiwany przez composition root i uruchamiany między Decision a Recommendation;
+- ten sam `NutritionAssessment` jest udostępniany w `IntelligenceDecisionResult` i `RecommendationContext`;
+- MorningCoach przekazuje jeden odczyt health history i zachowuje kompatybilny raport.
 
 **TODO:** Repozytorium nie zawiera źródłowego dokumentu przypisującego oficjalne nazwy do Stage 1–3. Powyższe nazwy porządkują wyłącznie zaimplementowane rezultaty widoczne w kodzie i historii Git; wymagają potwierdzenia, jeśli mają stać się oficjalnymi nazwami etapów.
 
@@ -114,13 +124,17 @@ Nazwy te pochodzą z ADR-002/003 jako obszary przyszłe. Nie istnieją jeszcze i
 - redukcja bezpośredniego sprzężenia `PerformanceEngine` z `WorkoutHistoryBuilder`;
 - uporządkowanie równoległych przestrzeni `planning/` i `planner/` bez zmiany publicznego API „przy okazji”.
 
+### Stage 7.7 — dalszy zakres Nutrition
+
+Stage 7.7 nie jest ukończony. Jego zakres wymaga osobnego promptu, implementacji i review; nie należy wnioskować o gotowych funkcjach wyłącznie z obecności canonical Nutrition Assessment.
+
 ## Ideas
 
 Idee wymagają osobnej analizy i nie mają statusu planu:
 
 - Canonical Activity Identity i multi-source reconciliation ponad Source Identity;
 - kolejne adaptery providerów korzystające ze wspólnego `SourceIdentity`;
-- dodatkowe Recommendation Rules dla istniejących typów carbohydrate intake i limit activity;
+- dodatkowe Recommendation Rules dla istniejących typów bez aktywującej reguły, w tym limit activity;
 - automatyczne testy granic importów między warstwami;
 - formalny próg coverage oraz macierz wspieranych wersji Pythona;
 - dedykowany workflow CI.

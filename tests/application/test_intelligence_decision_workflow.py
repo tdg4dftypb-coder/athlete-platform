@@ -1,6 +1,6 @@
 from copy import deepcopy
 from dataclasses import FrozenInstanceError
-from datetime import datetime
+from datetime import date, datetime
 
 import pytest
 
@@ -17,7 +17,16 @@ from athlete.intelligence.models import (
     HealthObservationInput,
 )
 from decision.prescription.models import DecisionReason, TrainingObjective
-from nutrition import NutritionRecommendationRule
+from nutrition import (
+    EnergyRequirement,
+    FuelingPlan,
+    HydrationTarget,
+    MacroTargets,
+    NutritionAssessment,
+    NutritionDataStatus,
+    NutritionInput,
+    NutritionRecommendationRule,
+)
 from recommendation import (
     HydrationRecommendationRule,
     MobilityRecommendationRule,
@@ -121,6 +130,113 @@ class SpyExplainabilityBuilder:
         return ExplainabilityResult("summary", (), ())
 
 
+class SpyNutritionInputBuilder:
+    def __init__(self, result: NutritionInput, calls: list[str]) -> None:
+        self.result = result
+        self.calls = calls
+        self.arguments = []
+
+    def build(self, decision, **kwargs):
+        self.calls.append("nutrition_input")
+        self.arguments.append((decision, kwargs))
+        return self.result
+
+
+class SpyNutritionEngine:
+    def __init__(self, result: NutritionAssessment, calls: list[str]) -> None:
+        self.result = result
+        self.calls = calls
+        self.inputs = []
+
+    def analyze(self, nutrition_input):
+        self.calls.append("nutrition")
+        self.inputs.append(nutrition_input)
+        return self.result
+
+
+class OrderedRecommendationEngine(SpyRecommendationEngine):
+    def __init__(self, result: RecommendationResult, calls: list[str]) -> None:
+        super().__init__(result)
+        self.calls = calls
+
+    def evaluate(self, context):
+        self.calls.append("recommendation")
+        return super().evaluate(context)
+
+
+def _nutrition_assessment(as_of: datetime) -> NutritionAssessment:
+    return NutritionAssessment(
+        energy_requirement=EnergyRequirement(),
+        macro_targets=MacroTargets(),
+        fueling_plan=FuelingPlan(),
+        hydration_target=HydrationTarget(),
+        data_status=NutritionDataStatus.INSUFFICIENT_DATA,
+        confidence=0.0,
+        evidence=(),
+        limitations=(),
+        valid_for_date=as_of.date(),
+        as_of=as_of,
+    )
+
+
+def test_workflow_runs_nutrition_once_before_the_single_recommendation_pass():
+    as_of = datetime(2026, 8, 3, 6)
+    health = HealthObservationInput(
+        observed_at=as_of,
+        hrv_delta_percent=None,
+        sleep_duration_minutes=None,
+        sleep_baseline_minutes=None,
+        recovery_score=80.0,
+        evidence=("health-day",),
+    )
+    nutrition_input = NutritionInput(
+        valid_for_date=date(2026, 8, 3),
+        as_of=as_of,
+    )
+    assessment = _nutrition_assessment(as_of)
+    calls: list[str] = []
+    input_builder = SpyNutritionInputBuilder(nutrition_input, calls)
+    nutrition_engine = SpyNutritionEngine(assessment, calls)
+    recommendation_engine = OrderedRecommendationEngine(
+        RecommendationResult((), None),
+        calls,
+    )
+    original_health = deepcopy(health)
+
+    result = IntelligenceDecisionWorkflow(
+        nutrition_input_builder=input_builder,
+        nutrition_engine=nutrition_engine,
+        recommendation_engine=recommendation_engine,
+    ).run(build_athlete(), health=health)
+
+    assert calls == ["nutrition_input", "nutrition", "recommendation"]
+    assert nutrition_engine.inputs == [nutrition_input]
+    assert len(recommendation_engine.contexts) == 1
+    assert recommendation_engine.contexts[0].nutrition_assessment is assessment
+    assert result.nutrition is assessment
+    assert input_builder.arguments[0][0] is result.decision
+    assert health == original_health
+
+
+def test_workflow_nutrition_integration_is_deterministic_between_runs():
+    as_of = datetime(2026, 8, 3, 6)
+    health = HealthObservationInput(
+        observed_at=as_of,
+        hrv_delta_percent=None,
+        sleep_duration_minutes=None,
+        sleep_baseline_minutes=None,
+        recovery_score=80.0,
+        evidence=(),
+    )
+    workflow = IntelligenceDecisionWorkflow()
+
+    first = workflow.run(build_athlete(), health=health)
+    second = workflow.run(build_athlete(), health=health)
+
+    assert first == second
+    assert first.nutrition == second.nutrition
+
+
 def test_workflow_passes_exact_pipeline_outputs_through_recommendation_stage():
     athlete = build_athlete(recovery_score=90, fatigue=20, freshness=80)
     health = HealthObservationInput(
@@ -202,7 +318,10 @@ def test_workflow_dates_recovery_recommendation_from_load_reduction_input():
     assert tuple(
         recommendation.type
         for recommendation in result.recommendations.recommendations
-    ) == (RecommendationType.APPLY_RECOVERY_PROTOCOL,)
+    ) == (
+        RecommendationType.APPLY_RECOVERY_PROTOCOL,
+        RecommendationType.INCREASE_HYDRATION,
+    )
 
 
 def test_application_exports_intelligence_decision_workflow_contracts():

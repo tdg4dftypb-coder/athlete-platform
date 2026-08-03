@@ -88,8 +88,9 @@ class MorningCoachUseCase:
         self.morning_coach_presenter = morning_coach_presenter
 
     def run(self) -> MorningCoachResult:
+        health_history = self.health_repository.load_daily()
         health_context = self.context_builder.build(
-            self.health_repository.load_daily(),
+            health_history,
         )
         health = self.health_engine.analyze(health_context)
         recovery = self.recovery_engine.analyze(health_context)
@@ -133,6 +134,7 @@ class MorningCoachUseCase:
             ),
             snapshot=snapshot,
             adaptation=adaptation,
+            nutrition_health_history=tuple(health_history),
         )
         planned_workout = self.planner_engine.build(
             intelligence.decision,

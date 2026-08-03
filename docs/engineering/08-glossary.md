@@ -75,6 +75,18 @@ Efemeryczna, deterministyczna interpretacja jednej lub wielu observations, zawie
 
 Kanoniczny dzienny use case przygotowujący stan i historię zawodnika, uruchamiający Intelligence Workflow raz, planujący trening i prezentujący kompatybilny raport.
 
+### Nutrition Assessment
+
+Immutable wynik `NutritionEngine` agregujący sekcje energii, makroskładników, fueling i hydration wraz ze statusem kompletności, completeness score, evidence, limitations, datą obowiązywania i `as_of`.
+
+### Nutrition Input
+
+Immutable, znormalizowany zestaw faktów przygotowany w Application Layer z dostępnych danych health oraz kanonicznego `DecisionResult`; nie wykonuje odczytów i nie zawiera wartości odgadywanych.
+
+### Nutrition Recommendation Rule
+
+Bezstanowa reguła globalnego Recommendation Engine mapująca dostępne cele carbohydrate i hydration z `NutritionAssessment` na istniejące `RecommendationType`; nie tworzy osobnego pipeline'u rekomendacji.
+
 ### Observation
 
 Efemeryczna, deterministyczna projekcja datowanego faktu z health input lub Athlete Memory, zawierająca typ, wartość, confidence i evidence.
@@ -97,7 +109,7 @@ Immutable, pozatreningowe działanie wspierające z typem, priorytetem, confiden
 
 ### Recommendation Context
 
-Immutable wejście reguł Recommendation zawierające wyłącznie `DecisionResult`, tuple insights, tuple observations oraz opcjonalne deterministyczne `as_of`.
+Immutable wejście reguł Recommendation zawierające `DecisionResult`, tuple insights, tuple observations, opcjonalny `NutritionAssessment` oraz opcjonalne deterministyczne `as_of`.
 
 ### Recommendation Result
 
@@ -147,7 +159,7 @@ Komponent tworzący lub normalizujący model wynikowy z gotowych danych, bez prz
 
 ### Canonical Pipeline
 
-Jedyna zaakceptowana kolejność wykonania danej zdolności; dla decyzji jest to Observation → Insight → Decision → Recommendation → Explainability.
+Jedyna zaakceptowana kolejność wykonania danej zdolności; dla workflow dziennego jest to Observation → Insight → Decision → Nutrition Assessment → Recommendation → Explainability.
 
 ### Composition Root
 
@@ -164,6 +176,10 @@ Warstwa posiadająca modele, język biznesowy i czyste reguły, niezależna od i
 ### Engine
 
 Komponent wykonujący jedną spójną zdolność domenową lub koordynujący jej jawne etapy, bez przejmowania obowiązków sąsiednich silników.
+
+### Nutrition Engine
+
+Deterministyczny komponent domeny Nutrition budujący `NutritionAssessment` z gotowego `NutritionInput`, bez I/O, repozytorium, zegara i zależności od MorningCoach lub Recommendation Engine.
 
 ### Infrastructure Layer
 

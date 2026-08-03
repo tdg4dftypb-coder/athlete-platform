@@ -11,6 +11,7 @@
 - [ADR-004 — Recommendation Engine](#adr-004---recommendation-engine)
 - [ADR-005 — Jawny composition root](#adr-005---jawny-composition-root)
 - [ADR-006 — Kanoniczny MorningCoach](#adr-006---kanoniczny-morningcoach)
+- [ADR-007 — Kanoniczna integracja Nutrition](#adr-007---kanoniczna-integracja-nutrition)
 - [Rejestr ADR](#rejestr-adr)
 - [Powiązane dokumenty](#powiązane-dokumenty)
 
@@ -253,6 +254,52 @@ MorningCoach posiadał alternatywną ścieżkę decyzyjną i explainability. Po 
 - **Uruchamianie Recommendation Engine w Presenterze** — odrzucone; prezentacja nie wykonuje logiki domenowej.
 - **Natychmiastowe usunięcie legacy API** — odrzucone ze względu na kompatybilność.
 
+## ADR-007 — Kanoniczna integracja Nutrition
+
+### Status
+
+**Accepted**
+
+Decyzję implementują `NutritionInputBuilder`, `NutritionEngine`, `IntelligenceDecisionWorkflow` oraz globalny Recommendation Engine skonfigurowany w composition root.
+
+### Context
+
+Nutrition Assessment korzysta z dostępnych faktów health i kanonicznej decyzji treningowej. Osobny pipeline rekomendacji nutrition albo bezpośrednie uruchamianie Nutrition w MorningCoach tworzyłoby konkurencyjne źródło rekomendacji, dodatkowe odczyty danych i niespójne explainability.
+
+### Decision
+
+- aplikacyjny `NutritionInputBuilder` normalizuje wyłącznie dane już załadowane przez MorningCoach oraz kanoniczny `DecisionResult`;
+- adapter nie wykonuje I/O, nie używa zegara i nie uzupełnia braków fikcyjnymi wartościami;
+- `IntelligenceDecisionWorkflow` uruchamia wstrzyknięty `NutritionEngine` po Decision Engine i przed Recommendation Engine;
+- dokładnie ten sam `NutritionAssessment` trafia do `RecommendationContext` oraz `IntelligenceDecisionResult`;
+- jeden globalny Recommendation Engine uruchamia `NutritionRecommendationRule` razem z pozostałymi regułami i normalizuje duplikaty według `Recommendation.type`;
+- MorningCoach odczytuje health history raz, nie zna Nutrition Engine i korzysta z kanonicznego explainability.
+
+Kanoniczna sekwencja integracji to:
+
+```text
+NutritionInput
+→ NutritionEngine
+→ NutritionAssessment
+→ NutritionRecommendationRule
+→ globalny RecommendationEngine
+```
+
+### Consequences
+
+- nutrition recommendations uczestniczą w jednym wyniku i jednym explainability pipeline;
+- brak danych prowadzi do partial lub insufficient assessment zgodnie z kontraktem Nutrition Engine;
+- nie istnieje drugi Nutrition Recommendation Engine;
+- builder globalnych rekomendacji deduplikuje nakładające się działania, w tym hydration;
+- Presenter nie interpretuje Nutrition Assessment i zachowuje dotychczasowy kontrakt raportu.
+
+### Alternatives considered
+
+- **Osobny Nutrition Recommendation Engine** — odrzucony jako duplikacja istniejącego mechanizmu.
+- **Uruchamianie Nutrition Engine w MorningCoach** — odrzucone; use case nie powinien interpretować assessmentu ani znać silnika domenowego.
+- **Budowanie NutritionInput w domenie lub Presenterze** — odrzucone; normalizacja danych dostępnych w workflow należy do Application Layer.
+- **Drugi odczyt Health Repository** — odrzucony z powodu ukrytego I/O i ryzyka niespójnych snapshotów danych.
+
 ## Rejestr ADR
 
 | ADR | Tytuł | Status | Główne źródło |
@@ -263,6 +310,7 @@ MorningCoach posiadał alternatywną ścieżkę decyzyjną i explainability. Po 
 | ADR-004 | Recommendation Engine | Accepted | `recommendation/`, commit history |
 | ADR-005 | Jawny composition root | Accepted | `application/composition.py` |
 | ADR-006 | Kanoniczny MorningCoach | Accepted | `application/morning_coach_use_case.py` |
+| ADR-007 | Kanoniczna integracja Nutrition | Accepted | `application/nutrition_input.py`, `application/intelligence_decision_workflow.py` |
 
 ## Powiązane dokumenty
 

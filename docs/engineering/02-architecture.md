@@ -283,6 +283,8 @@ flowchart TD
     IW --> OP["ObservationProjector"]
     IW --> IB["InsightBuilder"]
     IW --> DE["DecisionEngine"]
+    IW --> NIB["NutritionInputBuilder"]
+    IW --> NE["NutritionEngine"]
     IW --> RE["RecommendationEngine"]
     IW --> EB["DecisionExplainabilityBuilder"]
 
@@ -299,7 +301,7 @@ Entry point `scripts/morning_coach.py` tworzy `Database`, przekazuje ją do `bui
 Projekt stosuje constructor injection bez frameworka DI:
 
 - use case otrzymuje gotowe workflow, silniki, builders i presenter;
-- `IntelligenceDecisionWorkflow` otrzymuje projector, insight builder, Decision Engine, Recommendation Engine i explainability builder;
+- `IntelligenceDecisionWorkflow` otrzymuje projector, insight builder, Decision Engine, Nutrition Input Builder, Nutrition Engine, Recommendation Engine i explainability builder;
 - `RecommendationEngine` otrzymuje immutable tuple reguł oraz builder;
 - `WeeklyReviewWorkflow` otrzymuje reader, silniki analityczne i review service;
 - adaptery infrastrukturalne otrzymują połączenie lub `Database` w composition root.
@@ -336,9 +338,16 @@ flowchart TD
     DE --> WP["WorkoutPlan"]
     WP --> DR["DecisionResult"]
 
+    DR --> NI["NutritionInputBuilder"]
+    HI --> NI
+    NI --> NIN["NutritionInput"]
+    NIN --> NE["NutritionEngine"]
+    NE --> NA["NutritionAssessment"]
+
     DR --> RC["RecommendationContext"]
     INS --> RC
     OBS --> RC
+    NA --> RC
     RC --> RE["RecommendationEngine"]
     RE --> RRES["RecommendationResult"]
 
@@ -353,6 +362,7 @@ Wynikiem workflow jest immutable `IntelligenceDecisionResult`, który zawiera:
 - insights;
 - `WorkoutPlan`;
 - wyodrębniony `DecisionResult`;
+- `NutritionAssessment` zbudowany z tego samego kanonicznego przebiegu;
 - `RecommendationResult`;
 - `ExplainabilityResult`.
 
@@ -381,7 +391,7 @@ sequenceDiagram
     MC->>WR: run_with_snapshot(period)
     WR-->>MC: same snapshot + WeeklyTrainingReview
     MC->>MC: knowledge context, assessments, adaptation
-    MC->>IW: run(athlete, health input, snapshot, adaptation)
+    MC->>IW: run(athlete, health input, snapshot, adaptation, health history)
     IW-->>MC: IntelligenceDecisionResult
     MC->>PL: build(intelligence.decision, athlete)
     PL-->>MC: PlannedWorkout
@@ -393,7 +403,9 @@ sequenceDiagram
 Istotne granice:
 
 - ten sam `AthleteMemorySnapshot` zasila review oraz Intelligence Workflow;
+- historia `HealthDaily` jest odczytywana raz i ta sama in-memory kolekcja zasila `HealthContext` oraz adapter `NutritionInput`;
 - `HealthObservationInput` otrzymuje deterministyczne `observed_at` i evidence z daty danych zdrowotnych;
+- `MorningCoachUseCase` nie uruchamia `NutritionEngine` ani Recommendation Engine bezpośrednio;
 - Planner otrzymuje `DecisionResult`, a nie `RecommendationResult`;
 - Presenter otrzymuje gotowe wyniki i nie uruchamia Decision ani Recommendation Engine;
 - `MorningCoachResult.decision` przechowuje `WorkoutPlan`, natomiast pełny wynik Intelligence pozostaje wejściem Presentera.
@@ -407,8 +419,10 @@ Athlete Intelligence jest deterministyczną warstwą między surowym kontekstem 
 1. `ObservationProjector` buduje `AthleteObservation` z bieżącego health input oraz snapshotu Memory.
 2. `InsightBuilder` buduje `AthleteInsight` z obserwacji i workout observations.
 3. `DecisionEngine` otrzymuje gotowe insighty razem z `AthleteState` i opcjonalną adaptacją.
-4. Recommendation Engine otrzymuje decyzję, insighty i obserwacje.
-5. Explainability łączy strukturalne powody decyzji z rekomendacjami.
+4. aplikacyjny `NutritionInputBuilder` normalizuje dostępne fakty health i plan z kanonicznego `DecisionResult` bez dodatkowego I/O;
+5. `NutritionEngine` buduje `NutritionAssessment`;
+6. Recommendation Engine otrzymuje decyzję, insighty, obserwacje i dokładnie ten assessment;
+7. Explainability łączy strukturalne powody decyzji z rekomendacjami.
 
 Observations i insights:
 
@@ -459,7 +473,7 @@ Composition root rejestruje jawnie:
 - `MobilityRecommendationRule`;
 - `NutritionRecommendationRule` — mapuje dostępne cele carbohydrates i hydration z opcjonalnego `NutritionAssessment` na istniejące typy rekomendacji.
 
-Reguła Nutrition zwraca pusty wynik, gdy context nie zawiera assessmentu. Bieżący `IntelligenceDecisionWorkflow` nie przekazuje jeszcze tego pola.
+Reguła Nutrition zwraca pusty wynik, gdy context nie zawiera assessmentu. Kanoniczny `IntelligenceDecisionWorkflow` przekazuje dokładnie ten sam `NutritionAssessment`, który udostępnia w `IntelligenceDecisionResult`.
 
 `NutritionRecommendationRule` aktywuje zwiększenie podaży węglowodanów wyłącznie przy dostępnym celu. Enum `RecommendationType` zawiera również ograniczenie dodatkowej aktywności, dla którego obecnie nie istnieje reguła aktywująca.
 
