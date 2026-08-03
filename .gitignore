@@ -209,6 +209,11 @@ tempCodeRunnerFile.py
 # PyPI configuration file
 .pypirc
 
+# Local macOS and JavaScript tooling artifacts
+.DS_Store
+.pnpm-store/
+node_modules/
+
 # Marimo
 marimo/_static/
 marimo/_lsp/

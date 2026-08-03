@@ -113,6 +113,15 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 
 ## Current
 
+### Stage 11.2 — Web Experience Layer
+
+- `web/AthleteWeb` jest głównym środowiskiem prototypowania Experience Layer i walidacji UX;
+- framework-free klient Vite/TypeScript renderuje polski Morning Briefing z deterministycznych Preview Data;
+- jawny `MorningBriefingPresentation` oddziela przyszły payload `AthleteDashboard v1.0` od struktury UI;
+- interfejs realizuje Decision First, mobile-first responsiveness, Dark Mode i podstawy PWA bez Service Workera;
+- backend, kontrakt payloadu v1.0 i zachowany klient SwiftUI pozostają bez zmian;
+- mapper backendowy, API, trwały stan oraz aktywne trasy nawigacji nie należą do bieżącego zakresu.
+
 ### Stage 11.2 — Experience Architecture, Sprint 1
 
 - natywny projekt `AthleteApp` dla iOS 18+ jest przygotowany w SwiftUI bez UIKit i z granicą MVVM;

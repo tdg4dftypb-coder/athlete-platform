@@ -1,0 +1,34 @@
+:root {
+  --color-page: #f4f6f4;
+  --color-shell: #f8faf8;
+  --color-surface: #ffffff;
+  --color-text: #17201e;
+  --color-muted: #63706c;
+  --color-border: rgba(23, 32, 30, 0.08);
+  --color-accent: #176b5c;
+  --color-accent-soft: #e1f0eb;
+  --color-hero: #163a36;
+  --color-hero-text: #f5fbf8;
+  --color-hero-muted: #a9d8c7;
+  --shadow-card: 0 12px 32px rgba(26, 48, 42, 0.055);
+  --radius-card: 1.5rem;
+  --space-page: clamp(1.25rem, 5vw, 1.75rem);
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-page: #0b0e0d;
+    --color-shell: #101513;
+    --color-surface: #181e1c;
+    --color-text: #eef4f1;
+    --color-muted: #9ba8a4;
+    --color-border: rgba(238, 244, 241, 0.08);
+    --color-accent: #6fc7b1;
+    --color-accent-soft: #173a32;
+    --color-hero: #102c29;
+    --color-hero-text: #f1f8f5;
+    --color-hero-muted: #9dd3c2;
+    --shadow-card: 0 12px 32px rgba(0, 0, 0, 0.16);
+  }
+}
