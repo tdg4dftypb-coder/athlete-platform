@@ -11,11 +11,21 @@ from application import (
     IntelligenceDecisionWorkflow,
     build_default_recommendation_engine,
 )
+from application.body_composition_input import BodyCompositionInputBuilder
 from athlete.intelligence.models import (
     AthleteInsightType,
     AthleteObservationType,
     HealthObservationInput,
 )
+from body_composition import (
+    BodyCompositionAssessment,
+    BodyCompositionDataStatus,
+    BodyCompositionEngine,
+    BodyCompositionInput,
+    BodyCompositionProfile,
+)
+from core.models import HealthDaily
+from decision.engine import DecisionEngine
 from decision.prescription.models import DecisionReason, TrainingObjective
 from nutrition import (
     EnergyRequirement,
@@ -154,6 +164,54 @@ class SpyNutritionEngine:
         return self.result
 
 
+class SpyBodyCompositionInputBuilder:
+    def __init__(self, result: BodyCompositionInput, calls: list[str]) -> None:
+        self.result = result
+        self.calls = calls
+        self.arguments = []
+
+    def build(self, **kwargs):
+        self.calls.append("body_composition_input")
+        self.arguments.append(kwargs)
+        return self.result
+
+
+class SpyBodyCompositionEngine:
+    def __init__(
+        self,
+        result: BodyCompositionAssessment,
+        calls: list[str],
+    ) -> None:
+        self.result = result
+        self.calls = calls
+        self.inputs = []
+
+    def analyze(self, body_composition_input):
+        self.calls.append("body_composition")
+        self.inputs.append(body_composition_input)
+        return self.result
+
+
+class OrderedDecisionEngine:
+    def __init__(self, calls: list[str]) -> None:
+        self.calls = calls
+        self.engine = DecisionEngine()
+
+    def decide(self, *args, **kwargs):
+        self.calls.append("decision")
+        return self.engine.decide(*args, **kwargs)
+
+
+class OrderedExplainabilityBuilder(SpyExplainabilityBuilder):
+    def __init__(self, calls: list[str]) -> None:
+        super().__init__()
+        self.ordered_calls = calls
+
+    def build(self, decision_reasons, recommendations):
+        self.ordered_calls.append("explainability")
+        return super().build(decision_reasons, recommendations)
+
+
 class OrderedRecommendationEngine(SpyRecommendationEngine):
     def __init__(self, result: RecommendationResult, calls: list[str]) -> None:
         super().__init__(result)
@@ -177,6 +235,174 @@ def _nutrition_assessment(as_of: datetime) -> NutritionAssessment:
         valid_for_date=as_of.date(),
         as_of=as_of,
     )
+
+
+def _body_composition_assessment(
+    as_of: datetime,
+) -> BodyCompositionAssessment:
+    return BodyCompositionAssessment(
+        profile=BodyCompositionProfile(),
+        body_mass_trend=None,
+        data_status=BodyCompositionDataStatus.INSUFFICIENT_DATA,
+        confidence=0.0,
+        evidence=(),
+        limitations=(
+            "missing_body_mass",
+            "missing_body_fat_percentage",
+            "missing_muscle_mass",
+            "missing_body_water_percentage",
+            "missing_visceral_fat",
+            "missing_basal_metabolic_rate",
+            "missing_waist_circumference",
+            "insufficient_body_mass_history",
+        ),
+        valid_for_date=as_of.date(),
+        as_of=as_of,
+    )
+
+
+def test_workflow_runs_body_composition_once_in_canonical_order():
+    as_of = datetime(2026, 8, 3, 6)
+    health = HealthObservationInput(
+        observed_at=as_of,
+        hrv_delta_percent=None,
+        sleep_duration_minutes=None,
+        sleep_baseline_minutes=None,
+        recovery_score=80.0,
+        evidence=("health-day",),
+    )
+    health_history = (HealthDaily(as_of.date(), weight=80.0),)
+    body_input = BodyCompositionInput((), as_of.date(), as_of)
+    body_assessment = _body_composition_assessment(as_of)
+    nutrition_input = NutritionInput(valid_for_date=as_of.date(), as_of=as_of)
+    nutrition_assessment = _nutrition_assessment(as_of)
+    calls: list[str] = []
+    body_input_builder = SpyBodyCompositionInputBuilder(body_input, calls)
+    body_engine = SpyBodyCompositionEngine(body_assessment, calls)
+    nutrition_input_builder = SpyNutritionInputBuilder(nutrition_input, calls)
+    nutrition_engine = SpyNutritionEngine(nutrition_assessment, calls)
+    recommendation_engine = OrderedRecommendationEngine(
+        RecommendationResult((), None),
+        calls,
+    )
+    explainability_builder = OrderedExplainabilityBuilder(calls)
+    original_history = deepcopy(health_history)
+
+    result = IntelligenceDecisionWorkflow(
+        decision_engine=OrderedDecisionEngine(calls),
+        body_composition_input_builder=body_input_builder,
+        body_composition_engine=body_engine,
+        nutrition_input_builder=nutrition_input_builder,
+        nutrition_engine=nutrition_engine,
+        recommendation_engine=recommendation_engine,
+        explainability_builder=explainability_builder,
+    ).run(
+        build_athlete(),
+        health=health,
+        nutrition_health_history=health_history,
+        body_composition_health_history=health_history,
+    )
+
+    assert calls == [
+        "decision",
+        "body_composition_input",
+        "body_composition",
+        "nutrition_input",
+        "nutrition",
+        "recommendation",
+        "explainability",
+    ]
+    assert body_input_builder.arguments == [
+        {"health_history": health_history, "as_of": as_of}
+    ]
+    assert body_engine.inputs == [body_input]
+    assert nutrition_engine.inputs == [nutrition_input]
+    assert result.body_composition is body_assessment
+    assert result.nutrition is nutrition_assessment
+    assert len(recommendation_engine.contexts) == 1
+    recommendation_context = recommendation_engine.contexts[0]
+    assert not hasattr(recommendation_context, "body_composition")
+    assert not hasattr(recommendation_context, "body_composition_assessment")
+    assert explainability_builder.calls == [
+        (result.decision.decision_reasons, result.recommendations)
+    ]
+    assert health_history == original_history
+    with pytest.raises(FrozenInstanceError):
+        result.body_composition = None
+
+
+def test_workflow_returns_an_insufficient_assessment_for_empty_body_history():
+    as_of = datetime(2026, 8, 3, 6)
+    health = HealthObservationInput(
+        observed_at=as_of,
+        hrv_delta_percent=None,
+        sleep_duration_minutes=None,
+        sleep_baseline_minutes=None,
+        recovery_score=None,
+        evidence=(),
+    )
+
+    result = IntelligenceDecisionWorkflow().run(
+        build_athlete(),
+        health=health,
+        body_composition_health_history=(),
+    )
+
+    assert result.body_composition is not None
+    assert (
+        result.body_composition.data_status
+        is BodyCompositionDataStatus.INSUFFICIENT_DATA
+    )
+
+
+def test_workflow_reuses_the_existing_health_history_for_compatible_call_sites():
+    as_of = datetime(2026, 8, 3, 6)
+    history = (HealthDaily(as_of.date(), weight=80.0),)
+
+    result = IntelligenceDecisionWorkflow().run(
+        build_athlete(),
+        nutrition_health_history=history,
+    )
+
+    assert result.body_composition is not None
+    assert result.body_composition.profile.body_mass is not None
+    assert result.body_composition.profile.body_mass.value == 80.0
+
+
+def test_workflow_body_composition_is_deterministic_and_does_not_mutate_history():
+    as_of = datetime(2026, 8, 3, 6)
+    health = HealthObservationInput(
+        observed_at=as_of,
+        hrv_delta_percent=None,
+        sleep_duration_minutes=None,
+        sleep_baseline_minutes=None,
+        recovery_score=None,
+        evidence=(),
+    )
+    history = (
+        HealthDaily(date(2026, 7, 6), weight=81.0),
+        HealthDaily(date(2026, 8, 3), weight=80.0),
+    )
+    original = deepcopy(history)
+    workflow = IntelligenceDecisionWorkflow(
+        body_composition_input_builder=BodyCompositionInputBuilder(),
+        body_composition_engine=BodyCompositionEngine(),
+    )
+
+    first = workflow.run(
+        build_athlete(),
+        health=health,
+        body_composition_health_history=history,
+    )
+    second = workflow.run(
+        build_athlete(),
+        health=health,
+        body_composition_health_history=history,
+    )
+
+    assert first == second
+    assert first.body_composition == second.body_composition
+    assert history == original
 
 
 def test_workflow_runs_nutrition_once_before_the_single_recommendation_pass():

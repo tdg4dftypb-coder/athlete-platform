@@ -11,8 +11,10 @@ from application.composition import (
     build_weekly_review_workflow,
 )
 from application.intelligence_decision_workflow import IntelligenceDecisionWorkflow
+from application.body_composition_input import BodyCompositionInputBuilder
 from application.morning_coach_use_case import MorningCoachUseCase
 from application.weekly_review import WeeklyReviewWorkflow
+from body_composition import BodyCompositionEngine
 from decision.engine import DecisionEngine
 from nutrition import NutritionEngine, NutritionRecommendationRule
 from application.nutrition_input import NutritionInputBuilder
@@ -72,6 +74,11 @@ def test_build_intelligence_workflow_injects_ready_dependencies():
     assert isinstance(workflow.recommendation_engine, RecommendationEngine)
     assert isinstance(workflow.nutrition_input_builder, NutritionInputBuilder)
     assert isinstance(workflow.nutrition_engine, NutritionEngine)
+    assert isinstance(
+        workflow.body_composition_input_builder,
+        BodyCompositionInputBuilder,
+    )
+    assert isinstance(workflow.body_composition_engine, BodyCompositionEngine)
 
 
 def test_build_weekly_review_workflow_uses_the_supplied_database():
@@ -133,6 +140,22 @@ def test_intelligence_workflow_factory_injects_fresh_nutrition_dependencies():
 
     assert first.nutrition_input_builder is not second.nutrition_input_builder
     assert first.nutrition_engine is not second.nutrition_engine
+
+
+def test_intelligence_workflow_factory_injects_fresh_body_composition_dependencies():
+    first = build_intelligence_decision_workflow()
+    second = build_intelligence_decision_workflow()
+
+    assert (
+        first.body_composition_input_builder
+        is not second.body_composition_input_builder
+    )
+    assert first.body_composition_engine is not second.body_composition_engine
+    assert len(first.recommendation_engine._rules) == 5
+    assert all(
+        "BodyCompositionRecommendationRule" not in type(rule).__name__
+        for rule in first.recommendation_engine._rules
+    )
 
 
 def test_default_morning_coach_composition_defers_health_repository_io(

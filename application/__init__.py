@@ -4,6 +4,7 @@ from application.adaptation import (
     AdaptationStatus,
 )
 from application.decision_input import DecisionInput
+from application.body_composition_input import BodyCompositionInputBuilder
 from application.decision_explainability import (
     DecisionExplainabilityBuilder,
     ExplainabilityMappingError,
@@ -70,6 +71,7 @@ __all__ = [
     "build_planner_engine",
     "build_recommendation_engine",
     "build_weekly_review_workflow",
+    "BodyCompositionInputBuilder",
     "DecisionInput",
     "DecisionExplainabilityBuilder",
     "ExplainabilityMappingError",

@@ -200,6 +200,7 @@ Najważniejsze elementy:
 - `athlete/review/` — typowany przegląd tygodniowy;
 - `decision/diagnosis/`, `decision/prescription/`, `decision/selection/` — diagnoza, preskrypcja i wybór decyzji;
 - `recommendation/models.py`, `rules.py`, `builder.py`, `engine.py` — modele i deterministyczny przepływ rekomendacji;
+- `body_composition/` — immutable modele, profil, trend masy ciała i deterministyczny assessment;
 - `planner/` — wybór przepisu, DSL i kompilacja do `PlannedWorkout`;
 - `health/`, `recovery/` i modele `performance/` — bieżący stan zdrowia, regeneracji i wydolności;
 - `workout/`, `training/analysis/`, `execution/`, `feedback/` — modele i analiza wykonania treningu.
@@ -283,6 +284,8 @@ flowchart TD
     IW --> OP["ObservationProjector"]
     IW --> IB["InsightBuilder"]
     IW --> DE["DecisionEngine"]
+    IW --> BCIB["BodyCompositionInputBuilder"]
+    IW --> BCE["BodyCompositionEngine"]
     IW --> NIB["NutritionInputBuilder"]
     IW --> NE["NutritionEngine"]
     IW --> RE["RecommendationEngine"]
@@ -301,7 +304,7 @@ Entry point `scripts/morning_coach.py` tworzy `Database`, przekazuje ją do `bui
 Projekt stosuje constructor injection bez frameworka DI:
 
 - use case otrzymuje gotowe workflow, silniki, builders i presenter;
-- `IntelligenceDecisionWorkflow` otrzymuje projector, insight builder, Decision Engine, Nutrition Input Builder, Nutrition Engine, Recommendation Engine i explainability builder;
+- `IntelligenceDecisionWorkflow` otrzymuje projector, insight builder, Decision Engine, Body Composition Input Builder, Body Composition Engine, Nutrition Input Builder, Nutrition Engine, Recommendation Engine i explainability builder;
 - `RecommendationEngine` otrzymuje immutable tuple reguł oraz builder;
 - `WeeklyReviewWorkflow` otrzymuje reader, silniki analityczne i review service;
 - adaptery infrastrukturalne otrzymują połączenie lub `Database` w composition root.
@@ -338,6 +341,12 @@ flowchart TD
     DE --> WP["WorkoutPlan"]
     WP --> DR["DecisionResult"]
 
+    HI --> BCI["BodyCompositionInputBuilder"]
+    DR -.-> BCI
+    BCI --> BCIN["BodyCompositionInput"]
+    BCIN --> BCE["BodyCompositionEngine"]
+    BCE --> BCA["BodyCompositionAssessment"]
+
     DR --> NI["NutritionInputBuilder"]
     HI --> NI
     NI --> NIN["NutritionInput"]
@@ -362,6 +371,7 @@ Wynikiem workflow jest immutable `IntelligenceDecisionResult`, który zawiera:
 - insights;
 - `WorkoutPlan`;
 - wyodrębniony `DecisionResult`;
+- `BodyCompositionAssessment` zbudowany przed Nutrition z istniejącej historii health;
 - `NutritionAssessment` zbudowany z tego samego kanonicznego przebiegu;
 - `RecommendationResult`;
 - `ExplainabilityResult`.
@@ -403,7 +413,7 @@ sequenceDiagram
 Istotne granice:
 
 - ten sam `AthleteMemorySnapshot` zasila review oraz Intelligence Workflow;
-- historia `HealthDaily` jest odczytywana raz i ta sama in-memory kolekcja zasila `HealthContext` oraz adapter `NutritionInput`;
+- historia `HealthDaily` jest odczytywana raz i ta sama in-memory kolekcja zasila `HealthContext` oraz adaptery `BodyCompositionInput` i `NutritionInput`;
 - `HealthObservationInput` otrzymuje deterministyczne `observed_at` i evidence z daty danych zdrowotnych;
 - `MorningCoachUseCase` nie uruchamia `NutritionEngine` ani Recommendation Engine bezpośrednio;
 - Planner otrzymuje `DecisionResult`, a nie `RecommendationResult`;
@@ -419,10 +429,12 @@ Athlete Intelligence jest deterministyczną warstwą między surowym kontekstem 
 1. `ObservationProjector` buduje `AthleteObservation` z bieżącego health input oraz snapshotu Memory.
 2. `InsightBuilder` buduje `AthleteInsight` z obserwacji i workout observations.
 3. `DecisionEngine` otrzymuje gotowe insighty razem z `AthleteState` i opcjonalną adaptacją.
-4. aplikacyjny `NutritionInputBuilder` normalizuje dostępne fakty health i plan z kanonicznego `DecisionResult` bez dodatkowego I/O;
-5. `NutritionEngine` buduje `NutritionAssessment`;
-6. Recommendation Engine otrzymuje decyzję, insighty, obserwacje i dokładnie ten assessment;
-7. Explainability łączy strukturalne powody decyzji z rekomendacjami.
+4. aplikacyjny `BodyCompositionInputBuilder` normalizuje datowane pomiary masy z istniejącej historii health bez dodatkowego I/O;
+5. `BodyCompositionEngine` buduje `BodyCompositionAssessment`, nie zmieniając decyzji i nie zasilając Recommendation ani Explainability;
+6. aplikacyjny `NutritionInputBuilder` normalizuje dostępne fakty health i plan z kanonicznego `DecisionResult` bez dodatkowego I/O;
+7. `NutritionEngine` buduje `NutritionAssessment`;
+8. Recommendation Engine otrzymuje decyzję, insighty, obserwacje i dokładnie ten assessment Nutrition;
+9. Explainability łączy strukturalne powody decyzji z rekomendacjami.
 
 Observations i insights:
 
@@ -577,6 +589,9 @@ flowchart LR
     HC --> HE["HealthEngine"]
     HE --> HS["HealthState"]
     HC --> RE["RecoveryEngine"]
+    HD --> BCI["BodyCompositionInputBuilder"]
+    BCI --> BCE["BodyCompositionEngine"]
+    BCE --> BCA["BodyCompositionAssessment"]
 ```
 
 `HealthRepository` i collectory Apple Health są elementami infrastruktury. `HealthObservationInput` jest węższym, typowanym wejściem do Athlete Intelligence; nie przekazuje repozytorium ani całego kontekstu infrastrukturalnego.
@@ -709,6 +724,7 @@ Każdy przyszły moduł musi otrzymać jawny kontrakt, właściciela danych i mi
 | Athlete Memory | `athlete/memory/` | Event store, writer, reader i snapshot analytics |
 | Weekly review | `athlete/review/`, `application/weekly_review.py` | Trendy, wzorce i review |
 | Health | `health/`, `engines/context_builder.py`, `repositories/health_repository.py` | Kontekst i stan zdrowia |
+| Body Composition | `body_composition/`, `application/body_composition_input.py` | Profil i trend masy oraz adapter danych canonical workflow |
 | Recovery | `recovery/` | Ocena bieżącej regeneracji |
 | Performance | `performance/`, `training/history/` | Obciążenie, fitness, fatigue i freshness |
 | Training ingestion | `training/parsers/`, `training/ingestion/`, `training/factories/` | Import i normalizacja aktywności |

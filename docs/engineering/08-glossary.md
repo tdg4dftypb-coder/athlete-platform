@@ -43,6 +43,14 @@ Odtwarzalna, typowana projekcja eventów Memory z zakresu czasu `[start, end)`; 
 
 Bieżący agregat danych potrzebnych do decyzji i planowania, złożony m.in. ze stanu health, recovery, performance i contextu.
 
+### Body Composition Assessment
+
+Immutable wynik `BodyCompositionEngine` zawierający aktualny profil, opcjonalny trend masy, completeness metadata, evidence, limitations, datę obowiązywania i `as_of`; w Stage 8.5 nie jest źródłem Recommendation ani Explainability.
+
+### Body Composition Input
+
+Immutable, znormalizowana historia pomiarów składu ciała przygotowana w Application Layer; obecny adapter mapuje wyłącznie dostępne `HealthDaily.weight` bez dodatkowego I/O.
+
 ### Decision
 
 Wynik polityki treningowej określający wybrany typ treningu, czas, docelowy TSS, intensywność, confidence i strukturalne powody; jedynym właścicielem decyzji jest `DecisionEngine`.
@@ -159,7 +167,7 @@ Komponent tworzący lub normalizujący model wynikowy z gotowych danych, bez prz
 
 ### Canonical Pipeline
 
-Jedyna zaakceptowana kolejność wykonania danej zdolności; dla workflow dziennego jest to Observation → Insight → Decision → Nutrition Assessment → Recommendation → Explainability.
+Jedyna zaakceptowana kolejność wykonania danej zdolności; dla workflow dziennego jest to Observation → Insight → Decision → Body Composition Assessment → Nutrition Assessment → Recommendation → Explainability.
 
 ### Composition Root
 
@@ -176,6 +184,10 @@ Warstwa posiadająca modele, język biznesowy i czyste reguły, niezależna od i
 ### Engine
 
 Komponent wykonujący jedną spójną zdolność domenową lub koordynujący jej jawne etapy, bez przejmowania obowiązków sąsiednich silników.
+
+### Body Composition Engine
+
+Deterministyczny komponent domenowy budujący profil i trend z gotowego `BodyCompositionInput`, bez I/O, repozytorium, zegara oraz zależności od Recommendation, Explainability lub MorningCoach.
 
 ### Nutrition Engine
 

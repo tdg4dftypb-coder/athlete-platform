@@ -195,6 +195,16 @@ def test_use_case_composes_happy_path_and_preserves_all_results():
     assert workflow_call.args == (athlete,)
     assert workflow_call.kwargs["snapshot"] is snapshot
     assert workflow_call.kwargs["adaptation"] is result.adaptation
+    assert workflow_call.kwargs["body_composition_health_history"] == (
+        context.today,
+    )
+    assert workflow_call.kwargs["nutrition_health_history"] == (
+        context.today,
+    )
+    assert (
+        workflow_call.kwargs["body_composition_health_history"]
+        is workflow_call.kwargs["nutrition_health_history"]
+    )
     assert workflow_call.kwargs["health"].observed_at == datetime.combine(
         context.today.date,
         datetime.min.time(),
@@ -330,6 +340,8 @@ def test_use_case_contains_no_alternative_decision_or_recommendation_pipeline():
     assert "DecisionEngine" not in source
     assert "RecommendationEngine" not in source
     assert "NutritionEngine" not in source
+    assert "BodyCompositionEngine" not in source
+    assert "BodyCompositionInputBuilder" not in source
     assert "DecisionExplainabilityBuilder" not in source
     assert "ExplanationBuilder" not in source
 

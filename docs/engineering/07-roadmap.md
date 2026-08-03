@@ -86,6 +86,13 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 
 ## Current
 
+### Stage 8 — Body Composition
+
+- immutable modele, deterministyczny assessment i trend masy są zaimplementowane;
+- adapter in-memory i integracja z `IntelligenceDecisionWorkflow` są w trakcie review;
+- prezentacyjna integracja MorningCoach i finalne zamknięcie Stage 8 pozostają nieukończone;
+- Recommendation i Explainability nie należą do MVP Stage 8.
+
 ### Engineering Handbook v1.0
 
 - ujednolicenie referencji architektonicznej, ADR-ów, standardów i strategii testowej;

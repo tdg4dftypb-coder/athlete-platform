@@ -2,6 +2,7 @@ from collections.abc import Callable
 
 from application.adaptation import AdaptationPolicy
 from application.athlete_assessment import AthleteAssessmentBuilder
+from application.body_composition_input import BodyCompositionInputBuilder
 from application.decision_explainability import DecisionExplainabilityBuilder
 from application.intelligence_decision_workflow import IntelligenceDecisionWorkflow
 from application.knowledge_context import AthleteKnowledgeContextBuilder
@@ -23,6 +24,7 @@ from athlete.memory import (
 )
 from athlete.review import WeeklyReviewService
 from athlete.state_builder import AthleteStateBuilder
+from body_composition import BodyCompositionEngine
 from core.database import Database
 from core.models import HealthDaily
 from decision.engine import DecisionEngine
@@ -87,6 +89,8 @@ def build_intelligence_decision_workflow() -> IntelligenceDecisionWorkflow:
         explainability_builder=DecisionExplainabilityBuilder(),
         nutrition_input_builder=NutritionInputBuilder(),
         nutrition_engine=NutritionEngine(),
+        body_composition_input_builder=BodyCompositionInputBuilder(),
+        body_composition_engine=BodyCompositionEngine(),
     )
 
 
