@@ -1,3 +1,4 @@
+from copy import deepcopy
 from dataclasses import FrozenInstanceError
 from datetime import datetime
 
@@ -7,7 +8,10 @@ from application import (
     DecisionExplainabilityBuilder,
     ExplainabilityMappingError,
     ExplainabilityResult,
+    IntelligenceDecisionWorkflow,
 )
+from athlete.intelligence.models import HealthObservationInput
+from core.models import HealthDaily
 from decision.prescription.models import DecisionReason
 from recommendation import (
     Recommendation,
@@ -15,6 +19,7 @@ from recommendation import (
     RecommendationResult,
     RecommendationType,
 )
+from tests.helpers import build_athlete
 
 
 AS_OF = datetime(2026, 7, 31, 8)
@@ -137,6 +142,78 @@ def test_builder_preserves_recommendation_order_and_duplicates():
         "Perform mobility work.",
         "Extend sleep duration.",
         "Perform mobility work.",
+    )
+
+
+def test_builder_maps_nutrition_recommendations_without_analysis_or_mutation():
+    recommendations = RecommendationResult(
+        (
+            _recommendation(
+                RecommendationType.INCREASE_CARBOHYDRATE_INTAKE,
+                "carbohydrate-1",
+            ),
+            _recommendation(
+                RecommendationType.INCREASE_HYDRATION,
+                "hydration-1",
+            ),
+            _recommendation(
+                RecommendationType.INCREASE_HYDRATION,
+                "hydration-2",
+            ),
+        ),
+        AS_OF,
+    )
+    original = deepcopy(recommendations)
+    builder = DecisionExplainabilityBuilder()
+
+    first = builder.build((), recommendations)
+    second = builder.build((), recommendations)
+
+    assert first == second
+    assert first.recommendations == (
+        "Increase carbohydrate intake.",
+        "Increase hydration.",
+        "Increase hydration.",
+    )
+    assert recommendations == original
+
+
+def test_canonical_pipeline_explains_nutrition_recommendations():
+    as_of = datetime(2026, 8, 3, 6)
+    health = HealthObservationInput(
+        observed_at=as_of,
+        hrv_delta_percent=0.0,
+        sleep_duration_minutes=480.0,
+        sleep_baseline_minutes=480.0,
+        recovery_score=80.0,
+        evidence=("health_daily:2026-08-03",),
+    )
+    health_history = (
+        HealthDaily(
+            date=as_of.date(),
+            weight=80.0,
+            resting_energy=1800,
+            active_energy=700,
+        ),
+    )
+
+    result = IntelligenceDecisionWorkflow().run(
+        build_athlete(recovery_score=80, fatigue=20, freshness=20),
+        health=health,
+        nutrition_health_history=health_history,
+    )
+
+    assert result.nutrition is not None
+    assert tuple(
+        recommendation.type
+        for recommendation in result.recommendations.recommendations
+    ) == (
+        RecommendationType.INCREASE_HYDRATION,
+        RecommendationType.INCREASE_CARBOHYDRATE_INTAKE,
+    )
+    assert result.explainability.recommendations == (
+        "Increase hydration.",
+        "Increase carbohydrate intake.",
     )
 
 
