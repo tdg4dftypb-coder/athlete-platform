@@ -154,6 +154,14 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 - stany `partial`, `unavailable`, `stale` i `failure` otrzymują odrębne tokeny informacyjne, neutralne, ostrzegawcze i błędu bez zmiany komunikatów ani semantyki;
 - struktura informacji, dane, modele prezentacyjne, nawigacja i kontrakty pozostają bez zmian.
 
+#### Sprint 4.1 — Morning Briefing Reference Fidelity
+
+- kanoniczna makieta v1 jest źródłem prawdy dla prezentacji kompletnego stanu `ready`;
+- poziomy nagłówek, rozbudowany hero, połączona powierzchnia decyzji, metryki, plan, cel, kafle i ikonowa nawigacja odwzorowują jej hierarchię oraz proporcje;
+- wspólny lokalny zestaw SVG zastępuje umowne markery bez zależności od biblioteki UI;
+- klasyczne Preview zachowuje dane demonstracyjne, natomiast `source=payload` nadal nie fabrykuje postępu celu ani porównania z wczoraj;
+- pozostałe stany współdzielą odświeżony shell i system wizualny bez zmiany semantyki, parsera, mappera ani kontraktu v1.0.
+
 #### Sprint 5 — AthleteDashboard Payload Mapping Boundary
 
 - ścisły typ `AthleteDashboardPayloadV1` odwzorowuje wyłącznie publiczny wynik `DashboardSerializer` bez zależności od modeli domenowych;

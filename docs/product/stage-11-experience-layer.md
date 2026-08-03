@@ -49,6 +49,8 @@ Stany prezentacyjne korzystają z tokenów operacyjnych bez zmiany swojej semant
 
 Źródłem kolorów jest jeden katalog Theme w `src/theme/tokens.css`. Katalog obejmuje powierzchnie, trzy poziomy tekstu, akcenty produktowe, statusy operacyjne, focus, postęp, cień oraz trzy punkty gradientu hero. Komponenty nie przechowują własnych wartości kolorów.
 
+Stan `ready` Morning Briefing v1 korzysta z kanonicznej [Visual Reference v1](design/morning-briefing-visual-reference.md). Referencja ustala poziomy nagłówek, kompozycję hero, połączoną powierzchnię decyzji, semantyczną ikonografię, kartę celu, kafle eksploracyjne i ikonową dolną nawigację. Jest źródłem prawdy dla prezentacji, ale nie zmienia ownership danych ani semantyki sześciu stanów.
+
 ## AthleteDashboard mapping boundary
 
 Sprint 5 dodaje ścisłą granicę `unknown → parser → AthleteDashboardPayloadV1 → mapper → MorningBriefingPresentationState`. Kontrakt frontendowy pozostaje oddzielony od modeli prezentacyjnych i nie importuje modeli domenowych. Validation failure prowadzi do `failure`, natomiast poprawny kontrakt bez wystarczającej decyzji prowadzi do `unavailable`. `loading` należy do przyszłej warstwy transportowej i nie jest wynikiem mappera.

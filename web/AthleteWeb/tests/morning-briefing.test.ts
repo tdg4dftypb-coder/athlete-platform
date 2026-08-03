@@ -23,20 +23,23 @@ describe("Morning Briefing", () => {
     const app = createApp(morningBriefingPreviewStates.ready);
     document.body.append(app);
 
-    expect(document.querySelector("h1")?.textContent).toBe("Dzień dobry, Marcin.");
+    expect(document.querySelector("h1")?.textContent).toBe("Dzień dobry, Marcin!");
     expect(Array.from(document.querySelectorAll("h2"), (heading) => heading.textContent)).toEqual([
+      "Dzień zapowiada się bardzo dobrze.",
       "Dzisiejsza decyzja",
       "Dlaczego właśnie taki plan?",
       "Co zmieniło się od wczoraj?",
       "Plan na dziś",
       "Twój cel",
-      "Skróty",
+      "Dowiedz się więcej",
     ]);
     expect(document.querySelector(".hero-card")?.textContent).toContain("Dzisiaj warto wykonać trening progowy.");
     expect(document.querySelector(".hero-card")?.textContent).not.toContain("AI Coach");
-    expect(document.querySelector(".decision-details")?.textContent).toBe("60–75 minut • Strefa 3–4");
+    expect(document.querySelector(".decision-details")?.textContent).toBe("60–75 min • Strefa 3–4");
     expect(document.querySelector('[role="progressbar"]')?.getAttribute("aria-label")).toBe("Postęp celu");
-    expect(document.querySelectorAll(".shortcut-list li")).toHaveLength(4);
+    expect(document.querySelectorAll(".shortcut-grid li")).toHaveLength(4);
+    expect(document.querySelector<HTMLButtonElement>(".listen-button")?.disabled).toBe(true);
+    expect(document.querySelectorAll(".bottom-navigation .icon")).toHaveLength(4);
   });
 
   it("marks only Dzisiaj as the active navigation tab", () => {
@@ -54,7 +57,27 @@ describe("Morning Briefing", () => {
     expect(document.querySelector(".state-message")?.textContent).toContain("niepełnych danych");
     expect(document.querySelector(".state-detail-list")?.textContent).toContain("Brak HRV");
     expect(document.querySelector(".state-detail-list")?.textContent).toContain("Brak danych snu");
-    expect(document.querySelector("#plan-reasons")?.parentElement?.textContent).not.toContain("HRV wróciło do normy");
+    expect(document.querySelector(".reason-region")?.textContent).not.toContain("HRV wróciło do normy");
+  });
+
+  it("does not attach Preview-only comparisons to an unknown payload reason", () => {
+    document.body.append(createApp({
+      kind: "ready",
+      briefing: {
+        ...morningBriefingPreviewData,
+        reasons: ["Plan treningowy jest realizowany regularnie"],
+        changesSinceYesterday: [],
+        goal: {
+          ...morningBriefingPreviewData.goal,
+          progressLabel: "Postęp niedostępny",
+          progressValue: null,
+        },
+      },
+    }));
+
+    expect(document.querySelector(".reason-region")?.textContent).not.toContain("Lepsze o 7%");
+    expect(document.querySelector(".changes-card")).toBeNull();
+    expect(document.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBeNull();
   });
 
   it("unavailable explains the absence and does not render a decision", () => {

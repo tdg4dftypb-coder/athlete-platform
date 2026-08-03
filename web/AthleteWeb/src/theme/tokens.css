@@ -21,7 +21,8 @@
   --color-info: #2869a8;
   --color-progress-track: #dceee5;
   --color-focus-ring: #2869a8;
-  --shadow-card: 0 12px 34px rgba(63, 57, 82, 0.07);
+  --shadow-card: 0 12px 34px rgba(63, 57, 82, 0.065);
+  --shadow-soft: 0 5px 18px rgba(63, 57, 82, 0.055);
   --hero-gradient-start: #f0eafb;
   --hero-gradient-middle: #f8edf3;
   --hero-gradient-end: #fff0e8;
@@ -56,9 +57,11 @@
   --progress-track: var(--color-progress-track);
   --shadow: var(--shadow-card);
 
-  --radius-card: 1.5rem;
-  --space-page: clamp(1.25rem, 5vw, 1.75rem);
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+  --radius-card: 1.35rem;
+  --radius-hero: 1.5rem;
+  --space-page: clamp(1rem, 4.2vw, 1.4rem);
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -84,6 +87,7 @@
     --color-progress-track: #304b40;
     --color-focus-ring: #8ebce8;
     --shadow-card: 0 14px 38px rgba(0, 0, 0, 0.2);
+    --shadow-soft: 0 5px 18px rgba(0, 0, 0, 0.16);
     --hero-gradient-start: #2c2738;
     --hero-gradient-middle: #322832;
     --hero-gradient-end: #342a27;

@@ -56,6 +56,8 @@ Morning Briefing jest light-first. Jawne tokeny Theme definiują neutralne powie
 
 `partial` używa spokojnego wariantu informacyjnego, `unavailable` neutralnego, `stale` wariantu uwagi, a `failure` stonowanego koralu. Znaczenie każdego stanu pozostaje również opisane tekstem i semantyką HTML, dlatego interfejs nie polega wyłącznie na kolorze.
 
+Kompletny stan `ready` podąża za [Morning Briefing Visual Reference v1](../../docs/product/design/morning-briefing-visual-reference.md). Wspólny komponent lokalnych ikon SVG obsługuje metryki, plan, kafle i nawigację. Kafelki „Dowiedz się więcej” świadomie zastępują wcześniejszą listę w stylu Ustawień, ponieważ zatwierdzona referencja ma pierwszeństwo dla tej wersji doświadczenia.
+
 ## Payload Preview
 
 Opcjonalny tryb developerski `?source=payload&fixture=<name>` uruchamia pełny przepływ `unknown → runtime parser → AthleteDashboardPayloadV1 → mapper → presentation state`. Obsługiwane fixtures to `ready`, `partial`, `unavailable`, `stale`, `invalid-version`, `missing-section`, `invalid-enum`, `invalid-date`, `invalid-timestamp` i `malformed`. Nieznany fixture kończy się bezpiecznym stanem `failure`. Domyślne Preview Data oraz istniejący `?state=` pozostają bez zmian.
