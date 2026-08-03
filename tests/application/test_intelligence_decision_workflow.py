@@ -17,6 +17,7 @@ from athlete.intelligence.models import (
     HealthObservationInput,
 )
 from decision.prescription.models import DecisionReason, TrainingObjective
+from nutrition import NutritionRecommendationRule
 from recommendation import (
     HydrationRecommendationRule,
     MobilityRecommendationRule,
@@ -162,7 +163,7 @@ def test_workflow_supports_an_empty_recommendation_result():
     assert result.explainability.recommendations == ()
 
 
-def test_default_composition_contains_the_four_recommendation_rules():
+def test_default_composition_contains_the_five_recommendation_rules():
     engine = build_default_recommendation_engine()
 
     assert tuple(type(rule) for rule in engine._rules) == (
@@ -170,6 +171,7 @@ def test_default_composition_contains_the_four_recommendation_rules():
         HydrationRecommendationRule,
         RecoveryRecommendationRule,
         MobilityRecommendationRule,
+        NutritionRecommendationRule,
     )
 
 

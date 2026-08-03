@@ -93,5 +93,6 @@ def test_recommendation_context_is_immutable_and_keeps_prepared_inputs():
     assert context.decision is decision
     assert context.insights == (insight,)
     assert context.observations == (observation,)
+    assert context.nutrition_assessment is None
     with pytest.raises(FrozenInstanceError):
         context.insights = ()

@@ -8,6 +8,7 @@ from nutrition.models import (
     NutritionDataStatus,
     NutritionInput,
 )
+from nutrition.recommendation import NutritionRecommendationRule
 
 __all__ = [
     "EnergyRequirement",
@@ -18,4 +19,5 @@ __all__ = [
     "NutritionDataStatus",
     "NutritionEngine",
     "NutritionInput",
+    "NutritionRecommendationRule",
 ]

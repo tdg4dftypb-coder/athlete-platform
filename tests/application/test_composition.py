@@ -14,11 +14,13 @@ from application.intelligence_decision_workflow import IntelligenceDecisionWorkf
 from application.morning_coach_use_case import MorningCoachUseCase
 from application.weekly_review import WeeklyReviewWorkflow
 from decision.engine import DecisionEngine
+from nutrition import NutritionRecommendationRule
 from planner.engine import PlannerEngine
 from recommendation import (
     HydrationRecommendationRule,
     MobilityRecommendationRule,
     RecommendationBuilder,
+    RecommendationContext,
     RecommendationEngine,
     RecoveryRecommendationRule,
     SleepRecommendationRule,
@@ -34,8 +36,31 @@ def test_build_recommendation_engine_uses_the_canonical_configuration():
         HydrationRecommendationRule,
         RecoveryRecommendationRule,
         MobilityRecommendationRule,
+        NutritionRecommendationRule,
     )
     assert isinstance(engine._builder, RecommendationBuilder)
+
+
+def test_canonical_engine_runs_nutrition_rule_once():
+    engine = build_recommendation_engine()
+    nutrition_rule = next(
+        rule
+        for rule in engine._rules
+        if isinstance(rule, NutritionRecommendationRule)
+    )
+    nutrition_rule.evaluate = Mock(wraps=nutrition_rule.evaluate)
+    decision = Mock()
+    decision.decision_reasons = ()
+    decision.confidence = 0.0
+    context = RecommendationContext(
+        decision=decision,
+        insights=(),
+        observations=(),
+    )
+
+    engine.evaluate(context)
+
+    nutrition_rule.evaluate.assert_called_once_with(context)
 
 
 def test_build_intelligence_workflow_injects_ready_dependencies():

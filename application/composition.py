@@ -27,6 +27,7 @@ from core.models import HealthDaily
 from decision.engine import DecisionEngine
 from engines.context_builder import ContextBuilder
 from health.engine import HealthEngine
+from nutrition import NutritionRecommendationRule
 from performance.engine import PerformanceEngine
 from planner.engine import PlannerEngine
 from recommendation import (
@@ -70,6 +71,7 @@ def build_recommendation_engine() -> RecommendationEngine:
             HydrationRecommendationRule(),
             RecoveryRecommendationRule(),
             MobilityRecommendationRule(),
+            NutritionRecommendationRule(),
         ),
         builder=RecommendationBuilder(),
     )

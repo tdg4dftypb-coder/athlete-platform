@@ -261,7 +261,7 @@ Kanonicznym composition root jest `application/composition.py`. Zawiera jawne, m
 |---|---|
 | `build_decision_engine()` | `DecisionEngine` |
 | `build_planner_engine()` | `PlannerEngine` |
-| `build_recommendation_engine()` | cztery reguły, `RecommendationBuilder` i `RecommendationEngine` |
+| `build_recommendation_engine()` | pięć reguł, `RecommendationBuilder` i `RecommendationEngine` |
 | `build_intelligence_decision_workflow()` | kompletny workflow Intelligence |
 | `build_weekly_review_workflow(database)` | reader Memory, analityka i review service |
 | `build_morning_coach_use_case(database, health_repository=None)` | pełny graf MorningCoach |
@@ -430,18 +430,20 @@ flowchart LR
     C --> R2["HydrationRecommendationRule"]
     C --> R3["RecoveryRecommendationRule"]
     C --> R4["MobilityRecommendationRule"]
+    C --> R5["NutritionRecommendationRule"]
 
     R1 --> CAN["tuple[Recommendation, ...]"]
     R2 --> CAN
     R3 --> CAN
     R4 --> CAN
+    R5 --> CAN
     CAN --> B["RecommendationBuilder"]
     B --> OUT["RecommendationResult"]
 ```
 
 ### Kontrakty
 
-- `RecommendationContext` zawiera wyłącznie `DecisionResult`, insights, observations oraz opcjonalne, deterministyczne `as_of`.
+- `RecommendationContext` zawiera `DecisionResult`, insights, observations, opcjonalne `NutritionAssessment` oraz opcjonalne, deterministyczne `as_of`.
 - `RecommendationRule.evaluate()` zwraca od zera do wielu immutable `Recommendation`.
 - reguła jest bezstanowa, deterministyczna i nie zna innych reguł;
 - `RecommendationEngine` wywołuje każdą wstrzykniętą regułę raz, spłaszcza kandydatów i przekazuje ich do buildera;
@@ -454,9 +456,12 @@ Composition root rejestruje jawnie:
 - `SleepRecommendationRule`;
 - `HydrationRecommendationRule`;
 - `RecoveryRecommendationRule`;
-- `MobilityRecommendationRule`.
+- `MobilityRecommendationRule`;
+- `NutritionRecommendationRule` — mapuje dostępne cele carbohydrates i hydration z opcjonalnego `NutritionAssessment` na istniejące typy rekomendacji.
 
-Enum `RecommendationType` zawiera również typy dla zwiększenia podaży węglowodanów i ograniczenia dodatkowej aktywności. Obecnie nie istnieją reguły aktywujące te dwa typy.
+Reguła Nutrition zwraca pusty wynik, gdy context nie zawiera assessmentu. Bieżący `IntelligenceDecisionWorkflow` nie przekazuje jeszcze tego pola.
+
+`NutritionRecommendationRule` aktywuje zwiększenie podaży węglowodanów wyłącznie przy dostępnym celu. Enum `RecommendationType` zawiera również ograniczenie dodatkowej aktywności, dla którego obecnie nie istnieje reguła aktywująca.
 
 ### Normalizacja
 

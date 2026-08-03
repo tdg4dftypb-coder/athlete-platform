@@ -9,6 +9,7 @@ from athlete.intelligence.models import AthleteInsight, AthleteObservation
 
 if TYPE_CHECKING:
     from decision.models import DecisionResult
+    from nutrition.models import NutritionAssessment
 
 
 class RecommendationType(Enum):
@@ -49,3 +50,4 @@ class RecommendationContext:
     insights: tuple[AthleteInsight, ...]
     observations: tuple[AthleteObservation, ...]
     as_of: datetime | None = None
+    nutrition_assessment: NutritionAssessment | None = None
