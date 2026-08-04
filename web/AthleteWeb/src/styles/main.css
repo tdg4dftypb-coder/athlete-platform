@@ -751,3 +751,30 @@ h2 { font-family: var(--font-display); font-size: 1.06rem; font-weight: 650; let
 .placeholder-icon { display: grid; width: 2.4rem; height: 2.4rem; place-items: center; border-radius: 50%; background: var(--color-surface-elevated); color: var(--color-text-muted); }
 .placeholder-title { font-size: 0.84rem; font-weight: 650; color: var(--color-text-primary); }
 .placeholder-desc { color: var(--color-text-muted); font-size: 0.75rem; }
+
+/* View Transitions & App Shell Normalization */
+.view-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 auto;
+  min-width: 0;
+  animation: pageFadeTranslate 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes pageFadeTranslate {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view-container {
+    animation: none;
+  }
+}
+

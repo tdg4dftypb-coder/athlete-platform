@@ -42,56 +42,72 @@ function requireRoot(): HTMLDivElement {
 
 import { renderMoreExperience } from "./features/more/more-view";
 
+const scrollPositions = new Map<string, number>();
+
+function saveScrollPosition(): void {
+  const currentView = resolveApplicationView(window.location.search);
+  scrollPositions.set(currentView, window.scrollY);
+}
+
+function restoreScrollPosition(view: ApplicationView): void {
+  const savedY = scrollPositions.get(view) ?? 0;
+  window.scrollTo({ top: savedY, behavior: "instant" as ScrollBehavior });
+}
+
 function renderPreview(focusHeading = false): void {
   const view = resolveApplicationView(window.location.search);
+  let appElement: HTMLElement;
+
   if (view === "recovery") {
     const state = resolveApplicationRecoveryState(
       window.location.search,
       recoveryPreviewStates,
       previewMappingContext,
     );
-    root.replaceChildren(createRecoveryApp(state, openMorningBriefing, retry));
+    appElement = createRecoveryApp(state, openMorningBriefing, retry);
   } else if (view === "training") {
     const state = resolveApplicationTrainingState(
       window.location.search,
       trainingPreviewStates,
       previewMappingContext,
     );
-    root.replaceChildren(createTrainingApp(state, openMorningBriefing, retry));
+    appElement = createTrainingApp(state, openMorningBriefing, retry);
   } else if (view === "progress") {
     const state = resolveApplicationProgressState(
       window.location.search,
       progressPreviewStates,
       previewMappingContext,
     );
-    root.replaceChildren(createProgressApp(state, openMorningBriefing, retry));
+    appElement = createProgressApp(state, openMorningBriefing, retry);
   } else if (view === "nutrition") {
     const state = resolveApplicationNutritionState(
       window.location.search,
       nutritionPreviewStates,
       previewMappingContext,
     );
-    root.replaceChildren(createNutritionApp(state, openMorningBriefing, retry));
+    appElement = createNutritionApp(state, openMorningBriefing, retry);
   } else if (view === "body") {
     const state = resolveApplicationBodyState(
       window.location.search,
       bodyCompositionPreviewStates,
       previewMappingContext,
     );
-    root.replaceChildren(createBodyCompositionApp(state, openMorningBriefing, retry));
+    appElement = createBodyCompositionApp(state, openMorningBriefing, retry);
   } else if (view === "more") {
-    root.replaceChildren(renderMoreExperience(openMorningBriefing));
+    appElement = renderMoreExperience(openMorningBriefing);
   } else if (view === "icons") {
-    root.replaceChildren(renderActivityIconGallery(openMorningBriefing));
+    appElement = renderActivityIconGallery(openMorningBriefing);
   } else {
     const state = resolveApplicationPreviewState(
       window.location.search,
       morningBriefingPreviewStates,
       previewMappingContext,
     );
-    root.replaceChildren(createApp(state, retry, openRecovery, openTraining, openProgress));
+    appElement = createApp(state, retry, openRecovery, openTraining, openProgress);
   }
 
+  appElement.classList.add("view-container");
+  root.replaceChildren(appElement);
 
   if (focusHeading) {
     const heading = root.querySelector<HTMLElement>("h1");
@@ -127,6 +143,7 @@ export function openBody(): void {
 }
 
 function openMorningBriefing(): void {
+  saveScrollPosition();
   if (
     window.history.state?.athleteView === "recovery" ||
     window.history.state?.athleteView === "training" ||
@@ -138,21 +155,26 @@ function openMorningBriefing(): void {
     return;
   }
 
-
-
   const url = new URL(window.location.href);
   url.search = searchForView(url.search, "morning-briefing");
   window.history.replaceState({ athleteView: "morning-briefing" }, "", url);
   renderPreview(true);
+  restoreScrollPosition("morning-briefing");
 }
 
-
 function navigateTo(view: ApplicationView): void {
+  saveScrollPosition();
   const url = new URL(window.location.href);
   url.search = searchForView(url.search, view);
   window.history.pushState({ athleteView: view }, "", url);
   renderPreview(true);
+  restoreScrollPosition(view);
 }
 
 renderPreview();
-window.addEventListener("popstate", () => renderPreview(true));
+window.addEventListener("popstate", () => {
+  const view = resolveApplicationView(window.location.search);
+  renderPreview(true);
+  restoreScrollPosition(view);
+});
+

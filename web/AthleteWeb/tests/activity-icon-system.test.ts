@@ -128,7 +128,7 @@ describe("Activity Icon System", () => {
 
       // Check that the icon contains path data for activity-indoor-cycling, not runner
       const paths = Array.from(decisionBadge!.querySelectorAll("path")).map((p) => p.getAttribute("d"));
-      const isIndoorCycling = paths.some((d) => d?.includes("20h20") || d?.includes("15.5 17"));
+      const isIndoorCycling = paths.some((d) => d?.includes("M3 21h5") || d?.includes("M16 11l2 10"));
       expect(isIndoorCycling).toBe(true);
     });
   });
