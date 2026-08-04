@@ -59,6 +59,37 @@ export function resolveApplicationRecoveryState(
   return parseAndMapAthleteDashboardToRecovery(payloadFixtures[fixtureName], context);
 }
 
+import {
+  trainingStateKinds,
+  type TrainingPresentationState,
+  type TrainingStateKind,
+} from "../models/training-presentation-state";
+import { parseAndMapAthleteDashboardToTraining } from "../mappers/training-mapper";
+
+export function resolveTrainingPreviewState(
+  search: string,
+  states: Readonly<Record<TrainingStateKind, TrainingPresentationState>>,
+): TrainingPresentationState {
+  const requested = new URLSearchParams(search).get("state");
+  const kind = trainingStateKinds.find((candidate) => candidate === requested);
+  return states[kind ?? "ready"];
+}
+
+export function resolveApplicationTrainingState(
+  search: string,
+  states: Readonly<Record<TrainingStateKind, TrainingPresentationState>>,
+  context: MappingContext,
+): TrainingPresentationState {
+  const params = new URLSearchParams(search);
+  if (params.has("state") || params.get("source") !== "payload") {
+    return resolveTrainingPreviewState(search, states);
+  }
+
+  const requested = params.get("fixture");
+  const fixtureName = isPayloadFixtureName(requested) ? requested : "malformed";
+  return parseAndMapAthleteDashboardToTraining(payloadFixtures[fixtureName], context);
+}
+
 function isPayloadFixtureName(value: string | null): value is PayloadFixtureName {
   return value !== null && Object.prototype.hasOwnProperty.call(payloadFixtures, value);
 }

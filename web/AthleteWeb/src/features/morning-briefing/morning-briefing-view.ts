@@ -15,12 +15,13 @@ export function renderMorningBriefing(
   state: MorningBriefingPresentationState,
   onRetry: () => void,
   onOpenRecovery: () => void = () => undefined,
+  onOpenTraining?: () => void,
 ): HTMLElement {
   const shell = document.createElement("div");
   shell.className = "app-shell";
   shell.append(
-    createStateContent(state, onRetry, onOpenRecovery),
-    createBottomNavigation(),
+    createStateContent(state, onRetry, onOpenRecovery, onOpenTraining),
+    createBottomNavigation(onOpenTraining),
   );
   return shell;
 }
@@ -29,13 +30,15 @@ function createStateContent(
   state: MorningBriefingPresentationState,
   onRetry: () => void,
   onOpenRecovery: () => void,
+  onOpenTraining?: () => void,
 ): HTMLElement {
+
   const main = document.createElement("main");
   main.className = "briefing";
 
   switch (state.kind) {
     case "ready":
-      appendAvailableBriefing(main, state.briefing, onOpenRecovery);
+      appendAvailableBriefing(main, state.briefing, onOpenRecovery, onOpenTraining);
       break;
     case "partial":
       main.append(createHeader(state.briefing));
@@ -46,7 +49,7 @@ function createStateContent(
         detailLabel: "Brakuje:",
         details: state.missingData,
       }));
-      appendBriefingBody(main, state.briefing, onOpenRecovery);
+      appendBriefingBody(main, state.briefing, onOpenRecovery, onOpenTraining);
       break;
     case "stale":
       main.append(createHeader(state.briefing));
@@ -56,7 +59,7 @@ function createStateContent(
         message: state.message,
         details: [state.lastUpdatedText],
       }));
-      appendBriefingBody(main, state.briefing, onOpenRecovery);
+      appendBriefingBody(main, state.briefing, onOpenRecovery, onOpenTraining);
       break;
     case "unavailable":
       main.classList.add("briefing--message");
@@ -95,21 +98,23 @@ function appendAvailableBriefing(
   main: HTMLElement,
   model: MorningBriefingPresentation,
   onOpenRecovery: () => void,
+  onOpenTraining?: () => void,
 ): void {
   main.append(createHeader(model));
-  appendBriefingBody(main, model, onOpenRecovery);
+  appendBriefingBody(main, model, onOpenRecovery, onOpenTraining);
 }
 
 function appendBriefingBody(
   main: HTMLElement,
   model: MorningBriefingPresentation,
   onOpenRecovery: () => void,
+  onOpenTraining?: () => void,
 ): void {
   main.append(
     createHero(model),
-    createDecisionExperience(model, onOpenRecovery),
+    createDecisionExperience(model, onOpenRecovery, onOpenTraining),
     createGoal(model),
-    createShortcuts(model, onOpenRecovery),
+    createShortcuts(model, onOpenRecovery, onOpenTraining),
   );
 }
 
@@ -193,19 +198,27 @@ function createHero(model: MorningBriefingPresentation): HTMLElement {
 function createDecisionExperience(
   model: MorningBriefingPresentation,
   onOpenRecovery: () => void,
+  onOpenTraining?: () => void,
 ): HTMLElement {
   const section = document.createElement("section");
   section.className = "decision-experience reveal";
   section.setAttribute("aria-labelledby", "today-decision");
-  section.append(createDecision(model), createReasons(model.reasons, onOpenRecovery));
+  section.append(createDecision(model, onOpenTraining), createReasons(model.reasons, onOpenRecovery));
   if (model.changesSinceYesterday.length > 0) section.append(createChanges(model.changesSinceYesterday));
   section.append(createTodayPlan(model.todayPlan));
   return section;
 }
 
-function createDecision(model: MorningBriefingPresentation): HTMLElement {
-  const header = document.createElement("div");
-  header.className = "decision-summary";
+function createDecision(
+  model: MorningBriefingPresentation,
+  onOpenTraining?: () => void,
+): HTMLElement {
+  const header = document.createElement("button");
+  header.type = "button";
+  header.className = "decision-summary decision-summary--clickable";
+  header.setAttribute("aria-label", `Dzisiejsza decyzja: ${model.decision.title}. Otwórz szczegóły treningu`);
+  if (onOpenTraining) header.addEventListener("click", onOpenTraining);
+
   const activityIcon = mapActivityToIcon(model.decision.title);
   const icon = createIconBadge(activityIcon, "training");
   const copy = document.createElement("div");
@@ -379,6 +392,7 @@ function createGoal(model: MorningBriefingPresentation): HTMLElement {
 function createShortcuts(
   model: MorningBriefingPresentation,
   onOpenRecovery: () => void,
+  onOpenTraining?: () => void,
 ): HTMLElement {
   const section = createSection("Dowiedz się więcej", "shortcuts");
   section.classList.add("shortcut-section");
@@ -392,7 +406,7 @@ function createShortcuts(
     history: { icon: "history", description: "Co wydarzyło się wcześniej" },
   };
   for (const shortcut of model.shortcuts) {
-    list.append(createShortcut(shortcut, metadata[shortcut.id], onOpenRecovery));
+    list.append(createShortcut(shortcut, metadata[shortcut.id], onOpenRecovery, onOpenTraining));
   }
   section.append(list);
   return section;
@@ -402,15 +416,26 @@ function createShortcut(
   shortcut: MorningBriefingShortcut,
   meta: { icon: IconName; description: string } | undefined,
   onOpenRecovery: () => void,
+  onOpenTraining?: () => void,
 ): HTMLLIElement {
   const item = document.createElement("li");
   const button = document.createElement("button");
   button.type = "button";
   const isRecovery = shortcut.id === "recovery";
-  button.disabled = !isRecovery;
+  const isTraining = shortcut.id === "training" && Boolean(onOpenTraining);
+  const isEnabled = isRecovery || isTraining;
+
+  button.disabled = !isEnabled;
   button.dataset.shortcut = shortcut.id;
-  button.title = isRecovery ? "Otwórz szczegóły regeneracji" : "Dostępne w kolejnych sprintach";
+  button.title = isRecovery
+    ? "Otwórz szczegóły regeneracji"
+    : isTraining
+    ? "Otwórz szczegóły treningu"
+    : "Dostępne w kolejnych sprintach";
+
   if (isRecovery) button.addEventListener("click", onOpenRecovery);
+  if (isTraining && onOpenTraining) button.addEventListener("click", onOpenTraining);
+
   button.append(createIcon(meta?.icon ?? "more"));
   const label = document.createElement("strong");
   label.textContent = shortcut.label;
@@ -420,6 +445,7 @@ function createShortcut(
   item.append(button);
   return item;
 }
+
 
 function createIconBadge(icon: IconName, variant: string): HTMLSpanElement {
   const badge = document.createElement("span");

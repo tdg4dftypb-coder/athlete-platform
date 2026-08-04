@@ -488,3 +488,65 @@ h2 { font-family: var(--font-display); font-size: 1.06rem; font-weight: 650; let
 .icon-size-row { display: flex; flex-wrap: wrap; gap: 1.2rem; align-items: flex-end; margin-top: 0.6rem; }
 .icon-size-sample { display: flex; flex-direction: column; gap: 0.35rem; align-items: center; }
 .size-tag { color: var(--color-text-secondary); font-size: 0.72rem; font-weight: 600; }
+
+/* Training Experience Styles */
+.training-view { display: flex; flex-direction: column; gap: 1rem; }
+.training-hero-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  border-color: color-mix(in srgb, var(--color-accent-training) 18%, var(--color-border));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-accent-training) 12%, var(--color-surface)), var(--color-surface-elevated));
+}
+.training-hero__header { display: grid; grid-template-columns: 3.2rem minmax(0, 1fr); gap: 0.9rem; align-items: center; }
+.training-hero__icon { width: 3.2rem; height: 3.2rem; border-radius: 50%; background: color-mix(in srgb, var(--color-accent-training) 14%, var(--color-surface)); color: var(--color-accent-training); }
+.training-hero__icon .icon { width: 1.6rem; height: 1.6rem; }
+.training-hero__copy { display: flex; flex-direction: column; gap: 0.25rem; }
+.training-hero__title { font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; color: var(--color-text-primary); }
+.training-hero__description { color: var(--color-text-secondary); font-size: 0.88rem; line-height: 1.45; }
+.training-hero__pills { display: flex; flex-wrap: wrap; gap: 0.55rem; align-items: center; }
+.training-pill {
+  display: inline-flex;
+  gap: 0.38rem;
+  align-items: center;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--color-accent-training) 22%, var(--color-border));
+  border-radius: 2rem;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.training-pill .icon { width: 0.95rem; height: 0.95rem; color: var(--color-accent-training); }
+
+.objective-card, .outcome-card { padding: 1.1rem; }
+.objective-text, .outcome-text { font-size: 0.94rem; line-height: 1.55; color: var(--color-text-primary); }
+
+.workout-block-list { display: flex; flex-direction: column; gap: 0.4rem; list-style: none; padding: 0; margin: 0; }
+.workout-block-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.85rem;
+  background: var(--color-surface-elevated);
+}
+.workout-block__header { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; justify-content: space-between; }
+.workout-block__name { font-size: 0.92rem; font-weight: 680; color: var(--color-text-primary); }
+.workout-block__tags { display: flex; gap: 0.4rem; align-items: center; }
+.workout-tag { padding: 0.18rem 0.5rem; border-radius: 0.4rem; font-size: 0.72rem; font-weight: 600; }
+.workout-tag--duration { background: color-mix(in srgb, var(--color-accent-neutral) 14%, var(--color-surface)); color: var(--color-text-primary); }
+.workout-tag--intensity { background: color-mix(in srgb, var(--color-accent-training) 14%, var(--color-surface)); color: var(--color-accent-training); }
+.workout-block__description { color: var(--color-text-secondary); font-size: 0.82rem; line-height: 1.4; }
+.workout-block__connector { text-align: center; font-size: 1.2rem; font-weight: bold; color: var(--color-accent-training); padding-block: 0.15rem; }
+
+.notes-list { display: flex; flex-direction: column; gap: 0.6rem; list-style: none; padding: 0; margin: 0; }
+.note-item { display: flex; gap: 0.6rem; align-items: start; font-size: 0.88rem; line-height: 1.45; color: var(--color-text-primary); }
+.note-icon { flex: 0 0 auto; width: 1.1rem; height: 1.1rem; margin-top: 0.15rem; color: var(--color-accent-training); }
+
+.technical-grid { display: flex; flex-direction: column; }
+.technical-row { display: flex; align-items: center; justify-content: space-between; padding-block: 0.6rem; border-bottom: 1px solid var(--color-border); }
+.technical-row:last-child { border-bottom: none; }
+.technical-row dt { color: var(--color-text-secondary); font-size: 0.82rem; }
+.technical-row dd { font-size: 0.88rem; font-weight: 680; color: var(--color-text-primary); }

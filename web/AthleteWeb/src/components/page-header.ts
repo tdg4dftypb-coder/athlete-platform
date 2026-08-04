@@ -3,7 +3,7 @@ import { createIcon } from "./icon";
 
 export function createPageHeader(
   model: RecoveryPresentationHeader,
-  onBack: () => void,
+  onBack?: () => void,
 ): HTMLElement {
   const header = document.createElement("header");
   header.className = "page-header reveal";
@@ -13,7 +13,10 @@ export function createPageHeader(
   back.className = "back-button";
   back.setAttribute("aria-label", "Wróć do Dzisiaj");
   back.append(createIcon("arrow-left"));
-  back.addEventListener("click", onBack);
+  if (onBack) {
+    back.addEventListener("click", onBack);
+  }
+
 
   const copy = document.createElement("div");
   copy.className = "page-header__copy";

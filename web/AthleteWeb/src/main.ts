@@ -2,11 +2,12 @@ import "./styles/reset.css";
 import "./theme/tokens.css";
 import "./styles/main.css";
 
-import { createApp, createRecoveryApp } from "./app/create-app";
+import { createApp, createRecoveryApp, createTrainingApp } from "./app/create-app";
 import { renderActivityIconGallery } from "./features/activity-icons/activity-icon-gallery-view";
 import {
   resolveApplicationPreviewState,
   resolveApplicationRecoveryState,
+  resolveApplicationTrainingState,
 } from "./app/preview-state";
 import {
   resolveApplicationView,
@@ -15,6 +16,7 @@ import {
 } from "./app/view-routing";
 import { morningBriefingPreviewStates } from "./preview-data/morning-briefing-preview-data";
 import { recoveryPreviewStates } from "./preview-data/recovery-preview-data";
+import { trainingPreviewStates } from "./preview-data/training-preview-data";
 import { MORNING_BRIEFING_MAX_AGE_MS } from "./mappers/mapping-context";
 
 const root = requireRoot();
@@ -41,6 +43,13 @@ function renderPreview(focusHeading = false): void {
       previewMappingContext,
     );
     root.replaceChildren(createRecoveryApp(state, openMorningBriefing, retry));
+  } else if (view === "training") {
+    const state = resolveApplicationTrainingState(
+      window.location.search,
+      trainingPreviewStates,
+      previewMappingContext,
+    );
+    root.replaceChildren(createTrainingApp(state, openMorningBriefing, retry));
   } else if (view === "icons") {
     root.replaceChildren(renderActivityIconGallery(openMorningBriefing));
   } else {
@@ -49,7 +58,7 @@ function renderPreview(focusHeading = false): void {
       morningBriefingPreviewStates,
       previewMappingContext,
     );
-    root.replaceChildren(createApp(state, retry, openRecovery));
+    root.replaceChildren(createApp(state, retry, openRecovery, openTraining));
   }
 
   if (focusHeading) {
@@ -69,8 +78,15 @@ function openRecovery(): void {
   navigateTo("recovery");
 }
 
+function openTraining(): void {
+  navigateTo("training");
+}
+
 function openMorningBriefing(): void {
-  if (window.history.state?.athleteView === "recovery") {
+  if (
+    window.history.state?.athleteView === "recovery" ||
+    window.history.state?.athleteView === "training"
+  ) {
     window.history.back();
     return;
   }
