@@ -778,3 +778,61 @@ h2 { font-family: var(--font-display); font-size: 1.06rem; font-weight: 650; let
   }
 }
 
+/* Global States: Skeletons, Offline Banner, Refresh Affordance */
+.skeleton-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+.skeleton-block {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  background: var(--color-surface-elevated);
+}
+
+.skeleton-block::after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  content: "";
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-text) 8%, transparent),
+    transparent
+  );
+  animation: skeleton-shift 1.5s infinite;
+}
+
+.skeleton-block--header { height: 4.5rem; }
+.skeleton-block--hero { height: 18rem; }
+.skeleton-block--card { height: 9.5rem; }
+.skeleton-block--shortcuts { height: 12rem; }
+
+.offline-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1rem;
+  background: color-mix(in srgb, var(--accent-attention) 15%, var(--color-surface));
+  color: var(--color-text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.refresh-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.76rem;
+  color: var(--color-muted);
+}
+
+
