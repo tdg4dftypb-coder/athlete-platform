@@ -48,57 +48,67 @@ const paths: Readonly<Record<IconName, readonly string[]>> = {
   "trend-down": ["m5 8 5 5 4-4 5 5", "M19 9v5h-5"],
   "trend-up": ["m5 16 5-5 4 4 5-5", "M14 10h5v5"],
   "activity-cycling": [
-    "M2 16.5a3.5 3.5 0 1 0 7 0 3.5 3.5 0 1 0-7 0Z",
-    "M15 16.5a3.5 3.5 0 1 0 7 0 3.5 3.5 0 1 0-7 0Z",
-    "M5.5 16.5L10 16.5L8 10.5L15.5 10.5L10 16.5",
-    "M7 10.5h2.5",
-    "M15 10.5h2a1.5 1.5 0 0 1 0 3",
-    "M11.5 5.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z",
-    "M8 10.5L11.5 5.5L15.5 10.5",
-    "M10 14l-2 2.5",
+    "M5 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z",
+    "M19 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z",
+    "M5 16h5l-2-6h-4l3 6Z",
+    "M10 16l6-6h-8",
+    "M16 10l3 6",
+    "M7 10h2.5",
+    "M16 10h1.5v1",
+    "M14 6a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z",
+    "M9 10l4-4",
+    "M13 6l3 4",
+    "M9 10l1.5 3-1 3"
   ],
   "activity-indoor-cycling": [
-    "M2 20h20",
-    "M3 20l3.5-6 3.5 6",
-    "M5 14a1.5 1.5 0 1 0 3 0 1.5 1.5 0 0 0-3 0Z",
-    "M6.5 14L11 16L9.5 9.5L16.5 9.5L18.5 16.5",
-    "M11 16L16.5 9.5",
-    "M15.5 17a3 3 0 1 0 6 0 3 3 0 1 0-6 0Z",
-    "M8 9.5h3",
-    "M15.5 9.5h3.5v3",
+    "M3 21h5",
+    "M16 21h4",
+    "M6 18a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
+    "M6 16.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z",
+    "M11 17l-5-2",
+    "M11 17l-2-6",
+    "M9 11h7",
+    "M16 11l-5 6",
+    "M16 11l2 10",
+    "M7.5 11h3",
+    "M16 11l-1-2h3v2h-1"
   ],
   "activity-swimming": [
-    "M16.5 6a1.75 1.75 0 1 0 0-3.5 1.75 1.75 0 0 0 0 3.5Z",
-    "M4 11l6-3 4-3 3 2.5",
-    "M10 8l4 2.5",
-    "M2 15c2.5-1.2 5 1.2 7.5 0s5-1.2 7.5 0",
-    "M4 18.5c2.5-1.2 5 1.2 7.5 0s4.5-1.2 6.5 0",
+    "M3 18c1.5-1 2.5 1 4 0s2.5-1 4 0 2.5 1 4 0 2.5-1 4 0",
+    "M3 21c1.5-1 2.5 1 4 0s2.5-1 4 0 2.5 1 4 0 2.5-1 4 0",
+    "M17 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z",
+    "M16 13.5l-4.5 3",
+    "M6 16l4-5 4 3"
   ],
   "activity-crossfit": [
-    "M3 5.5h18",
-    "M5 3v5M4 3.5v4",
-    "M19 3v5M20 3.5v4",
-    "M12 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z",
-    "M6.5 5.5L12 10L17.5 5.5",
-    "M12 9.5v5.5M12 15L8.5 21M12 15l3.5 6",
+    "M4 9h16",
+    "M7 7v4",
+    "M6 7.5v3",
+    "M5 8v2",
+    "M17 7v4",
+    "M18 7.5v3",
+    "M19 8v2",
+    "M12 12.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z",
+    "M12 12.5v5.5",
+    "M12 18l-3 4",
+    "M12 18l3 4",
+    "M8 9l2 3.5 2-0.5",
+    "M16 9l-2 3.5-2-0.5"
   ],
   "activity-gravel": [
-    "M1 20.5l4-1 5 1 5-1 4 1",
-    "M2 16.5a3.5 3.5 0 1 0 7 0 3.5 3.5 0 1 0-7 0Z",
-    "M15 16.5a3.5 3.5 0 1 0 7 0 3.5 3.5 0 1 0-7 0Z",
-    "M2.5 14.5l1 1M15.5 14.5l1 1",
-    "M5.5 16.5L10 16.5L8 10.5L15.5 10.5L10 16.5",
-    "M7 10.5h2.5M14.5 10.5h3.5l-1 2.5",
-    "M11.5 5.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z",
-    "M7.5 10.5L11.5 5.5L16 10.5",
+    "M3 21l3-1 3 1 3-1 3 1 3-1 3 1",
+    "M5 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z",
+    "M19 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z",
+    "M5 16h5l-2-6h-4l3 6Z",
+    "M10 16l6-6h-8",
+    "M16 10l3 6",
+    "M7 10h2.5",
+    "M16 10h1.5v1",
+    "M14 6a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z",
+    "M9 10l4-4",
+    "M13 6l3 4",
+    "M9 10l1.5 3-1 3"
   ],
-};
-
-const strokeWidths: Partial<Record<IconName, string>> = {
-  "activity-cycling": "1.5",
-  "activity-indoor-cycling": "1.5",
-  "activity-swimming": "1.6",
-  "activity-gravel": "1.5",
 };
 
 export function createIcon(name: IconName, label?: string): SVGSVGElement {
@@ -108,7 +118,7 @@ export function createIcon(name: IconName, label?: string): SVGSVGElement {
   icon.setAttribute("viewBox", "0 0 24 24");
   icon.setAttribute("fill", "none");
   icon.setAttribute("stroke", "currentColor");
-  icon.setAttribute("stroke-width", strokeWidths[name] ?? "1.8");
+  icon.setAttribute("stroke-width", "1.6");
   icon.setAttribute("stroke-linecap", "round");
   icon.setAttribute("stroke-linejoin", "round");
   if (label) {
@@ -126,6 +136,7 @@ export function createIcon(name: IconName, label?: string): SVGSVGElement {
   }
   return icon;
 }
+
 
 
 export function mapActivityToIcon(activityType?: string | null): IconName {
