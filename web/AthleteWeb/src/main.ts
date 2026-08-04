@@ -42,7 +42,7 @@ function requireRoot(): HTMLDivElement {
 
 import { renderMoreExperience } from "./features/more/more-view";
 
-import { StaticJsonDashboardPayloadSource } from "./app/dashboard-payload-source";
+import { HttpDashboardPayloadSource, StaticJsonDashboardPayloadSource } from "./app/dashboard-payload-source";
 import { parseAndMapAthleteDashboardToMorningBriefing } from "./mappers/morning-briefing-mapper";
 import { parseAndMapAthleteDashboardToRecovery } from "./mappers/recovery-mapper";
 import { parseAndMapAthleteDashboardToTraining } from "./mappers/training-mapper";
@@ -62,15 +62,19 @@ function restoreScrollPosition(view: ApplicationView): void {
   window.scrollTo({ top: savedY, behavior: "instant" as ScrollBehavior });
 }
 
-function isLiveFileSource(): boolean {
-  return new URLSearchParams(window.location.search).get("source") === "live-file";
+function getSourceMode(): "preview" | "live-file" | "http" {
+  const source = new URLSearchParams(window.location.search).get("source");
+  if (source === "live-file") return "live-file";
+  if (source === "http") return "http";
+  return "preview";
 }
 
 function renderPreview(focusHeading = false): void {
   const view = resolveApplicationView(window.location.search);
+  const mode = getSourceMode();
 
-  if (isLiveFileSource()) {
-    renderLiveFileView(view, focusHeading);
+  if (mode !== "preview") {
+    renderExternalSourceView(view, mode, focusHeading);
     return;
   }
 
@@ -133,7 +137,7 @@ function renderPreview(focusHeading = false): void {
   }
 }
 
-async function renderLiveFileView(view: ApplicationView, focusHeading: boolean): Promise<void> {
+async function renderExternalSourceView(view: ApplicationView, mode: "live-file" | "http", focusHeading: boolean): Promise<void> {
   // Step 1: Render loading state
   let loadingElement: HTMLElement;
   if (view === "recovery") loadingElement = createRecoveryApp({ kind: "loading", message: "Wczytywanie..." }, openMorningBriefing, retry);
@@ -147,7 +151,10 @@ async function renderLiveFileView(view: ApplicationView, focusHeading: boolean):
   root.replaceChildren(loadingElement);
 
   try {
-    const payloadSource = new StaticJsonDashboardPayloadSource("/data/athlete-dashboard-v1.json");
+    const payloadSource = mode === "http"
+      ? new HttpDashboardPayloadSource()
+      : new StaticJsonDashboardPayloadSource("/data/athlete-dashboard-v1.json");
+
     const rawData = await payloadSource.load();
 
     let appElement: HTMLElement;
@@ -183,18 +190,18 @@ async function renderLiveFileView(view: ApplicationView, focusHeading: boolean):
       heading?.focus();
     }
   } catch (error) {
-    const errorText = error instanceof Error ? error.message : "Błąd odczytu pliku.";
+    const errorText = error instanceof Error ? error.message : "Błąd pobierania danych.";
     const expHeader = {
       title: "Błąd odczytu danych",
       dateText: "Wystąpił błąd",
-      lastUpdatedText: "Brak połączenia z plikiem payloadu",
+      lastUpdatedText: "Brak połączenia z transportem danych",
       freshnessLabel: null,
     };
     const failureState = {
       kind: "failure" as const,
       header: expHeader,
-      message: "Nie udało się wczytać pliku payloadu v1.0.",
-      supportingText: `Błąd transportu lub brak pliku: ${errorText}`,
+      message: mode === "http" ? "Nie udało się pobrać danych przez HTTP API." : "Nie udało się wczytać pliku payloadu v1.0.",
+      supportingText: `Błąd transportu: ${errorText}`,
       retryLabel: "Spróbuj ponownie",
     };
 
@@ -206,8 +213,8 @@ async function renderLiveFileView(view: ApplicationView, focusHeading: boolean):
         dateText: "Wystąpił błąd",
         timeText: "--:--",
       },
-      message: "Nie udało się wczytać pliku payloadu v1.0.",
-      supportingText: `Błąd transportu lub brak pliku: ${errorText}`,
+      message: mode === "http" ? "Nie udało się pobrać danych przez HTTP API." : "Nie udało się wczytać pliku payloadu v1.0.",
+      supportingText: `Błąd transportu: ${errorText}`,
       retryLabel: "Spróbuj ponownie",
     };
 
