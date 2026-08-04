@@ -41,3 +41,14 @@ export function createProgressApp(
 ): HTMLElement {
   return renderProgressExperience(state, onBack, onRetry);
 }
+
+import { renderNutritionExperience } from "../features/nutrition/nutrition-view";
+import type { NutritionPresentationState } from "../models/nutrition-presentation-state";
+
+export function createNutritionApp(
+  state: NutritionPresentationState,
+  onBack: () => void = () => undefined,
+  onRetry: () => void = () => undefined,
+): HTMLElement {
+  return renderNutritionExperience(state, onBack, onRetry);
+}
