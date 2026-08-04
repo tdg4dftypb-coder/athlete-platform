@@ -109,11 +109,16 @@ function createNutrition(
   payload: AthleteDashboardPayloadV1,
   header: NutritionPresentationHeader,
 ): NutritionPresentation {
+  const hasCarbsTarget = payload.nutrition.carbohydrate_target_g !== null;
   const hero: NutritionHeroPresentation = {
-    headline: "Twoje odżywianie wspiera dzisiejszy trening.",
-    subheading: "Zadbaj o podaż węglowodanów okołotreningowo dla zachowania pełnej mocy.",
-    statusBadgeText: "Optymalne wsparcie",
-    statusVariant: "optimal",
+    headline: hasCarbsTarget
+      ? "Twoje odżywianie wspiera dzisiejszy trening."
+      : "Zalecenia żywieniowe dla dzisiejszego planu.",
+    subheading: hasCarbsTarget
+      ? "Zadbaj o podaż węglowodanów okołotreningowo dla zachowania pełnej mocy."
+      : "Stosuj się do dostępnych wskazówek okołotreningowych.",
+    statusBadgeText: hasCarbsTarget ? "Optymalne wsparcie" : "Wsparcie podstawowe",
+    statusVariant: hasCarbsTarget ? "optimal" : "moderate",
     timeframeText: "Plan żywieniowy na dzisiaj",
   };
 
@@ -147,7 +152,7 @@ function createFocusItems(
       title: "Podaż białka",
       status: "check",
       description: `Zaplanowano ${proteinG}g białka dla ochrony tkanki mięśniowej.`,
-      highlightText: `${proteinG}g ok`,
+      highlightText: `${proteinG}g cel`,
       tagLabel: "Regeneracja",
     });
   }
@@ -159,7 +164,7 @@ function createFocusItems(
       title: "Nawodnienie dzienny cel",
       status: "check",
       description: `Docelowa objętość płynów wynosząca ${(hydrationMl / 1000).toFixed(1)}L.`,
-      highlightText: `${(hydrationMl / 1000).toFixed(1)}L ok`,
+      highlightText: `${(hydrationMl / 1000).toFixed(1)}L cel`,
       tagLabel: "Bilans",
     });
   }
@@ -176,93 +181,83 @@ function createFocusItems(
     });
   }
 
-  items.push({
-    id: "recovery-ratio",
-    title: "Odbudowa glikogenu",
-    status: "check",
-    description: "Spożyj posiłek po treningu w ciągu 45 minut od zakończenia jazdy.",
-    highlightText: "Okienko 45m",
-    tagLabel: "Glikogen",
-  });
-
   return items;
 }
 
 function createMealTimeline(
   payload: AthleteDashboardPayloadV1,
 ): readonly MealTimelineItem[] {
-  const carbsG = payload.nutrition.carbohydrate_target_g ?? 330;
-  const proteinG = payload.nutrition.protein_target_g ?? 160;
+  const items: MealTimelineItem[] = [];
 
-  const preCarbs = payload.nutrition.fueling_pre_workout_carbohydrate_g ?? Math.round(carbsG * 0.2);
-  const postCarbs = payload.nutrition.fueling_post_workout_carbohydrate_g ?? Math.round(carbsG * 0.25);
-  const standardCarbs = Math.round((carbsG - preCarbs - postCarbs) / 3);
-
-  const postProtein = payload.nutrition.fueling_post_workout_protein_g ?? Math.round(proteinG * 0.25);
-  const standardProtein = Math.round((proteinG - postProtein) / 4);
-
-  return [
-    {
-      id: "breakfast",
-      mealName: "Śniadanie",
-      timeText: "07:30",
-      timingLabel: "Standardowy",
-      description: "Owsianka z owocami i odżywką białkową.",
-      targetCarbs: `${standardCarbs}g Carbs`,
-      targetProtein: `${standardProtein}g Protein`,
-    },
-    {
-      id: "lunch",
-      mealName: "Lunch",
-      timeText: "12:30",
-      timingLabel: "Standardowy",
-      description: "Posiłek złożony z węglowodanów złożonych i chudego mięsa lub strączków.",
-      targetCarbs: `${standardCarbs}g Carbs`,
-      targetProtein: `${standardProtein}g Protein`,
-    },
-    {
+  const preCarbs = payload.nutrition.fueling_pre_workout_carbohydrate_g;
+  if (preCarbs !== null && preCarbs > 0) {
+    items.push({
       id: "pre-workout",
       mealName: "Przed treningiem",
-      timeText: "16:00",
+      timeText: "Przed treningiem",
       timingLabel: "Przed treningiem",
       description: "Lekko strawne węglowodany proste i woda z izotonikiem.",
-      targetCarbs: `${preCarbs}g Carbs`,
-      targetProtein: "5g Protein",
-    },
-    {
+      targetCarbs: `${preCarbs}g Węglowodany`,
+      targetProtein: null,
+    });
+  }
+
+  const duringCarbs = payload.nutrition.fueling_during_workout_carbohydrate_g_per_hour;
+  if (duringCarbs !== null && duringCarbs > 0) {
+    items.push({
+      id: "during-workout",
+      mealName: "W trakcie treningu",
+      timeText: "W trakcie",
+      timingLabel: "W trakcie",
+      description: "Nawadnianie i uzupełnianie węglowodanów w trakcie wysiłku.",
+      targetCarbs: `${duringCarbs}g/h Węglowodany`,
+      targetProtein: null,
+    });
+  }
+
+  const postCarbs = payload.nutrition.fueling_post_workout_carbohydrate_g;
+  const postProtein = payload.nutrition.fueling_post_workout_protein_g;
+  if ((postCarbs !== null && postCarbs > 0) || (postProtein !== null && postProtein > 0)) {
+    items.push({
       id: "post-workout",
       mealName: "Po treningu",
-      timeText: "18:15",
+      timeText: "Po treningu",
       timingLabel: "Po treningu",
-      description: "Koktajl regeneracyjny (węglowodany + białko) przyspieszający resyntezę.",
-      targetCarbs: `${postCarbs}g Carbs`,
-      targetProtein: `${postProtein}g Protein`,
-    },
-    {
-      id: "dinner",
-      mealName: "Kolacja",
-      timeText: "20:00",
-      timingLabel: "Standardowy",
-      description: "Pełnowartościowy posiłek z warzywami i zdrowymi tłuszczami.",
-      targetCarbs: `${standardCarbs}g Carbs`,
-      targetProtein: `${standardProtein}g Protein`,
-    },
-  ];
+      description: "Posiłek/koktajl regeneracyjny przyspieszający resyntezę glikogenu.",
+      targetCarbs: postCarbs !== null ? `${postCarbs}g Węglowodany` : null,
+      targetProtein: postProtein !== null ? `${postProtein}g Białko` : null,
+    });
+  }
+
+  return items;
 }
 
 function createHydration(
   payload: AthleteDashboardPayloadV1,
 ): NutritionPresentation["hydration"] {
-  const target = payload.nutrition.hydration_daily_ml ?? 3000;
-  const current = Math.round(target * 0.8);
-  const pct = Math.round((current / target) * 100);
+  const target = payload.nutrition.hydration_daily_ml;
+
+  if (target === null) {
+    return {
+      title: "Poziom nawodnienia",
+      currentVolumeMl: 0,
+      targetVolumeMl: 0,
+      progressLabel: "Cel nawodnienia niedostępny",
+      statusText: "Brak zdefiniowanego dziennego celu nawodnienia.",
+    };
+  }
+
+  const duringWorkoutMl = payload.nutrition.hydration_during_workout_ml_per_hour;
+  const subtext = duringWorkoutMl !== null
+    ? `Zalecane nawodnienie w trakcie wysiłku: ${duringWorkoutMl} ml/h.`
+    : `Docelowa objętość płynów: ${(target / 1000).toFixed(1)} L w ciągu dnia.`;
 
   return {
     title: "Poziom nawodnienia",
-    currentVolumeMl: current,
+    currentVolumeMl: target,
     targetVolumeMl: target,
-    progressLabel: `${pct}% celu dziennego`,
-    statusText: `Pozostało ${target - current} ml do uzupełnienia przed końcem dnia.`,
+    progressLabel: `Cel dzienny: ${(target / 1000).toFixed(1)} L`,
+    statusText: subtext,
   };
 }
 
@@ -273,9 +268,8 @@ function createCoachSummary(
   return {
     title: "Podsumowanie Trenera AI",
     paragraphs: [
-      `Strategia żywieniowa została zsynchronizowana z wymaganiami ${workoutName}. Węglowodany skumulowane są w oknie okołotreningowym.`,
-      "Zadbaj o spożycie przekąski węglowodanowej 90 minut przed treningiem i nie pomijaj koktajlu powyczerpaniowego.",
-      "Utrzymuj stały napływ płynów z elektrolitami przez całe popołudnie.",
+      `Strategia żywieniowa została zsynchronizowana z wymaganiami ${workoutName}.`,
+      "Zadbaj o spożycie zalecanego paliwa okołotreningowego i nawodnienie w trakcie wysiłku.",
     ],
   };
 }
@@ -285,22 +279,29 @@ function createTechnical(
 ): NutritionPresentation["technical"] {
   const metrics: NutritionMetricItem[] = [];
 
-  const calories = payload.nutrition.estimated_daily_requirement_kcal ?? payload.nutrition.observed_daily_expenditure_kcal;
-  if (calories !== null) {
+  if (payload.nutrition.observed_daily_expenditure_kcal !== null) {
     metrics.push({
-      label: "Kalorie",
-      valueText: `${calories} kcal`,
-      targetText: "Cel: 2700 kcal",
-      description: "Szacowany bilans dobowy",
+      label: "Zaobserwowany wydatek energii",
+      valueText: `${payload.nutrition.observed_daily_expenditure_kcal} kcal`,
+      targetText: null,
+      description: "Suma wydatku energetycznego z pomiarów",
     });
   }
 
+  if (payload.nutrition.estimated_daily_requirement_kcal !== null) {
+    metrics.push({
+      label: "Szacowane zapotrzebowanie",
+      valueText: `${payload.nutrition.estimated_daily_requirement_kcal} kcal`,
+      targetText: null,
+      description: "Szacowane zapotrzebowanie kaloryczne",
+    });
+  }
 
   if (payload.nutrition.carbohydrate_target_g !== null) {
     metrics.push({
       label: "Węglowodany",
       valueText: `${payload.nutrition.carbohydrate_target_g} g`,
-      targetText: "Cel: 340 g",
+      targetText: null,
       description: "Główne źródło energii",
     });
   }
@@ -309,41 +310,31 @@ function createTechnical(
     metrics.push({
       label: "Białko",
       valueText: `${payload.nutrition.protein_target_g} g`,
-      targetText: "Cel: 155 g",
-      description: "Synteza i regeneracja",
+      targetText: null,
+      description: "Synteza i regeneracja tkanki",
     });
   }
 
-  metrics.push({
-    label: "Tłuszcze",
-    valueText: "70 g",
-    targetText: "Cel: 72 g",
-    description: "Niezbędne kwasy tłuszczowe",
-  });
+  if (payload.nutrition.hydration_daily_ml !== null) {
+    metrics.push({
+      label: "Dzienny cel płynów",
+      valueText: `${payload.nutrition.hydration_daily_ml} ml`,
+      targetText: null,
+      description: "Rekomendowana objętość nawodnienia",
+    });
+  }
 
-  metrics.push({
-    label: "Błonnik",
-    valueText: "32 g",
-    targetText: "Cel: 30 g",
-    description: "Błonnik pokarmowy",
-  });
-
-  metrics.push({
-    label: "Sód",
-    valueText: "2400 mg",
-    targetText: "Cel: 2300 mg",
-    description: "Główny elektrolit osocza",
-  });
-
-  metrics.push({
-    label: "Potas",
-    valueText: "3800 mg",
-    targetText: "Cel: 3500 mg",
-    description: "Elektrolit wewnątrzkomórkowy",
-  });
+  if (payload.nutrition.hydration_during_workout_ml_per_hour !== null) {
+    metrics.push({
+      label: "Nawodnienie w trakcie wysiłku",
+      valueText: `${payload.nutrition.hydration_during_workout_ml_per_hour} ml/h`,
+      targetText: null,
+      description: "Płyny na godzinę treningu",
+    });
+  }
 
   return {
-    title: "Dane i wskaźniki techniczne (Makro i Mikro)",
+    title: "Dane i wskaźniki techniczne",
     metrics,
   };
 }
@@ -361,13 +352,17 @@ function collectMissingData(
   if (payload.nutrition.carbohydrate_target_g === null) {
     missing.push("Brak wartości węglowodanów");
   }
+  if (payload.nutrition.protein_target_g === null) {
+    missing.push("Brak celów białka");
+  }
+  if (payload.nutrition.hydration_daily_ml === null) {
+    missing.push("Brak celu nawodnienia");
+  }
   if (payload.nutrition.metadata.status === "partial") {
     missing.push("Sekcja żywieniowa ma niepełne dane");
   }
   return missing;
 }
-
-
 
 function failureState(
   supportingText: string,

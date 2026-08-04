@@ -85,6 +85,6 @@ export interface BodyCompositionPresentation {
   readonly breakdown: readonly BodyCompositionBreakdownItem[];
   readonly goalAlignment: BodyCompositionGoalAlignmentPresentation;
   readonly dataQuality: BodyCompositionDataQualityPresentation;
-  readonly placeholderNote: string;
+  readonly placeholderNote: string | null;
   readonly technical: BodyCompositionTechnicalPresentation;
 }

@@ -62,8 +62,8 @@ export function mapAthleteDashboardToBody(
       kind: "unavailable",
       header,
       message: "Dane o składzie ciała są niedostępne.",
-      reason: "Brak zarejestrowanych pomiarów masy ciała w dzisiejszej decyzji.",
-      nextAction: "Zarejestruj pomiar masy ciała, aby włączyć analizę.",
+      reason: "Brak zarejestrowanych pomiarów masy ciała.",
+      nextAction: "Zarejestruj pierwszy pomiar masy ciała, aby odblokować analizę.",
     };
   }
 
@@ -142,8 +142,8 @@ function createBodyPresentation(
     timeframeText: payload.body_composition.trend_period_days
       ? `Analiza z ostatnich ${payload.body_composition.trend_period_days} dni`
       : "Analiza bieżącego okresu",
-    goalStatusBadgeText: "Zgodny z celem",
-    goalStatusVariant: "aligned",
+    goalStatusBadgeText: payload.goal.metadata.status !== "unavailable" ? "Zgodny z celem" : "Cel nieustalony",
+    goalStatusVariant: payload.goal.metadata.status !== "unavailable" ? "aligned" : "neutral",
   };
 
   const keyChanges = createKeyChanges(payload);
@@ -162,7 +162,7 @@ function createBodyPresentation(
     breakdown,
     goalAlignment,
     dataQuality,
-    placeholderNote: "Regionalna mapa zmian — planowana funkcja",
+    placeholderNote: null,
     technical,
   };
 }
@@ -243,12 +243,12 @@ function createTrendSection(
   const currentMass = comp.current_body_mass_kg;
   const baselineMass = comp.trend_baseline_body_mass_kg;
 
-  if (currentMass === null || baselineMass === null) {
+  if (currentMass === null || baselineMass === null || comp.trend_period_days === null) {
     return {
       title: "Trend masy ciała",
-      description: "Brak wystarczającej liczby pomiarów w czasie.",
+      description: "Trend pojawi się po zebraniu wystarczającej historii pomiarów.",
       paceText: null,
-      weeklyAverageText: currentMass !== null ? `Średnia waga: ${currentMass} kg` : null,
+      weeklyAverageText: currentMass !== null ? `Aktualna waga: ${currentMass} kg` : null,
       points: [],
       isAvailable: false,
       unavailableMessage: "Brak historii trendu wagi w payloadzie.",
@@ -256,30 +256,22 @@ function createTrendSection(
   }
 
   const change = comp.trend_absolute_change_kg ?? 0;
-  const days = comp.trend_period_days ?? 28;
+  const days = comp.trend_period_days;
   const weeklyPace = Number(((change / days) * 7).toFixed(2));
   const paceText = `${weeklyPace > 0 ? "+" : ""}${weeklyPace} kg/tydz.`;
 
   const p1 = Number(baselineMass.toFixed(1));
   const p6 = Number(currentMass.toFixed(1));
-  const diff = p6 - p1;
-  const step = diff / 5;
-
-  const points = [
-    { label: "Start", value: p1, displayValue: String(p1) },
-    { label: "P-1", value: Number((p1 + step).toFixed(1)), displayValue: (p1 + step).toFixed(1) },
-    { label: "P-2", value: Number((p1 + step * 2).toFixed(1)), displayValue: (p1 + step * 2).toFixed(1) },
-    { label: "P-3", value: Number((p1 + step * 3).toFixed(1)), displayValue: (p1 + step * 3).toFixed(1) },
-    { label: "P-4", value: Number((p1 + step * 4).toFixed(1)), displayValue: (p1 + step * 4).toFixed(1) },
-    { label: "Dziś", value: p6, displayValue: String(p6) },
-  ];
 
   return {
     title: `Trend masy ciała (${days} dni)`,
     description: "Systematyczna zmiana masy ciała w wybranym horyzoncie czasowym.",
     paceText,
     weeklyAverageText: `Aktualny pomiar: ${currentMass} kg`,
-    points,
+    points: [
+      { label: "Start", value: p1, displayValue: String(p1) },
+      { label: "Dziś", value: p6, displayValue: String(p6) },
+    ],
     isAvailable: true,
     unavailableMessage: null,
   };
@@ -340,7 +332,7 @@ function createGoalAlignmentSection(
     return {
       title: "Zgodność z celem",
       statusMessage: "Brak zdefiniowanego celu wagowego.",
-      details: ["Możesz zdefiniować docelową masę ciała w ustawieniach celu."],
+      details: ["Zdefiniuj docelową masę ciała w ustawieniach celu."],
       alignmentVariant: "neutral",
     };
   }
@@ -359,7 +351,6 @@ function createGoalAlignmentSection(
     details: [
       `Docelowa masa ciała: ${targetMass} kg`,
       `Aktualna masa ciała: ${currentMass} kg`,
-      "Zalecany zrównoważony spadek masy wynosi 0.3–0.5 kg na tydzień.",
     ],
     alignmentVariant: "aligned",
   };
@@ -411,12 +402,6 @@ function createTechnicalSection(
     metrics.push({ label: "Masa mięśniowa", valueText: `${comp.muscle_mass_kg} kg`, description: "Szacowana tkanka mięśniowa" });
   }
 
-  if (comp.current_body_mass_kg !== null) {
-    const heightM = 1.82; // Height baseline for technical BMI rendering
-    const bmi = (comp.current_body_mass_kg / (heightM * heightM)).toFixed(1);
-    metrics.push({ label: "Wskaźnik BMI", valueText: `${bmi} kg/m²`, description: "Body Mass Index (wyłącznie dane techniczne)" });
-  }
-
   if (comp.body_water_percent !== null) {
     metrics.push({ label: "Woda w organizmie (%)", valueText: `${comp.body_water_percent}%`, description: "Poziom nawodnienia" });
   }
@@ -443,6 +428,7 @@ function collectMissingData(
   const missing: string[] = [];
   if (payload.body_composition.waist_circumference_cm === null) missing.push("Brak pomiaru obwodu talii");
   if (payload.body_composition.body_fat_percent === null) missing.push("Brak pomiaru tkanki tłuszczowej");
+  if (payload.body_composition.muscle_mass_kg === null) missing.push("Brak pomiaru masy mięśniowej");
   if (payload.body_composition.metadata.status === "partial") missing.push("Sekcja składu ciała ma niepełne dane");
   return missing;
 }

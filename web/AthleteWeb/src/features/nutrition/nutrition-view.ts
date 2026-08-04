@@ -279,15 +279,23 @@ function createMealTimelineSection(
 
     const targets = document.createElement("div");
     targets.className = "meal-card__targets";
-    const carbs = document.createElement("span");
-    carbs.className = "meal-target-pill meal-target-pill--carbs";
-    carbs.textContent = meal.targetCarbs;
-    const protein = document.createElement("span");
-    protein.className = "meal-target-pill meal-target-pill--protein";
-    protein.textContent = meal.targetProtein;
-    targets.append(carbs, protein);
-
-    content.append(header, desc, targets);
+    if (meal.targetCarbs) {
+      const carbs = document.createElement("span");
+      carbs.className = "meal-target-pill meal-target-pill--carbs";
+      carbs.textContent = meal.targetCarbs;
+      targets.append(carbs);
+    }
+    if (meal.targetProtein) {
+      const protein = document.createElement("span");
+      protein.className = "meal-target-pill meal-target-pill--protein";
+      protein.textContent = meal.targetProtein;
+      targets.append(protein);
+    }
+    if (meal.targetCarbs || meal.targetProtein) {
+      content.append(header, desc, targets);
+    } else {
+      content.append(header, desc);
+    }
     card.append(timeBadge, content);
     li.append(card);
     list.append(li);

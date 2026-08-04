@@ -466,8 +466,9 @@ function createDataQualitySection(
   return section;
 }
 
-function createPlaceholderSection(text: string): HTMLElement {
-  const section = document.createElement("section");
+function createPlaceholderSection(text: string | null): HTMLElement | DocumentFragment {
+  if (!text) return document.createDocumentFragment();
+  const section = createSection("Zapowiedź funkcji", "body-placeholder");
   section.className = "section placeholder-section";
 
   const card = createCard("placeholder-card");

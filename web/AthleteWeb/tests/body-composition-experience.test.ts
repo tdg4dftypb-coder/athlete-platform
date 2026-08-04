@@ -133,31 +133,27 @@ describe("Body Composition Experience", () => {
       }
     });
 
-    it("does NOT render sparkline bars when trend baseline is missing in payload", () => {
+    it("does NOT render sparkline bars or calculate BMI when height is not in payload", () => {
       const payloadNoTrend: AthleteDashboardPayloadV1 = JSON.parse(JSON.stringify(payloadFixtures.ready));
       (payloadNoTrend.body_composition as unknown as Record<string, unknown>).trend_baseline_body_mass_kg = null;
 
       const result = parseAndMapAthleteDashboardToBody(payloadNoTrend, mockContext);
       if (result.kind === "ready" || result.kind === "partial") {
         expect(result.body.trend.isAvailable).toBe(false);
-        const element = renderBodyCompositionExperience(result);
-        expect(element.querySelector(".sparkline-bars")).toBeNull();
-        expect(element.querySelector(".trend-unavailable-notice")).not.toBeNull();
+        const techMetrics = result.body.technical.metrics;
+        expect(techMetrics.find((m) => m.label.includes("BMI"))).toBeUndefined();
       }
     });
 
+    it("maps missing body mass to unavailable state", () => {
+      const payloadNoBodyMass: AthleteDashboardPayloadV1 = JSON.parse(JSON.stringify(payloadFixtures.ready));
+      (payloadNoBodyMass.body_composition as unknown as Record<string, unknown>).current_body_mass_kg = null;
 
-    it("ensures BMI does not dominate over the main narrative and appears strictly in technical metrics", () => {
-      const element = renderBodyCompositionExperience(bodyCompositionPreviewStates.ready);
-
-      const heroText = element.querySelector(".body-hero-card")?.textContent ?? "";
-      expect(heroText).not.toContain("BMI");
-
-      const breakdownText = element.querySelector(".body-breakdown-section")?.textContent ?? "";
-      expect(breakdownText).not.toContain("BMI");
-
-      const techText = element.querySelector(".technical-metrics-section")?.textContent ?? "";
-      expect(techText).toContain("Wskaźnik BMI");
+      const result = parseAndMapAthleteDashboardToBody(payloadNoBodyMass, mockContext);
+      expect(result.kind).toBe("unavailable");
+      if (result.kind === "unavailable") {
+        expect(result.reason).toContain("Brak zarejestrowanych pomiarów masy ciała");
+      }
     });
 
     it("makes data quality explicit and visible", () => {

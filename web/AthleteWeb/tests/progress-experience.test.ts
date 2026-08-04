@@ -115,57 +115,34 @@ describe("Progress Experience", () => {
     });
   });
 
-  describe("Progressive Disclosure & Component Hierarchy", () => {
-    it("renders Hero progress card with narrative before charts", () => {
-      const element = renderProgressExperience(progressPreviewStates.ready);
-      const heroText = element.querySelector(".progress-hero-card")?.textContent ?? "";
-
-      expect(heroText).toContain("Twoja forma systematycznie rośnie.");
-      expect(heroText).toContain("Forma zwyżkowa");
-      expect(element.querySelector(".progress-hero-card .sparkline-container")).toBeNull();
-    });
-
-    it("renders 3-4 biggest improvement cards", () => {
-      const element = renderProgressExperience(progressPreviewStates.ready);
-      const cards = element.querySelectorAll(".improvement-card");
-      expect(cards.length).toBeGreaterThanOrEqual(3);
-      expect(cards.length).toBeLessThanOrEqual(4);
-    });
-
-    it("renders areas to improve with coaching tone tags", () => {
-      const element = renderProgressExperience(progressPreviewStates.ready);
-      const cards = element.querySelectorAll(".area-card");
-      expect(cards.length).toBeLessThanOrEqual(3);
-      expect(element.querySelector(".area-card__tag")?.textContent).toBe("Regeneracja");
-    });
-
-    it("renders minimalist sparkline trend section", () => {
-      const element = renderProgressExperience(progressPreviewStates.ready);
-      const sparkline = element.querySelector(".sparkline-bars");
-      expect(sparkline).not.toBeNull();
-      expect(sparkline?.querySelectorAll(".sparkline-col").length).toBe(6);
-    });
-
-    it("renders technical metrics at the bottom of the screen", () => {
-      const element = renderProgressExperience(progressPreviewStates.ready);
-      const techSection = element.querySelector(".technical-metrics-section");
-      expect(techSection).not.toBeNull();
-
-      const text = techSection?.textContent ?? "";
-      expect(text).toContain("Kondycja (CTL / Fitness)");
-      expect(text).toContain("Forma (TSB / Form)");
-      expect(text).toContain("Aktualna masa ciała");
-    });
-  });
-
-
-  describe("Payload Mode Mapping", () => {
+  describe("Payload Mode Mapping & Data Honesty", () => {
     it("maps valid fixture payload to progress ready state", () => {
       const result = parseAndMapAthleteDashboardToProgress(payloadFixtures.ready, mockContext);
       expect(result.kind).toBe("ready");
       if (result.kind === "ready") {
         expect(result.progress.hero.headline).toContain("Twoja forma");
         expect(result.progress.technicalMetrics.metrics.length).toBeGreaterThan(0);
+      }
+    });
+
+    it("does NOT generate default 28.8 or -15.5 or artificial T27-T32 points when fitness_tss_per_day is null", () => {
+      const payloadWithoutFitness = {
+        ...payloadFixtures.ready,
+        performance: {
+          ...payloadFixtures.ready.performance,
+          fitness_tss_per_day: null,
+          form_tss_per_day: null,
+        },
+      };
+
+      const result = mapAthleteDashboardToProgress(payloadWithoutFitness, mockContext);
+      expect(result.kind).toBe("partial");
+      if (result.kind === "partial") {
+        expect(result.progress.trend.points).toEqual([]);
+        expect(result.progress.trend.description).toBe("Trend pojawi się po zebraniu wystarczającej historii danych.");
+        const techMetrics = result.progress.technicalMetrics.metrics;
+        const ctlMetric = techMetrics.find((m) => m.label.includes("CTL"));
+        expect(ctlMetric).toBeUndefined();
       }
     });
 

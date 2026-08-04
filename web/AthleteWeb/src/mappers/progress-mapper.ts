@@ -7,7 +7,6 @@ import type {
   ProgressMetricItem,
   ProgressPresentation,
   ProgressPresentationHeader,
-  ProgressTrendPoint,
 } from "../models/progress-presentation";
 import type { ProgressPresentationState } from "../models/progress-presentation-state";
 import {
@@ -113,15 +112,18 @@ function createProgress(
   payload: AthleteDashboardPayloadV1,
   header: ProgressPresentationHeader,
 ): ProgressPresentation {
-  const ctl = payload.performance.fitness_tss_per_day ?? 28.8;
-  const tsb = payload.performance.form_tss_per_day ?? -15.5;
+  const ctl = payload.performance.fitness_tss_per_day;
+  const tsb = payload.performance.form_tss_per_day;
+  const hasForm = tsb !== null;
 
   const hero: ProgressHeroPresentation = {
-    headline: tsb >= -20 ? "Twoja forma systematycznie rośnie." : "Utrzymujesz wysoki poziom obciążenia.",
+    headline: hasForm
+      ? (tsb >= -20 ? "Twoja forma jest na bieżąco monitorowana." : "Utrzymujesz wyższy poziom obciążenia.")
+      : "Obserwacja obciążenia i wydolności.",
     subheading: "Skutecznie adaptujesz obciążenia przy zachowaniu stabilnego poziomu regeneracji.",
-    trendDirection: tsb >= -20 ? "up" : "stable",
-    trendLabel: tsb >= -20 ? "Forma zwyżkowa" : "Forma stabilna",
-    timeframeText: "Analiza z ostatnich 28 dni",
+    trendDirection: hasForm ? (tsb >= -20 ? "up" : "stable") : "stable",
+    trendLabel: hasForm ? (tsb >= -20 ? "Forma zwyżkowa" : "Forma stabilna") : "Bieżące obciążenie",
+    timeframeText: "Analiza z bieżącego okresu",
   };
 
   const improvements = createImprovements(payload);
@@ -210,7 +212,7 @@ function createAreasToImprove(
       focusTag: "Regeneracja",
       tone: "coaching",
     });
-  } else {
+  } else if (sleepMinutes !== null) {
     items.push({
       id: "sleep-regularity",
       title: "Regularność godzin snu",
@@ -231,34 +233,36 @@ function createAreasToImprove(
     });
   }
 
-  items.push({
-    id: "volume-pacing",
-    title: "Progresja obciążenia",
-    guidance: "Utrzymuj równomierny przyrost TSS bez nagłych skoków obciążenia z tygodnia na tydzień.",
-    focusTag: "Jakość",
-    tone: "neutral",
-  });
+  if (payload.performance.weekly_training_load_tss !== null) {
+    items.push({
+      id: "volume-pacing",
+      title: "Progresja obciążenia",
+      guidance: "Utrzymuj równomierny przyrost TSS bez nagłych skoków obciążenia z tygodnia na tydzień.",
+      focusTag: "Jakość",
+      tone: "neutral",
+    });
+  }
 
   return items.slice(0, 3);
 }
 
-function createTrendPresentation(currentCtl: number): ProgressPresentation["trend"] {
-  const base = Math.max(10, currentCtl - 4.8);
-  const step = 4.8 / 5;
-  const points: ProgressTrendPoint[] = [
-    { label: "T 27", value: Number((base).toFixed(1)), displayValue: (base).toFixed(1) },
-    { label: "T 28", value: Number((base + step).toFixed(1)), displayValue: (base + step).toFixed(1) },
-    { label: "T 29", value: Number((base + step * 2).toFixed(1)), displayValue: (base + step * 2).toFixed(1) },
-    { label: "T 30", value: Number((base + step * 3).toFixed(1)), displayValue: (base + step * 3).toFixed(1) },
-    { label: "T 31", value: Number((base + step * 4).toFixed(1)), displayValue: (base + step * 4).toFixed(1) },
-    { label: "T 32", value: Number((currentCtl).toFixed(1)), displayValue: currentCtl.toFixed(1) },
-  ];
+function createTrendPresentation(currentCtl: number | null): ProgressPresentation["trend"] {
+  if (currentCtl === null) {
+    return {
+      title: "Tygodniowy trend formy (CTL)",
+      description: "Trend pojawi się po zebraniu wystarczającej historii danych.",
+      periodText: "Brak historii",
+      points: [],
+    };
+  }
 
   return {
     title: "Tygodniowy trend formy (CTL)",
-    description: "Zrównoważony przyrost długoterminowego obciążenia treningowego.",
-    periodText: "Ostatnie 6 tygodni",
-    points,
+    description: "Długoterminowy wskaźnik obciążenia treningowego z bieżącego pomiaru.",
+    periodText: "Bieżąca wartość",
+    points: [
+      { label: "Dziś", value: Number(currentCtl.toFixed(1)), displayValue: currentCtl.toFixed(1) },
+    ],
   };
 }
 
@@ -288,7 +292,7 @@ function createTechnicalMetrics(
     metrics.push({
       label: "Kondycja (CTL / Fitness)",
       valueText: `${payload.performance.fitness_tss_per_day} TSS/d`,
-      changeText: "+4.8",
+      changeText: null,
       description: "Długoterminowe obciążenie (42 dni)",
     });
   }
@@ -315,7 +319,7 @@ function createTechnicalMetrics(
     metrics.push({
       label: "Baza HRV",
       valueText: `${payload.health.hrv_ms} ms`,
-      changeText: "+7%",
+      changeText: null,
       description: "Nocna zmienność rytmu serca",
     });
   }
@@ -349,6 +353,8 @@ function collectMissingData(
   payload: AthleteDashboardPayloadV1,
 ): readonly string[] {
   const missing: string[] = [];
+  if (payload.performance.fitness_tss_per_day === null) missing.push("Brak wskaźnika CTL (Kondycja)");
+  if (payload.performance.form_tss_per_day === null) missing.push("Brak wskaźnika TSB (Forma)");
   if (payload.performance.weekly_training_load_tss === null) missing.push("Brak obciążenia tygodniowego");
   if (payload.health.hrv_ms === null) missing.push("Brak wskaźnika HRV");
   if (payload.performance.metadata.status === "partial") missing.push("Sekcja wydolności ma niepełne dane");

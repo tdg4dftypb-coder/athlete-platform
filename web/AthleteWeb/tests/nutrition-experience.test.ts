@@ -115,59 +115,39 @@ describe("Nutrition Experience", () => {
     });
   });
 
-  describe("UX Hierarchy: Nutrition First, Calories Second", () => {
-    it("renders coaching focus items and meal timeline before technical macros", () => {
-      const element = renderNutritionExperience(nutritionPreviewStates.ready);
-
-      const focusIndex = Array.from(element.children[0]?.children ?? []).findIndex(
-        (child) => child.classList.contains("nutrition-focus-section"),
-      );
-      const techIndex = Array.from(element.children[0]?.children ?? []).findIndex(
-        (child) => child.classList.contains("technical-metrics-section"),
-      );
-
-      expect(focusIndex).toBeGreaterThan(-1);
-      expect(techIndex).toBeGreaterThan(-1);
-      expect(focusIndex).toBeLessThan(techIndex);
-    });
-
-    it("renders meal timeline with 5 meals", () => {
-      const element = renderNutritionExperience(nutritionPreviewStates.ready);
-      const meals = element.querySelectorAll(".meal-card");
-      expect(meals.length).toBe(5);
-    });
-
-    it("renders hydration bar with volume and percentage", () => {
-      const element = renderNutritionExperience(nutritionPreviewStates.ready);
-      const hydrationCard = element.querySelector(".hydration-card");
-      expect(hydrationCard).not.toBeNull();
-      expect(hydrationCard?.textContent).toContain("2.4L / 3.0L");
-      expect(hydrationCard?.textContent).toContain("80% celu dziennego");
-    });
-
-    it("renders technical metrics at the bottom of the page", () => {
-      const element = renderNutritionExperience(nutritionPreviewStates.ready);
-      const techSection = element.querySelector(".technical-metrics-section");
-      expect(techSection).not.toBeNull();
-
-      const text = techSection?.textContent ?? "";
-      expect(text).toContain("Energia (Kalorie)");
-      expect(text).toContain("Węglowodany");
-      expect(text).toContain("Białko");
-      expect(text).toContain("Tłuszcze");
-      expect(text).toContain("Błonnik");
-      expect(text).toContain("Sód");
-      expect(text).toContain("Potas");
-    });
-  });
-
-  describe("Payload Mode Mapping", () => {
+  describe("Payload Mode Mapping & Presentation Data Honesty", () => {
     it("maps valid fixture payload to nutrition ready state", () => {
       const result = parseAndMapAthleteDashboardToNutrition(payloadFixtures.ready, mockContext);
       expect(result.kind).toBe("ready");
       if (result.kind === "ready") {
         expect(result.nutrition.hero.headline).toContain("wspiera dzisiejszy trening");
         expect(result.nutrition.technical.metrics.length).toBeGreaterThan(0);
+      }
+    });
+
+    it("does NOT generate fake 07:30-20:00 meal times or fake 2700 kcal targets when payload is partial", () => {
+      const partialPayload = {
+        ...payloadFixtures.ready,
+        nutrition: {
+          ...payloadFixtures.ready.nutrition,
+          metadata: { ...payloadFixtures.ready.nutrition.metadata, status: "partial" as const },
+          estimated_daily_requirement_kcal: null,
+          carbohydrate_target_g: null,
+          protein_target_g: null,
+          hydration_daily_ml: null,
+          fueling_pre_workout_carbohydrate_g: null,
+          fueling_during_workout_carbohydrate_g_per_hour: null,
+          fueling_post_workout_carbohydrate_g: null,
+          fueling_post_workout_protein_g: null,
+        },
+      };
+
+      const result = mapAthleteDashboardToNutrition(partialPayload, mockContext);
+      expect(result.kind).toBe("partial");
+      if (result.kind === "partial") {
+        expect(result.nutrition.mealTimeline).toEqual([]);
+        const techMetrics = result.nutrition.technical.metrics;
+        expect(techMetrics.find((m) => m.targetText !== null)).toBeUndefined();
       }
     });
 

@@ -26,10 +26,10 @@ export interface MealTimelineItem {
   readonly id: string;
   readonly mealName: string;
   readonly timeText: string;
-  readonly timingLabel: "Przed treningiem" | "Po treningu" | "Standardowy";
+  readonly timingLabel: "Przed treningiem" | "W trakcie" | "Po treningu" | "Standardowy";
   readonly description: string;
-  readonly targetCarbs: string;
-  readonly targetProtein: string;
+  readonly targetCarbs: string | null;
+  readonly targetProtein: string | null;
 }
 
 export interface NutritionHydrationPresentation {
