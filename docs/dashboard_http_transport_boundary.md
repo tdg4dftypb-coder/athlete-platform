@@ -25,7 +25,8 @@ The port knows nothing about UI components, presentation states, or mapping logi
 
 2. **`HttpDashboardPayloadSource`**
    - Fetches JSON payload over HTTP GET.
-   - Configurable via `import.meta.env.VITE_DASHBOARD_API_URL` (default: `http://127.0.0.1:8000/api/v1/dashboard`).
+   - Configurable via `import.meta.env.VITE_DASHBOARD_API_URL` (default relative endpoint `/api/v1/dashboard`).
+   - Proxied in development via Vite proxy `/api` → `http://127.0.0.1:8000/api`.
    - Enabled via query parameter `?source=http`.
 
 ---
@@ -42,7 +43,7 @@ Implemented in [`server/app.py`](file:///Users/marsm0wa/Documents/athlete-platfo
 
 ---
 
-## 3. State Lifecycle
+## 3. State Lifecycle & Navigation Integrity
 
 ```
 [User Navigate] 
@@ -58,11 +59,27 @@ Implemented in [`server/app.py`](file:///Users/marsm0wa/Documents/athlete-platfo
      └─────────► [Failure / Non-2xx] ───────────────► [Failure Presentation State]
 ```
 
+- **Navigation Parameter Preservation**: Navigation functions (`openRecovery()`, `openTraining()`, `openProgress()`, `openNutrition()`, `openBody()`, `openMorningBriefing()`) preserve existing URL query parameters (`source=http` or `source=live-file`).
+- **Data Honesty**: No missing data is manufactured by mappers. Missing data results in `partial` or `unavailable` presentation states.
 - **Data Isolation**: On transport or parsing failure, the application renders an explicit `failure` state for the active view. It **never** falls back to Preview Data or alternative sources.
 
 ---
 
-## 4. Privacy Boundaries & Security Rules
+## 4. Full Experience Audit Verification Matrix
+
+| View | Target URL | HTTP Status | Runtime Parser Result | Presentation State | Missing Data / Gaps |
+|---|---|---|---|---|---|
+| **Morning Briefing** | `/?source=http` | `200 OK` | Valid v1.0 | `ready` | None (canonical payload) |
+| **Training** | `/?view=training&source=http` | `200 OK` | Valid v1.0 | `ready` | None (canonical payload) |
+| **Recovery** | `/?view=recovery&source=http` | `200 OK` | Valid v1.0 | `ready` | None (canonical payload) |
+| **Progress** | `/?view=progress&source=http` | `200 OK` | Valid v1.0 | `ready` | None (canonical payload) |
+| **Nutrition** | `/?view=nutrition&source=http` | `200 OK` | Valid v1.0 | `ready` | None (canonical payload) |
+| **Body Composition** | `/?view=body&source=http` | `200 OK` | Valid v1.0 | `ready` | None (canonical payload) |
+| **More** | `/?view=more&source=http` | `200 OK` | N/A | `ready` | Static experience view |
+
+---
+
+## 5. Privacy Boundaries & Security Rules
 
 1. **Ignored Assets**:
    - `web/AthleteWeb/public/data/` (local exported payload containing health metrics)
@@ -74,9 +91,9 @@ Implemented in [`server/app.py`](file:///Users/marsm0wa/Documents/athlete-platfo
 
 ---
 
-## 5. Excluded Scope
+## 6. Excluded Scope
 
-The following features remain explicitly out of scope for Sprint 2:
+The following features remain explicitly out of scope:
 - User Authentication / Authorization (OAuth, JWT, API keys)
 - Client-side or Server-side Caching (HTTP Cache-Control, Redis)
 - Background Sync / WebSockets / Cyclic polling
