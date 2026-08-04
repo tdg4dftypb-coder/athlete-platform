@@ -565,3 +565,23 @@ def test_public_serialization_api_exports_only_public_contract_symbols():
         is UnsupportedDashboardContractVersion
     )
     assert not hasattr(dashboard, "_require_exact_keys")
+
+
+def test_serializer_converts_float_int_fields_to_integers():
+    dash = _full_dashboard()
+    dash = replace(
+        dash,
+        health=replace(
+            dash.health,
+            hrv_ms=62.3,
+            steps=12450.0,
+            sleep_minutes=480.0,
+        ),
+    )
+    payload = DashboardSerializer().serialize(dash)
+    assert payload["health"]["hrv_ms"] == 62.3
+    assert payload["health"]["steps"] == 12450
+    assert payload["health"]["sleep_minutes"] == 480
+    assert isinstance(payload["health"]["hrv_ms"], float)
+    assert isinstance(payload["health"]["steps"], int)
+    assert isinstance(payload["health"]["sleep_minutes"], int)

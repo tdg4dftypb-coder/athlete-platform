@@ -24,20 +24,7 @@ def main() -> None:
         if result.dashboard is None:
             raise RuntimeError("Failed to build AthleteDashboard instance from backend engine")
 
-        dashboard = result.dashboard
-        if dashboard.health is not None:
-            from dataclasses import replace
-            h = dashboard.health
-            normalized_health = replace(
-                h,
-                sleep_minutes=int(h.sleep_minutes) if h.sleep_minutes is not None else None,
-                steps=int(h.steps) if h.steps is not None else None,
-                active_energy_kcal=int(h.active_energy_kcal) if h.active_energy_kcal is not None else None,
-                resting_energy_kcal=int(h.resting_energy_kcal) if h.resting_energy_kcal is not None else None,
-            )
-            dashboard = replace(dashboard, health=normalized_health)
-
-        payload = DashboardSerializer().serialize(dashboard)
+        payload = DashboardSerializer().serialize(result.dashboard)
         with open(target_file, "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2, ensure_ascii=False)
             f.write("\n")

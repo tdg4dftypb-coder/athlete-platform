@@ -257,15 +257,32 @@ class DashboardSerializer:
     ) -> dict[str, object]:
         return {
             "metadata": cls._serialize_metadata(section.metadata),
-            "hrv_ms": section.hrv_ms,
-            "resting_heart_rate_bpm": section.resting_heart_rate_bpm,
-            "sleep_minutes": section.sleep_minutes,
-            "steps": section.steps,
-            "active_energy_kcal": section.active_energy_kcal,
-            "resting_energy_kcal": section.resting_energy_kcal,
-            "respiratory_rate_per_minute": section.respiratory_rate_per_minute,
-            "oxygen_saturation_percent": section.oxygen_saturation_percent,
-            "wrist_temperature_celsius": section.wrist_temperature_celsius,
+            "hrv_ms": _serialized_int(section.hrv_ms, "health.hrv_ms"),
+            "resting_heart_rate_bpm": _serialized_int(
+                section.resting_heart_rate_bpm, "health.resting_heart_rate_bpm"
+            ),
+            "sleep_minutes": _serialized_int(
+                section.sleep_minutes, "health.sleep_minutes"
+            ),
+            "steps": _serialized_int(section.steps, "health.steps"),
+            "active_energy_kcal": _serialized_int(
+                section.active_energy_kcal, "health.active_energy_kcal"
+            ),
+            "resting_energy_kcal": _serialized_int(
+                section.resting_energy_kcal, "health.resting_energy_kcal"
+            ),
+            "respiratory_rate_per_minute": _serialized_number(
+                section.respiratory_rate_per_minute,
+                "health.respiratory_rate_per_minute",
+            ),
+            "oxygen_saturation_percent": _serialized_number(
+                section.oxygen_saturation_percent,
+                "health.oxygen_saturation_percent",
+            ),
+            "wrist_temperature_celsius": _serialized_number(
+                section.wrist_temperature_celsius,
+                "health.wrist_temperature_celsius",
+            ),
         }
 
     @classmethod
@@ -820,6 +837,19 @@ def _optional_number(value: object, path: str) -> int | float | None:
 
 def _serialized_number(value: object, path: str) -> int | float | None:
     return _optional_number(value, path)
+
+
+def _serialized_int(value: object, path: str) -> int | float | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise DashboardPayloadError(f"{path} must be a number")
+    if not isfinite(value):
+        raise DashboardPayloadError(f"{path} must be a finite number")
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return value
+
 
 
 def _optional_int(value: object, path: str) -> int | None:
