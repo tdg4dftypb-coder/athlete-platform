@@ -48,8 +48,9 @@ describe("Morning Briefing", () => {
     const current = document.querySelectorAll('.bottom-navigation [aria-current="page"]');
     expect(current).toHaveLength(1);
     expect(current[0]?.textContent).toContain("Dzisiaj");
-    expect(document.querySelectorAll(".bottom-navigation button:not(:disabled)")).toHaveLength(1);
+    expect(document.querySelectorAll(".bottom-navigation button:not(:disabled)")).toHaveLength(4);
   });
+
 
   it("partial names missing data and omits unsupported reasons", () => {
     document.body.append(createApp(morningBriefingPreviewStates.partial));

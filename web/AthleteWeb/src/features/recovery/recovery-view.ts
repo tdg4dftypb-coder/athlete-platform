@@ -17,7 +17,11 @@ export function renderRecoveryExperience(
 ): HTMLElement {
   const shell = document.createElement("div");
   shell.className = "app-shell";
-  shell.append(createStateContent(state, onBack, onRetry), createBottomNavigation());
+  shell.append(
+    createStateContent(state, onBack, onRetry),
+    createBottomNavigation({ currentView: "recovery" }),
+  );
+
   return shell;
 }
 

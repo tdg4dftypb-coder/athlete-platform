@@ -24,8 +24,9 @@ export function renderBodyCompositionExperience(
   shell.className = "app-shell body-shell";
   shell.append(
     createStateContent(state, onBack, onRetry),
-    createBottomNavigation(),
+    createBottomNavigation({ currentView: "body" }),
   );
+
   return shell;
 }
 

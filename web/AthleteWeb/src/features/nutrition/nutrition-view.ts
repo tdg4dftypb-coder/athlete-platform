@@ -22,8 +22,9 @@ export function renderNutritionExperience(
   shell.className = "app-shell nutrition-shell";
   shell.append(
     createStateContent(state, onBack, onRetry),
-    createBottomNavigation(),
+    createBottomNavigation({ currentView: "nutrition" }),
   );
+
   return shell;
 }
 

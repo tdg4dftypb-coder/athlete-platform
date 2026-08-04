@@ -40,6 +40,8 @@ function requireRoot(): HTMLDivElement {
   return element;
 }
 
+import { renderMoreExperience } from "./features/more/more-view";
+
 function renderPreview(focusHeading = false): void {
   const view = resolveApplicationView(window.location.search);
   if (view === "recovery") {
@@ -77,6 +79,8 @@ function renderPreview(focusHeading = false): void {
       previewMappingContext,
     );
     root.replaceChildren(createBodyCompositionApp(state, openMorningBriefing, retry));
+  } else if (view === "more") {
+    root.replaceChildren(renderMoreExperience(openMorningBriefing));
   } else if (view === "icons") {
     root.replaceChildren(renderActivityIconGallery(openMorningBriefing));
   } else {
@@ -87,6 +91,7 @@ function renderPreview(focusHeading = false): void {
     );
     root.replaceChildren(createApp(state, retry, openRecovery, openTraining, openProgress));
   }
+
 
   if (focusHeading) {
     const heading = root.querySelector<HTMLElement>("h1");

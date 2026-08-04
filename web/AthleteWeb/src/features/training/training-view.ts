@@ -21,8 +21,9 @@ export function renderTrainingExperience(
   shell.className = "app-shell training-shell";
   shell.append(
     createStateContent(state, onBack, onRetry),
-    createBottomNavigation(),
+    createBottomNavigation({ currentView: "training" }),
   );
+
   return shell;
 }
 

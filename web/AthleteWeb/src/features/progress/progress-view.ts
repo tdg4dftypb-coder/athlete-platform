@@ -23,8 +23,9 @@ export function renderProgressExperience(
   shell.className = "app-shell progress-shell";
   shell.append(
     createStateContent(state, onBack, onRetry),
-    createBottomNavigation(),
+    createBottomNavigation({ currentView: "progress" }),
   );
+
   return shell;
 }
 

@@ -22,8 +22,9 @@ export function renderMorningBriefing(
   shell.className = "app-shell";
   shell.append(
     createStateContent(state, onRetry, onOpenRecovery, onOpenTraining),
-    createBottomNavigation(onOpenTraining, onOpenProgress),
+    createBottomNavigation({ currentView: "morning", onOpenTraining, onOpenProgress }),
   );
+
   return shell;
 }
 
