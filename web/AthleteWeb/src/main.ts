@@ -42,6 +42,14 @@ function requireRoot(): HTMLDivElement {
 
 import { renderMoreExperience } from "./features/more/more-view";
 
+import { StaticJsonDashboardPayloadSource } from "./app/dashboard-payload-source";
+import { parseAndMapAthleteDashboardToMorningBriefing } from "./mappers/morning-briefing-mapper";
+import { parseAndMapAthleteDashboardToRecovery } from "./mappers/recovery-mapper";
+import { parseAndMapAthleteDashboardToTraining } from "./mappers/training-mapper";
+import { parseAndMapAthleteDashboardToProgress } from "./mappers/progress-mapper";
+import { parseAndMapAthleteDashboardToNutrition } from "./mappers/nutrition-mapper";
+import { parseAndMapAthleteDashboardToBody } from "./mappers/body-composition-mapper";
+
 const scrollPositions = new Map<string, number>();
 
 function saveScrollPosition(): void {
@@ -54,8 +62,18 @@ function restoreScrollPosition(view: ApplicationView): void {
   window.scrollTo({ top: savedY, behavior: "instant" as ScrollBehavior });
 }
 
+function isLiveFileSource(): boolean {
+  return new URLSearchParams(window.location.search).get("source") === "live-file";
+}
+
 function renderPreview(focusHeading = false): void {
   const view = resolveApplicationView(window.location.search);
+
+  if (isLiveFileSource()) {
+    renderLiveFileView(view, focusHeading);
+    return;
+  }
+
   let appElement: HTMLElement;
 
   if (view === "recovery") {
@@ -112,6 +130,97 @@ function renderPreview(focusHeading = false): void {
   if (focusHeading) {
     const heading = root.querySelector<HTMLElement>("h1");
     heading?.focus();
+  }
+}
+
+async function renderLiveFileView(view: ApplicationView, focusHeading: boolean): Promise<void> {
+  // Step 1: Render loading state
+  let loadingElement: HTMLElement;
+  if (view === "recovery") loadingElement = createRecoveryApp({ kind: "loading", message: "Wczytywanie..." }, openMorningBriefing, retry);
+  else if (view === "training") loadingElement = createTrainingApp({ kind: "loading", message: "Wczytywanie..." }, openMorningBriefing, retry);
+  else if (view === "progress") loadingElement = createProgressApp({ kind: "loading", message: "Wczytywanie..." }, openMorningBriefing, retry);
+  else if (view === "nutrition") loadingElement = createNutritionApp({ kind: "loading", message: "Wczytywanie..." }, openMorningBriefing, retry);
+  else if (view === "body") loadingElement = createBodyCompositionApp({ kind: "loading", message: "Wczytywanie..." }, openMorningBriefing, retry);
+  else loadingElement = createApp({ kind: "loading", message: "Wczytywanie..." }, retry, openRecovery, openTraining, openProgress);
+
+  loadingElement.classList.add("view-container");
+  root.replaceChildren(loadingElement);
+
+  try {
+    const payloadSource = new StaticJsonDashboardPayloadSource("/data/athlete-dashboard-v1.json");
+    const rawData = await payloadSource.load();
+
+    let appElement: HTMLElement;
+    if (view === "recovery") {
+      const state = parseAndMapAthleteDashboardToRecovery(rawData, previewMappingContext);
+      appElement = createRecoveryApp(state, openMorningBriefing, retry);
+    } else if (view === "training") {
+      const state = parseAndMapAthleteDashboardToTraining(rawData, previewMappingContext);
+      appElement = createTrainingApp(state, openMorningBriefing, retry);
+    } else if (view === "progress") {
+      const state = parseAndMapAthleteDashboardToProgress(rawData, previewMappingContext);
+      appElement = createProgressApp(state, openMorningBriefing, retry);
+    } else if (view === "nutrition") {
+      const state = parseAndMapAthleteDashboardToNutrition(rawData, previewMappingContext);
+      appElement = createNutritionApp(state, openMorningBriefing, retry);
+    } else if (view === "body") {
+      const state = parseAndMapAthleteDashboardToBody(rawData, previewMappingContext);
+      appElement = createBodyCompositionApp(state, openMorningBriefing, retry);
+    } else if (view === "more") {
+      appElement = renderMoreExperience(openMorningBriefing);
+    } else if (view === "icons") {
+      appElement = renderActivityIconGallery(openMorningBriefing);
+    } else {
+      const state = parseAndMapAthleteDashboardToMorningBriefing(rawData, previewMappingContext);
+      appElement = createApp(state, retry, openRecovery, openTraining, openProgress);
+    }
+
+    appElement.classList.add("view-container");
+    root.replaceChildren(appElement);
+
+    if (focusHeading) {
+      const heading = root.querySelector<HTMLElement>("h1");
+      heading?.focus();
+    }
+  } catch (error) {
+    const errorText = error instanceof Error ? error.message : "Błąd odczytu pliku.";
+    const expHeader = {
+      title: "Błąd odczytu danych",
+      dateText: "Wystąpił błąd",
+      lastUpdatedText: "Brak połączenia z plikiem payloadu",
+      freshnessLabel: null,
+    };
+    const failureState = {
+      kind: "failure" as const,
+      header: expHeader,
+      message: "Nie udało się wczytać pliku payloadu v1.0.",
+      supportingText: `Błąd transportu lub brak pliku: ${errorText}`,
+      retryLabel: "Spróbuj ponownie",
+    };
+
+    const briefingFailureState = {
+      kind: "failure" as const,
+      header: {
+        greeting: "Dzień dobry",
+        athleteName: previewMappingContext.athleteName,
+        dateText: "Wystąpił błąd",
+        timeText: "--:--",
+      },
+      message: "Nie udało się wczytać pliku payloadu v1.0.",
+      supportingText: `Błąd transportu lub brak pliku: ${errorText}`,
+      retryLabel: "Spróbuj ponownie",
+    };
+
+    let errorElement: HTMLElement;
+    if (view === "recovery") errorElement = createRecoveryApp(failureState, openMorningBriefing, retry);
+    else if (view === "training") errorElement = createTrainingApp(failureState, openMorningBriefing, retry);
+    else if (view === "progress") errorElement = createProgressApp(failureState, openMorningBriefing, retry);
+    else if (view === "nutrition") errorElement = createNutritionApp(failureState, openMorningBriefing, retry);
+    else if (view === "body") errorElement = createBodyCompositionApp(failureState, openMorningBriefing, retry);
+    else errorElement = createApp(briefingFailureState, retry, openRecovery, openTraining, openProgress);
+
+    errorElement.classList.add("view-container");
+    root.replaceChildren(errorElement);
   }
 }
 
