@@ -52,3 +52,14 @@ export function createNutritionApp(
 ): HTMLElement {
   return renderNutritionExperience(state, onBack, onRetry);
 }
+
+import { renderBodyCompositionExperience } from "../features/body-composition/body-composition-view";
+import type { BodyCompositionPresentationState } from "../models/body-composition-presentation-state";
+
+export function createBodyCompositionApp(
+  state: BodyCompositionPresentationState,
+  onBack: () => void = () => undefined,
+  onRetry: () => void = () => undefined,
+): HTMLElement {
+  return renderBodyCompositionExperience(state, onBack, onRetry);
+}

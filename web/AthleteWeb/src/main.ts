@@ -2,9 +2,10 @@ import "./styles/reset.css";
 import "./theme/tokens.css";
 import "./styles/main.css";
 
-import { createApp, createNutritionApp, createProgressApp, createRecoveryApp, createTrainingApp } from "./app/create-app";
+import { createApp, createBodyCompositionApp, createNutritionApp, createProgressApp, createRecoveryApp, createTrainingApp } from "./app/create-app";
 import { renderActivityIconGallery } from "./features/activity-icons/activity-icon-gallery-view";
 import {
+  resolveApplicationBodyState,
   resolveApplicationNutritionState,
   resolveApplicationPreviewState,
   resolveApplicationProgressState,
@@ -16,6 +17,7 @@ import {
   searchForView,
   type ApplicationView,
 } from "./app/view-routing";
+import { bodyCompositionPreviewStates } from "./preview-data/body-composition-preview-data";
 import { morningBriefingPreviewStates } from "./preview-data/morning-briefing-preview-data";
 import { nutritionPreviewStates } from "./preview-data/nutrition-preview-data";
 import { progressPreviewStates } from "./preview-data/progress-preview-data";
@@ -68,6 +70,13 @@ function renderPreview(focusHeading = false): void {
       previewMappingContext,
     );
     root.replaceChildren(createNutritionApp(state, openMorningBriefing, retry));
+  } else if (view === "body") {
+    const state = resolveApplicationBodyState(
+      window.location.search,
+      bodyCompositionPreviewStates,
+      previewMappingContext,
+    );
+    root.replaceChildren(createBodyCompositionApp(state, openMorningBriefing, retry));
   } else if (view === "icons") {
     root.replaceChildren(renderActivityIconGallery(openMorningBriefing));
   } else {
@@ -108,17 +117,22 @@ export function openNutrition(): void {
   navigateTo("nutrition");
 }
 
+export function openBody(): void {
+  navigateTo("body");
+}
 
 function openMorningBriefing(): void {
   if (
     window.history.state?.athleteView === "recovery" ||
     window.history.state?.athleteView === "training" ||
     window.history.state?.athleteView === "progress" ||
-    window.history.state?.athleteView === "nutrition"
+    window.history.state?.athleteView === "nutrition" ||
+    window.history.state?.athleteView === "body"
   ) {
     window.history.back();
     return;
   }
+
 
 
   const url = new URL(window.location.href);

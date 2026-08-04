@@ -1,13 +1,14 @@
-export type ApplicationView = "morning-briefing" | "recovery" | "training" | "progress" | "nutrition" | "icons";
+export type ApplicationView = "morning-briefing" | "recovery" | "training" | "progress" | "nutrition" | "body" | "icons";
 
 export function resolveApplicationView(search: string): ApplicationView {
   const params = new URLSearchParams(search);
   const view = params.get("view");
-  if (view === "recovery" || view === "training" || view === "progress" || view === "nutrition" || view === "icons") {
+  if (view === "recovery" || view === "training" || view === "progress" || view === "nutrition" || view === "body" || view === "icons") {
     return view;
   }
   return "morning-briefing";
 }
+
 
 
 export function searchForView(

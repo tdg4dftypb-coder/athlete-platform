@@ -162,6 +162,42 @@ export function resolveApplicationNutritionState(
   return parseAndMapAthleteDashboardToNutrition(payloadFixtures[fixtureName], context);
 }
 
+import type { BodyCompositionPresentationState } from "../models/body-composition-presentation-state";
+import { parseAndMapAthleteDashboardToBody } from "../mappers/body-composition-mapper";
+
+const bodyKinds: readonly BodyCompositionPresentationState["kind"][] = [
+  "ready",
+  "partial",
+  "unavailable",
+  "stale",
+  "loading",
+  "failure",
+];
+
+export function resolveBodyPreviewState(
+  search: string,
+  states: Readonly<Record<BodyCompositionPresentationState["kind"], BodyCompositionPresentationState>>,
+): BodyCompositionPresentationState {
+  const requested = new URLSearchParams(search).get("state");
+  const kind = bodyKinds.find((candidate) => candidate === requested);
+  return states[kind ?? "ready"];
+}
+
+export function resolveApplicationBodyState(
+  search: string,
+  states: Readonly<Record<BodyCompositionPresentationState["kind"], BodyCompositionPresentationState>>,
+  context: MappingContext,
+): BodyCompositionPresentationState {
+  const params = new URLSearchParams(search);
+  if (params.has("state") || params.get("source") !== "payload") {
+    return resolveBodyPreviewState(search, states);
+  }
+
+  const requested = params.get("fixture");
+  const fixtureName = isPayloadFixtureName(requested) ? requested : "malformed";
+  return parseAndMapAthleteDashboardToBody(payloadFixtures[fixtureName], context);
+}
+
 function isPayloadFixtureName(value: string | null): value is PayloadFixtureName {
   return value !== null && Object.prototype.hasOwnProperty.call(payloadFixtures, value);
 }
