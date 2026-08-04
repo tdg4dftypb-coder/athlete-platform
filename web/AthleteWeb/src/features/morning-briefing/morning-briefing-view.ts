@@ -16,15 +16,17 @@ export function renderMorningBriefing(
   onRetry: () => void,
   onOpenRecovery: () => void = () => undefined,
   onOpenTraining?: () => void,
+  onOpenProgress?: () => void,
 ): HTMLElement {
   const shell = document.createElement("div");
   shell.className = "app-shell";
   shell.append(
     createStateContent(state, onRetry, onOpenRecovery, onOpenTraining),
-    createBottomNavigation(onOpenTraining),
+    createBottomNavigation(onOpenTraining, onOpenProgress),
   );
   return shell;
 }
+
 
 function createStateContent(
   state: MorningBriefingPresentationState,

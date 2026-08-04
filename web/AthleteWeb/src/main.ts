@@ -2,10 +2,11 @@ import "./styles/reset.css";
 import "./theme/tokens.css";
 import "./styles/main.css";
 
-import { createApp, createRecoveryApp, createTrainingApp } from "./app/create-app";
+import { createApp, createProgressApp, createRecoveryApp, createTrainingApp } from "./app/create-app";
 import { renderActivityIconGallery } from "./features/activity-icons/activity-icon-gallery-view";
 import {
   resolveApplicationPreviewState,
+  resolveApplicationProgressState,
   resolveApplicationRecoveryState,
   resolveApplicationTrainingState,
 } from "./app/preview-state";
@@ -15,6 +16,7 @@ import {
   type ApplicationView,
 } from "./app/view-routing";
 import { morningBriefingPreviewStates } from "./preview-data/morning-briefing-preview-data";
+import { progressPreviewStates } from "./preview-data/progress-preview-data";
 import { recoveryPreviewStates } from "./preview-data/recovery-preview-data";
 import { trainingPreviewStates } from "./preview-data/training-preview-data";
 import { MORNING_BRIEFING_MAX_AGE_MS } from "./mappers/mapping-context";
@@ -50,6 +52,13 @@ function renderPreview(focusHeading = false): void {
       previewMappingContext,
     );
     root.replaceChildren(createTrainingApp(state, openMorningBriefing, retry));
+  } else if (view === "progress") {
+    const state = resolveApplicationProgressState(
+      window.location.search,
+      progressPreviewStates,
+      previewMappingContext,
+    );
+    root.replaceChildren(createProgressApp(state, openMorningBriefing, retry));
   } else if (view === "icons") {
     root.replaceChildren(renderActivityIconGallery(openMorningBriefing));
   } else {
@@ -58,7 +67,7 @@ function renderPreview(focusHeading = false): void {
       morningBriefingPreviewStates,
       previewMappingContext,
     );
-    root.replaceChildren(createApp(state, retry, openRecovery, openTraining));
+    root.replaceChildren(createApp(state, retry, openRecovery, openTraining, openProgress));
   }
 
   if (focusHeading) {
@@ -82,10 +91,15 @@ function openTraining(): void {
   navigateTo("training");
 }
 
+function openProgress(): void {
+  navigateTo("progress");
+}
+
 function openMorningBriefing(): void {
   if (
     window.history.state?.athleteView === "recovery" ||
-    window.history.state?.athleteView === "training"
+    window.history.state?.athleteView === "training" ||
+    window.history.state?.athleteView === "progress"
   ) {
     window.history.back();
     return;
@@ -96,6 +110,7 @@ function openMorningBriefing(): void {
   window.history.replaceState({ athleteView: "morning-briefing" }, "", url);
   renderPreview(true);
 }
+
 
 function navigateTo(view: ApplicationView): void {
   const url = new URL(window.location.href);

@@ -1,22 +1,24 @@
-export type ApplicationView = "morning-briefing" | "recovery" | "training" | "icons";
+export type ApplicationView = "morning-briefing" | "recovery" | "training" | "progress" | "icons";
 
 export function resolveApplicationView(search: string): ApplicationView {
-  const requested = new URLSearchParams(search).get("view");
-  if (requested === "recovery") return "recovery";
-  if (requested === "training") return "training";
-  if (requested === "icons" || requested === "activity-icons") return "icons";
+  const params = new URLSearchParams(search);
+  const view = params.get("view");
+  if (view === "recovery" || view === "training" || view === "progress" || view === "icons") {
+    return view;
+  }
   return "morning-briefing";
 }
 
 export function searchForView(
   search: string,
-  view: ApplicationView,
+  targetView: ApplicationView,
 ): string {
   const params = new URLSearchParams(search);
-  if (view === "recovery") params.set("view", "recovery");
-  else if (view === "training") params.set("view", "training");
-  else if (view === "icons") params.set("view", "icons");
-  else params.delete("view");
-  const value = params.toString();
-  return value ? `?${value}` : "";
+  if (targetView === "morning-briefing") {
+    params.delete("view");
+  } else {
+    params.set("view", targetView);
+  }
+  const stringified = params.toString();
+  return stringified ? `?${stringified}` : "";
 }

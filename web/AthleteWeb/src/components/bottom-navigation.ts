@@ -9,6 +9,7 @@ const navigationItems: readonly { label: string; icon: IconName }[] = [
 
 export function createBottomNavigation(
   onOpenTraining?: () => void,
+  onOpenProgress?: () => void,
 ): HTMLElement {
   const nav = document.createElement("nav");
   nav.className = "bottom-navigation";
@@ -17,7 +18,8 @@ export function createBottomNavigation(
     const button = document.createElement("button");
     const isToday = item.label === "Dzisiaj";
     const isTraining = item.label === "Trening" && Boolean(onOpenTraining);
-    const isEnabled = isToday || isTraining;
+    const isProgress = item.label === "Postępy" && Boolean(onOpenProgress);
+    const isEnabled = isToday || isTraining || isProgress;
 
     button.type = "button";
     button.className = isToday ? "is-active" : "";
@@ -27,6 +29,9 @@ export function createBottomNavigation(
     if (isTraining && onOpenTraining) {
       button.setAttribute("aria-label", "Otwórz ekran treningu");
       button.addEventListener("click", onOpenTraining);
+    } else if (isProgress && onOpenProgress) {
+      button.setAttribute("aria-label", "Otwórz ekran postępów");
+      button.addEventListener("click", onOpenProgress);
     } else if (!isToday) {
       button.setAttribute("aria-label", `${item.label}, funkcja niedostępna`);
     }
