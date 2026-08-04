@@ -2,7 +2,7 @@ import { createIcon, type IconName } from "./icon";
 
 const navigationItems: readonly { label: string; icon: IconName }[] = [
   { label: "Dzisiaj", icon: "sun" },
-  { label: "Trening", icon: "runner" },
+  { label: "Trening", icon: "activity-cycling" },
   { label: "Postępy", icon: "chart" },
   { label: "Więcej", icon: "more" },
 ];

@@ -3,6 +3,7 @@ import "./theme/tokens.css";
 import "./styles/main.css";
 
 import { createApp, createRecoveryApp } from "./app/create-app";
+import { renderActivityIconGallery } from "./features/activity-icons/activity-icon-gallery-view";
 import {
   resolveApplicationPreviewState,
   resolveApplicationRecoveryState,
@@ -40,6 +41,8 @@ function renderPreview(focusHeading = false): void {
       previewMappingContext,
     );
     root.replaceChildren(createRecoveryApp(state, openMorningBriefing, retry));
+  } else if (view === "icons") {
+    root.replaceChildren(renderActivityIconGallery(openMorningBriefing));
   } else {
     const state = resolveApplicationPreviewState(
       window.location.search,

@@ -1,6 +1,6 @@
 import { createCard, createSection } from "../../components/card";
 import { createBottomNavigation } from "../../components/bottom-navigation";
-import { createIcon, type IconName } from "../../components/icon";
+import { createIcon, mapActivityToIcon, type IconName } from "../../components/icon";
 import { createStatusNotice } from "../../components/status-notice";
 import type {
   MorningBriefingHeader,
@@ -206,7 +206,8 @@ function createDecisionExperience(
 function createDecision(model: MorningBriefingPresentation): HTMLElement {
   const header = document.createElement("div");
   header.className = "decision-summary";
-  const icon = createIconBadge("runner", "training");
+  const activityIcon = mapActivityToIcon(model.decision.title);
+  const icon = createIconBadge(activityIcon, "training");
   const copy = document.createElement("div");
   const eyebrow = document.createElement("h2");
   eyebrow.id = "today-decision";
@@ -319,7 +320,8 @@ function createTodayPlan(items: readonly string[]): HTMLElement {
   title.textContent = "Plan na dziś";
   const list = document.createElement("ul");
   list.className = "plan-list";
-  const icons: readonly IconName[] = ["runner", "nutrition", "moon"];
+  const mainActivityIcon = mapActivityToIcon(items[0]);
+  const icons: readonly IconName[] = [mainActivityIcon, "nutrition", "moon"];
   const supports = ["Jakość ponad objętość.", "Przed treningiem (ok. 60–90 min).", "Regeneracja to Twój priorytet."];
   items.forEach((item, index) => {
     const entry = document.createElement("li");
@@ -382,9 +384,10 @@ function createShortcuts(
   section.classList.add("shortcut-section");
   const list = document.createElement("ul");
   list.className = "shortcut-grid";
+  const activityIcon = mapActivityToIcon(model.decision.title);
   const metadata: Readonly<Record<string, { icon: IconName; description: string }>> = {
     recovery: { icon: "heart", description: "Jak się regenerujesz" },
-    training: { icon: "runner", description: "Szczegóły planu" },
+    training: { icon: activityIcon, description: "Szczegóły planu" },
     nutrition: { icon: "apple", description: "Wsparcie żywieniowe" },
     history: { icon: "history", description: "Co wydarzyło się wcześniej" },
   };

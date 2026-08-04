@@ -481,3 +481,10 @@ h2 { font-family: var(--font-display); font-size: 1.06rem; font-weight: 650; let
   .card, .hero-card, .decision-experience, .shortcut-grid li,
   .recovery-hero, .recovery-factor { border: 1px solid CanvasText; }
 }
+
+/* Activity Icon System Gallery Preview */
+.icon-gallery-card { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
+.icon-technical-name { display: inline-block; width: fit-content; padding: 0.2rem 0.5rem; border-radius: 0.4rem; background: var(--color-surface-elevated); color: var(--color-accent-training); font-family: monospace; font-size: 0.82rem; }
+.icon-size-row { display: flex; flex-wrap: wrap; gap: 1.2rem; align-items: flex-end; margin-top: 0.6rem; }
+.icon-size-sample { display: flex; flex-direction: column; gap: 0.35rem; align-items: center; }
+.size-tag { color: var(--color-text-secondary); font-size: 0.72rem; font-weight: 600; }
