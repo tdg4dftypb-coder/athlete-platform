@@ -409,6 +409,39 @@ Warstwa prezentacji potrzebuje jednego, typowanego kontraktu odczytowego obejmuj
 - **Osobny Dashboard Workflow** — odrzucony jako równoległa orkiestracja i ryzyko ponownych wywołań silników.
 - **Dashboard persistence w bieżącym etapie** — odroczone; projekcja jest deterministycznie odbudowywalna z wyników bieżącego przebiegu.
 
+## ADR-011 — Web Product Layer & Transport Boundary Architecture
+
+### Status
+
+**Accepted** (Dla granicy transportowej Stage 11. Production HTTP runtime pozostaje Future Decision).
+
+### Context
+
+Warstwa prezentacyjna Web (`AthleteWeb`) wymaga niezależnego od frameworka i środowiska mechanizmu pobierania czytelnego kontraktu odczytowego `AthleteDashboardPayloadV1`. Prezentacja nie może zależeć od bezpośrednich klas Pythona, silników domenowych ani konkretnego serwera API, a jednocześnie musi wspierać lokalne testowanie, statyczne pliki podglądu oraz zapytania HTTP.
+
+### Decision
+
+- `AthleteDashboard` (serializowany przez `DashboardSerializer` do ścisłego kontraktu `payload v1.0`) jest jedynym publicznym modelem odczytowym backendu dla prezentacji;
+- po stronie frontendu interfejs `DashboardPayloadSource` (`load(): Promise<unknown>`) stanowi wzorzec portu warstwy prezentacji, uniezależniając UI od sposobu pobierania danych;
+- `StaticJsonDashboardPayloadSource` (tryb `?source=live-file`) oraz `HttpDashboardPayloadSource` (tryb `?source=http`) reprezentują wymienne adaptery portu;
+- dla rozwoju lokalnego i weryfikacji przeglądarkowej stworzono lekki, zero-dependency WSGI serwer w Pythonie (`server/app.py`) serwujący `GET /api/v1/dashboard`;
+- lokalne środowisko Vite wykorzystuje same-origin proxy (`/api` → `http://127.0.0.1:8000`), eliminując problemy z polityką CORS w przeglądarce;
+- interfejs użytkownika zależy wyłącznie od sześciu stanów prezentacyjnych (`ready`, `partial`, `unavailable`, `stale`, `loading`, `failure`) budowanych przez runtime parser oraz mappery prezentacyjne;
+- w przypadku błędu transportu lub walidacji UI wchodzi w stan `failure` bez fallbacku do Preview Data lub statycznych plików;
+- wybór produkcyjnego frameworka HTTP (FastAPI/ASGI/Uvicorn), autoryzacja, cache oraz wdrożenie chmurowe pozostają świadomie **odroczone (Future Decision)**.
+
+### Consequences
+
+- komponenty UI są w 100% odseparowane od backendowych klas i frameworków HTTP;
+- brak wycieków danych podglądu do trybów `live-file` i `http`;
+- ochrona prywatności danych zdrowotnych jest zachowana na poziomie repozytorium (pliki `.duckdb`, eksportowane pliki JSON payloadu oraz zrzuty ekranu z żywymi danymi są wykluczone z wersji Git);
+- system jest testowalny jednostkowo bez działania prawdziwej sieci lub serwera API.
+
+### Alternatives considered
+
+- **Wbudowanie FastAPI/Uvicorn w Stage 11** — odrzucone; brak potrzeby produkcyjnego runtime na etapie budowy i walidacji warstwy UX.
+- **Szeroka polityka CORS na backendzie** — odrzucona; same-origin dev proxy Vite zapewnia czystsze i bezpieczniejsze środowisko deweloperskie.
+
 ## Rejestr ADR
 
 | ADR | Tytuł | Status | Główne źródło |
@@ -423,6 +456,7 @@ Warstwa prezentacji potrzebuje jednego, typowanego kontraktu odczytowego obejmuj
 | ADR-008 | Body Composition Assessment | Accepted | `body_composition/`, `application/body_composition_input.py` |
 | ADR-009 | Adaptive Goals | Accepted | `adaptive/`, `application/intelligence_decision_workflow.py` |
 | ADR-010 | Kanoniczny Athlete Dashboard Read Model | Accepted | `dashboard/`, `application/morning_coach_use_case.py` |
+| ADR-011 | Web Product Layer & Transport Boundary Architecture | Accepted | `web/AthleteWeb/`, `server/app.py`, `docs/dashboard_http_transport_boundary.md` |
 
 ## Powiązane dokumenty
 

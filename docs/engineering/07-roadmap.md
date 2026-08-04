@@ -109,9 +109,21 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 - ADR-010 ma status Accepted;
 - persistence, transport HTTP/API, layout i UI nie należą do ukończonego zakresu Stage 10.
 
-**TODO:** Repozytorium nie zawiera źródłowego dokumentu przypisującego oficjalne nazwy do Stage 1–3. Powyższe nazwy porządkują wyłącznie zaimplementowane rezultaty widoczne w kodzie i historii Git; wymagają potwierdzenia, jeśli mają stać się oficjalnymi nazwami etapów.
+### Stage 11 — Web Product Layer & Live Dashboard Integration [COMPLETED 100%]
+
+- kompletna warstwa prezentacyjna Web (`web/AthleteWeb`) dla 6 ekranów produktowych: Morning Briefing, Recovery, Training, Progress, Nutrition, Body Composition oraz More Shell;
+- sześć spójnych stanów prezentacyjnych: `ready`, `partial`, `unavailable`, `stale`, `loading`, `failure`;
+- wzorzec portu `DashboardPayloadSource` oraz dwa wymienne adaptery: `StaticJsonDashboardPayloadSource` (`?source=live-file`) oraz `HttpDashboardPayloadSource` (`?source=http`);
+- bezstanowy serwer WSGI w Pythonie (`server/app.py`) udostępniający lokalny endpoint `GET /api/v1/dashboard`;
+- same-origin development proxy Vite (`/api` → `http://127.0.0.1:8000`) eliminujący CORS;
+- ścisłe zachowanie uczciwości danych (Data Honesty) — brak fabrykowania nieobecnych trendów, posiłków czy metryk składu ciała;
+- ochrona prywatności danych zdrowotnych na poziomie repozytorium (.gitignore dla duckdb, json payload i live screenshots);
+- ADR-011 ma status Accepted dla granicy transportowej.
 
 ## Current
+
+Wszystkie zaplanowane etapy zintegrowanej warstwy produktowej Stage 11 zostały zakończone. Obecny etap skupia się na przeglądzie architektonicznym i gotowości pod kolejne etapy rozwojowe.
+
 
 ### Stage 11.2 — Web Experience Layer
 
@@ -246,7 +258,17 @@ Nazwy te pochodzą z ADR-002/003 jako obszary przyszłe. Nie istnieją jeszcze i
 
 ### Stage 7.7 — dalszy zakres Nutrition
 
-Stage 7.7 nie jest ukończony. Jego zakres wymaga osobnego promptu, implementacji i review; nie należy wnioskować o gotowych funkcjach wyłącznie z obecności canonical Nutrition Assessment.
+### Stage 12+ Future Candidates (Nie włączone do zakończonego Stage 11)
+
+- **Athlete Icon System v2**: Dalszy rozwój zestawu ikon SVG dla rozbudowanych typów aktywności i dyscyplin.
+- **SwiftUI Port**: Dalszy rozwój natywnej aplikacji iOS `AthleteApp` i jej synchronizacji z backendem.
+- **Production HTTP Runtime**: Wybór i wdrożenie produkcyjnego frameworka (FastAPI/ASGI/Uvicorn), CORS i serwera API.
+- **Authentication & User Management**: Tożsamość użytkowników, sesje, autoryzacja OAuth / JWT.
+- **Cloud Deployment**: Infrastruktura chmurowa, konteneryzacja, CI/CD pipeline.
+- **Apple Health Integration**: Natywna synchronizacja danych z Apple Health.
+- **Zwift Integration**: Automatyczny import sesji treningowych z platformy Zwift.
+- **Weather Context**: Integracja prognozy pogody do oceny warunków treningowych.
+- **Regional Body Change Map**: Rozbudowana wizualizacja zmian składu ciała.
 
 ## Ideas
 

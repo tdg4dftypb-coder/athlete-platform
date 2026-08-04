@@ -262,6 +262,20 @@ Repozytorium nie zawiera obecnie skonfigurowanego workflow CI. Poniższa sekcja 
 - [ ] wersja schema i zgodność readera sprawdzone;
 - [ ] produkcyjna baza nie jest fixture testową.
 
+### Web Product Layer & Transport Boundary (`web/AthleteWeb`)
+
+- **Frontend Unit Tests (Vitest + jsdom)**:
+  - testy portu `DashboardPayloadSource` oraz adapterów `StaticJsonDashboardPayloadSource` i `HttpDashboardPayloadSource`;
+  - testy ścisłego walidatora `parseAthleteDashboardPayloadV1`;
+  - testy mapperów prezentacyjnych dla wszystkich widoków (Morning Briefing, Recovery, Training, Progress, Nutrition, Body Composition);
+  - testy obsługi sześciu stanów prezentacyjnych (`ready`, `partial`, `unavailable`, `stale`, `loading`, `failure`);
+  - testy braku wycieku danych podglądu (`Preview Data`) do trybów `live-file` i `http`.
+
+- **Backend Endpoint Tests (pytest)**:
+  - testy akceptacyjne WSGI serwera `GET /api/v1/dashboard`;
+  - testy nagłówka `Content-Type: application/json` i wersji kontraktu `1.0`;
+  - testy kontrolowanej obsługi błędów `500` bez wycieku śladu stosu.
+
 ### Przed merge
 
 - [ ] testy zmienionego modułu;
