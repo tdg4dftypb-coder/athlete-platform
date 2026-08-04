@@ -1,4 +1,5 @@
 export type IconName =
+  | "arrow-left"
   | "apple"
   | "chart"
   | "check"
@@ -19,6 +20,7 @@ export type IconName =
   | "trend-up";
 
 const paths: Readonly<Record<IconName, readonly string[]>> = {
+  "arrow-left": ["m15 18-6-6 6-6", "M9 12h10"],
   apple: ["M12 7c-2-3-7-2-7 4 0 5 3 9 7 9s7-4 7-9c0-6-5-7-7-4", "M12 7c0-3 2-5 5-5"],
   chart: ["M5 20V10", "M12 20V4", "M19 20v-7"],
   check: ["m5 12 4 4L19 6"],

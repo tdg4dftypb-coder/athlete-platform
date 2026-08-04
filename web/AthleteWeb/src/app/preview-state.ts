@@ -6,6 +6,12 @@ import {
 import { payloadFixtures, type PayloadFixtureName } from "../fixtures/athlete-dashboard-payload-fixtures";
 import { parseAndMapAthleteDashboardToMorningBriefing } from "../mappers/morning-briefing-mapper";
 import type { MappingContext } from "../mappers/mapping-context";
+import {
+  recoveryStateKinds,
+  type RecoveryPresentationState,
+  type RecoveryStateKind,
+} from "../models/recovery-presentation-state";
+import { parseAndMapAthleteDashboardToRecovery } from "../mappers/recovery-mapper";
 
 export function resolvePreviewState(
   search: string,
@@ -27,6 +33,30 @@ export function resolveApplicationPreviewState(
   const requested = params.get("fixture");
   const fixtureName = isPayloadFixtureName(requested) ? requested : "malformed";
   return parseAndMapAthleteDashboardToMorningBriefing(payloadFixtures[fixtureName], context);
+}
+
+export function resolveRecoveryPreviewState(
+  search: string,
+  states: Readonly<Record<RecoveryStateKind, RecoveryPresentationState>>,
+): RecoveryPresentationState {
+  const requested = new URLSearchParams(search).get("state");
+  const kind = recoveryStateKinds.find((candidate) => candidate === requested);
+  return states[kind ?? "ready"];
+}
+
+export function resolveApplicationRecoveryState(
+  search: string,
+  states: Readonly<Record<RecoveryStateKind, RecoveryPresentationState>>,
+  context: MappingContext,
+): RecoveryPresentationState {
+  const params = new URLSearchParams(search);
+  if (params.has("state") || params.get("source") !== "payload") {
+    return resolveRecoveryPreviewState(search, states);
+  }
+
+  const requested = params.get("fixture");
+  const fixtureName = isPayloadFixtureName(requested) ? requested : "malformed";
+  return parseAndMapAthleteDashboardToRecovery(payloadFixtures[fixtureName], context);
 }
 
 function isPayloadFixtureName(value: string | null): value is PayloadFixtureName {

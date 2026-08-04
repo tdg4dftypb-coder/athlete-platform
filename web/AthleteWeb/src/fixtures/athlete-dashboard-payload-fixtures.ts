@@ -127,6 +127,19 @@ export const unavailablePayloadFixture: AthleteDashboardPayloadV1 = copyPayload(
   payload.recommendations.items = [];
 });
 
+export const recoveryUnavailablePayloadFixture: AthleteDashboardPayloadV1 = copyPayload(
+  readyPayloadFixture,
+  (payload) => {
+    payload.recovery.metadata = unavailableMetadata("Brak oceny regeneracji");
+    payload.recovery.recovery_score = null;
+    payload.recovery.sleep_score = null;
+    payload.health.metadata = unavailableMetadata("Brak danych zdrowotnych");
+    payload.health.hrv_ms = null;
+    payload.health.resting_heart_rate_bpm = null;
+    payload.health.sleep_minutes = null;
+  },
+);
+
 export const stalePayloadFixture: AthleteDashboardPayloadV1 = copyPayload(readyPayloadFixture, (payload) => {
   payload.valid_for_date = "2026-08-02";
   payload.as_of = "2026-08-02T21:45:00+02:00";
@@ -154,6 +167,7 @@ export const payloadFixtures = {
   ready: readyPayloadFixture,
   partial: partialPayloadFixture,
   unavailable: unavailablePayloadFixture,
+  "recovery-unavailable": recoveryUnavailablePayloadFixture,
   stale: stalePayloadFixture,
   "invalid-version": invalidVersionPayloadFixture,
   "missing-section": missingSectionPayloadFixture,

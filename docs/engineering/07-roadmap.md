@@ -120,7 +120,7 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 - jawny `MorningBriefingPresentation` oddziela przyszły payload `AthleteDashboard v1.0` od struktury UI;
 - interfejs realizuje Decision First, mobile-first responsiveness, Dark Mode i podstawy PWA bez Service Workera;
 - backend, kontrakt payloadu v1.0 i zachowany klient SwiftUI pozostają bez zmian;
-- mapper backendowy, API, trwały stan oraz aktywne trasy nawigacji nie należą do bieżącego zakresu.
+- API, trwały stan i ciężki router nie należą do bieżącego zakresu; aktywne przejście Morning Briefing → Recovery korzysta z query string i History API.
 
 #### Sprint 2 — Morning Briefing Polish
 
@@ -177,6 +177,16 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 - ownership matrix oddziela payload, client context, Preview-only data oraz kandydatów kontraktu v1.1;
 - payload Preview nie przedstawia completeness jako goal achievement i nie generuje porównania bez danych;
 - transport pozostaje zablokowany do czasu potwierdzenia aware emisji przez źródło produkcyjne.
+
+#### Sprint 6 — Recovery Experience
+
+- pierwszy pełny ekran szczegółowy odpowiada najpierw na pytanie o stan regeneracji, następnie pokazuje czynniki i dopiero później dane;
+- `RecoveryPresentation` oraz sześciowariantowe `RecoveryPresentationState` utrzymują typed presentation boundary bez modeli backendowych i luźnych flag;
+- kafel Recovery oraz uzasadnienie planu otwierają widok `?view=recovery`, a dostępny przycisk powrotu przywraca Morning Briefing;
+- parser payloadu v1.0 i osobny mapper Recovery nie obliczają score, nie ustalają progów i nie generują brakujących trendów;
+- Preview Data jawnie oddzielają demonstracyjne statusy i porównania od `source=payload`;
+- ekran współdzieli shell, Theme Tokens, ikony, status notices i dolną nawigację bez dodawania nowej zakładki;
+- backend, DashboardSerializer, payload v1.0, SwiftUI, API i HealthKit pozostają bez zmian.
 
 ### Stage 11.2 — Experience Architecture, Sprint 1
 

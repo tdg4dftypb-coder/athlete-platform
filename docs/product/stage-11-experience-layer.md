@@ -58,3 +58,11 @@ Sprint 5 dodaje ścisłą granicę `unknown → parser → AthleteDashboardPaylo
 Szczegółowy kontrakt, reguły świeżości, ograniczenia payloadu i fixtures opisuje [AthleteDashboard — frontend contract boundary](athlete-dashboard-frontend-contract.md).
 
 Temporal semantics i presentation ownership mają status **Accepted** w [AthleteDashboard Temporal and Presentation Contract Policy](athlete-dashboard-temporal-and-presentation-policy.md). Kanoniczna nowa emisja używa aware timestampów; v1.0 zachowuje przejściową obsługę naive timestamp interpretowanego jako UTC. `valid_for_date` ma pierwszeństwo przed sześciogodzinnym maksymalnym wiekiem `as_of`. Preview-only wartości nie mogą pojawiać się po wybraniu `source=payload`.
+
+## Web Recovery Experience
+
+Sprint 6 dodaje pierwszy pełny ekran szczegółowy bez nowej głównej zakładki. Recovery jest otwierane z kafla Morning Briefing, z sekcji uzasadnienia planu albo przez `?view=recovery`. Prosty mechanizm query string i History API zachowuje Morning Briefing jako bezpieczny widok domyślny.
+
+Jawne `RecoveryPresentation` i sześciowariantowe `RecoveryPresentationState` oddzielają rendering od payloadu. Tryb payloadowy pokazuje wyłącznie bieżące wartości, dostępność oraz gotową relację z istniejącą decyzją; nie ustala progów Recovery Score i nie fabrykuje trendów. Bogatsze statusy oraz porównania występują wyłącznie w deterministycznych Preview Data.
+
+Ekran współdzieli Theme Tokens, lokalne SVG, status notices, shell oraz dolną nawigację z Morning Briefing. Semantyczny nagłówek, `aria-busy`, live regions, widoczny focus, cele dotykowe i reduced motion tworzą bazę dostępności. Szczegóły i ograniczenia kontraktu opisuje [Recovery Experience](design/recovery-experience.md).

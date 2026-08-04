@@ -8,6 +8,12 @@ import type {
 import type { MorningBriefingPresentation } from "../models/morning-briefing-presentation";
 import type { MorningBriefingPresentationState } from "../models/morning-briefing-presentation-state";
 import type { MappingContext } from "./mapping-context";
+import {
+  dateInTimeZone,
+  formatContractDateTime,
+  parseContractDate,
+  parseContractTimestamp,
+} from "./contract-temporal";
 
 export type PayloadMappedPresentationState = Exclude<MorningBriefingPresentationState, { kind: "loading" }>;
 
@@ -50,7 +56,7 @@ export function mapAthleteDashboardToMorningBriefing(
       kind: "stale",
       briefing,
       message: "To podsumowanie opiera się na nieaktualnych danych.",
-      lastUpdatedText: `Ostatnia aktualizacja: ${formatDateTime(asOf, context)}.`,
+      lastUpdatedText: `Ostatnia aktualizacja: ${formatContractDateTime(asOf, context)}.`,
     };
   }
 
@@ -163,28 +169,6 @@ function failureState(supportingText: string, context: MappingContext): PayloadM
     supportingText,
     retryLabel: "Spróbuj ponownie",
   };
-}
-
-function parseContractTimestamp(value: string): Date {
-  return new Date(/[zZ]|[+-]\d{2}:\d{2}$/.test(value) ? value : `${value}Z`);
-}
-
-function parseContractDate(value: string): Date {
-  return new Date(`${value}T12:00:00Z`);
-}
-
-function dateInTimeZone(date: Date, timeZone?: string): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    year: "numeric", month: "2-digit", day: "2-digit", timeZone,
-  }).formatToParts(date);
-  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
-  return `${get("year")}-${get("month")}-${get("day")}`;
-}
-
-function formatDateTime(date: Date, context: MappingContext): string {
-  return new Intl.DateTimeFormat(context.locale ?? "pl-PL", {
-    day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: context.timeZone,
-  }).format(date);
 }
 
 function formatNumber(value: number, context: MappingContext): string {

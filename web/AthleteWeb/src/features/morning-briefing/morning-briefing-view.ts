@@ -1,4 +1,5 @@
 import { createCard, createSection } from "../../components/card";
+import { createBottomNavigation } from "../../components/bottom-navigation";
 import { createIcon, type IconName } from "../../components/icon";
 import { createStatusNotice } from "../../components/status-notice";
 import type {
@@ -8,35 +9,33 @@ import type {
 } from "../../models/morning-briefing-presentation";
 import type { MorningBriefingPresentationState } from "../../models/morning-briefing-presentation-state";
 
-const navigationItems: readonly { label: string; icon: IconName }[] = [
-  { label: "Dzisiaj", icon: "sun" },
-  { label: "Trening", icon: "runner" },
-  { label: "Postępy", icon: "chart" },
-  { label: "Więcej", icon: "more" },
-];
-
 const semanticIcons: readonly IconName[] = ["heart", "moon", "gauge"];
 
 export function renderMorningBriefing(
   state: MorningBriefingPresentationState,
   onRetry: () => void,
+  onOpenRecovery: () => void = () => undefined,
 ): HTMLElement {
   const shell = document.createElement("div");
   shell.className = "app-shell";
-  shell.append(createStateContent(state, onRetry), createBottomNavigation());
+  shell.append(
+    createStateContent(state, onRetry, onOpenRecovery),
+    createBottomNavigation(),
+  );
   return shell;
 }
 
 function createStateContent(
   state: MorningBriefingPresentationState,
   onRetry: () => void,
+  onOpenRecovery: () => void,
 ): HTMLElement {
   const main = document.createElement("main");
   main.className = "briefing";
 
   switch (state.kind) {
     case "ready":
-      appendAvailableBriefing(main, state.briefing);
+      appendAvailableBriefing(main, state.briefing, onOpenRecovery);
       break;
     case "partial":
       main.append(createHeader(state.briefing));
@@ -47,7 +46,7 @@ function createStateContent(
         detailLabel: "Brakuje:",
         details: state.missingData,
       }));
-      appendBriefingBody(main, state.briefing);
+      appendBriefingBody(main, state.briefing, onOpenRecovery);
       break;
     case "stale":
       main.append(createHeader(state.briefing));
@@ -57,7 +56,7 @@ function createStateContent(
         message: state.message,
         details: [state.lastUpdatedText],
       }));
-      appendBriefingBody(main, state.briefing);
+      appendBriefingBody(main, state.briefing, onOpenRecovery);
       break;
     case "unavailable":
       main.classList.add("briefing--message");
@@ -92,13 +91,26 @@ function createStateContent(
   return main;
 }
 
-function appendAvailableBriefing(main: HTMLElement, model: MorningBriefingPresentation): void {
+function appendAvailableBriefing(
+  main: HTMLElement,
+  model: MorningBriefingPresentation,
+  onOpenRecovery: () => void,
+): void {
   main.append(createHeader(model));
-  appendBriefingBody(main, model);
+  appendBriefingBody(main, model, onOpenRecovery);
 }
 
-function appendBriefingBody(main: HTMLElement, model: MorningBriefingPresentation): void {
-  main.append(createHero(model), createDecisionExperience(model), createGoal(model), createShortcuts(model));
+function appendBriefingBody(
+  main: HTMLElement,
+  model: MorningBriefingPresentation,
+  onOpenRecovery: () => void,
+): void {
+  main.append(
+    createHero(model),
+    createDecisionExperience(model, onOpenRecovery),
+    createGoal(model),
+    createShortcuts(model, onOpenRecovery),
+  );
 }
 
 function createHeader(model: MorningBriefingHeader): HTMLElement {
@@ -178,11 +190,14 @@ function createHero(model: MorningBriefingPresentation): HTMLElement {
   return article;
 }
 
-function createDecisionExperience(model: MorningBriefingPresentation): HTMLElement {
+function createDecisionExperience(
+  model: MorningBriefingPresentation,
+  onOpenRecovery: () => void,
+): HTMLElement {
   const section = document.createElement("section");
   section.className = "decision-experience reveal";
   section.setAttribute("aria-labelledby", "today-decision");
-  section.append(createDecision(model), createReasons(model.reasons));
+  section.append(createDecision(model), createReasons(model.reasons, onOpenRecovery));
   if (model.changesSinceYesterday.length > 0) section.append(createChanges(model.changesSinceYesterday));
   section.append(createTodayPlan(model.todayPlan));
   return section;
@@ -208,7 +223,10 @@ function createDecision(model: MorningBriefingPresentation): HTMLElement {
   return header;
 }
 
-function createReasons(items: readonly string[]): HTMLElement {
+function createReasons(
+  items: readonly string[],
+  onOpenRecovery: () => void,
+): HTMLElement {
   const region = document.createElement("div");
   region.className = "reason-region";
   const heading = document.createElement("div");
@@ -218,9 +236,9 @@ function createReasons(items: readonly string[]): HTMLElement {
   title.textContent = "Dlaczego właśnie taki plan?";
   const details = document.createElement("button");
   details.type = "button";
-  details.disabled = true;
   details.textContent = "Pokaż szczegóły";
   details.append(createIcon("chevron"));
+  details.addEventListener("click", onOpenRecovery);
   heading.append(title, details);
   const list = document.createElement("ul");
   list.className = "reason-grid";
@@ -356,7 +374,10 @@ function createGoal(model: MorningBriefingPresentation): HTMLElement {
   return section;
 }
 
-function createShortcuts(model: MorningBriefingPresentation): HTMLElement {
+function createShortcuts(
+  model: MorningBriefingPresentation,
+  onOpenRecovery: () => void,
+): HTMLElement {
   const section = createSection("Dowiedz się więcej", "shortcuts");
   section.classList.add("shortcut-section");
   const list = document.createElement("ul");
@@ -367,18 +388,26 @@ function createShortcuts(model: MorningBriefingPresentation): HTMLElement {
     nutrition: { icon: "apple", description: "Wsparcie żywieniowe" },
     history: { icon: "history", description: "Co wydarzyło się wcześniej" },
   };
-  for (const shortcut of model.shortcuts) list.append(createShortcut(shortcut, metadata[shortcut.id]));
+  for (const shortcut of model.shortcuts) {
+    list.append(createShortcut(shortcut, metadata[shortcut.id], onOpenRecovery));
+  }
   section.append(list);
   return section;
 }
 
-function createShortcut(shortcut: MorningBriefingShortcut, meta?: { icon: IconName; description: string }): HTMLLIElement {
+function createShortcut(
+  shortcut: MorningBriefingShortcut,
+  meta: { icon: IconName; description: string } | undefined,
+  onOpenRecovery: () => void,
+): HTMLLIElement {
   const item = document.createElement("li");
   const button = document.createElement("button");
   button.type = "button";
-  button.disabled = true;
+  const isRecovery = shortcut.id === "recovery";
+  button.disabled = !isRecovery;
   button.dataset.shortcut = shortcut.id;
-  button.title = "Dostępne w kolejnych sprintach";
+  button.title = isRecovery ? "Otwórz szczegóły regeneracji" : "Dostępne w kolejnych sprintach";
+  if (isRecovery) button.addEventListener("click", onOpenRecovery);
   button.append(createIcon(meta?.icon ?? "more"));
   const label = document.createElement("strong");
   label.textContent = shortcut.label;
@@ -387,24 +416,6 @@ function createShortcut(shortcut: MorningBriefingShortcut, meta?: { icon: IconNa
   button.append(label, description, createIcon("chevron"));
   item.append(button);
   return item;
-}
-
-function createBottomNavigation(): HTMLElement {
-  const nav = document.createElement("nav");
-  nav.className = "bottom-navigation";
-  nav.setAttribute("aria-label", "Główna nawigacja");
-  for (const item of navigationItems) {
-    const button = document.createElement("button");
-    const isActive = item.label === "Dzisiaj";
-    button.type = "button";
-    button.className = isActive ? "is-active" : "";
-    button.disabled = !isActive;
-    button.setAttribute("aria-current", isActive ? "page" : "false");
-    if (!isActive) button.setAttribute("aria-label", `${item.label}, funkcja niedostępna`);
-    button.append(createIcon(item.icon), document.createTextNode(item.label));
-    nav.append(button);
-  }
-  return nav;
 }
 
 function createIconBadge(icon: IconName, variant: string): HTMLSpanElement {
