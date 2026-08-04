@@ -19,7 +19,7 @@ export class HttpDashboardPayloadSource implements DashboardPayloadSource {
 
   constructor(customUrl?: string) {
     const envUrl = (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_DASHBOARD_API_URL;
-    this.url = customUrl || envUrl || "http://127.0.0.1:8000/api/v1/dashboard";
+    this.url = customUrl || envUrl || "/api/v1/dashboard";
   }
 
   async load(): Promise<unknown> {

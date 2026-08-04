@@ -113,7 +113,23 @@ const validHttpPayloadV1: AthleteDashboardPayloadV1 = {
 };
 
 describe("HttpDashboardPayloadSource", () => {
-  it("performs GET request and returns unknown data type", async () => {
+  it("performs GET request to default relative endpoint /api/v1/dashboard", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => validHttpPayloadV1,
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const source = new HttpDashboardPayloadSource();
+    const data = await source.load();
+
+    expect(mockFetch).toHaveBeenCalledWith("/api/v1/dashboard");
+    expect(data).toEqual(validHttpPayloadV1);
+
+    vi.unstubAllGlobals();
+  });
+
+  it("performs GET request to custom URL when provided", async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => validHttpPayloadV1,
@@ -136,7 +152,7 @@ describe("HttpDashboardPayloadSource", () => {
     });
     vi.stubGlobal("fetch", mockFetch);
 
-    const source = new HttpDashboardPayloadSource("http://127.0.0.1:8000/api/v1/dashboard");
+    const source = new HttpDashboardPayloadSource();
     await expect(source.load()).rejects.toThrow("HTTP 500");
 
     vi.unstubAllGlobals();
@@ -151,7 +167,7 @@ describe("HttpDashboardPayloadSource", () => {
     });
     vi.stubGlobal("fetch", mockFetch);
 
-    const source = new HttpDashboardPayloadSource("http://127.0.0.1:8000/api/v1/dashboard");
+    const source = new HttpDashboardPayloadSource();
     await expect(source.load()).rejects.toThrow("Unexpected token");
 
     vi.unstubAllGlobals();
@@ -161,7 +177,7 @@ describe("HttpDashboardPayloadSource", () => {
     const mockFetch = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
     vi.stubGlobal("fetch", mockFetch);
 
-    const source = new HttpDashboardPayloadSource("http://127.0.0.1:8000/api/v1/dashboard");
+    const source = new HttpDashboardPayloadSource();
     await expect(source.load()).rejects.toThrow("Failed to fetch");
 
     vi.unstubAllGlobals();
