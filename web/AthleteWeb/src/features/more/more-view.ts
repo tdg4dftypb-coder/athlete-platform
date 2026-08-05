@@ -3,7 +3,6 @@ import { createSection } from "../../components/card";
 import { createIcon, type IconName } from "../../components/icon";
 import { createPageHeader } from "../../components/page-header";
 
-
 export function renderMoreExperience(
   onBack: () => void = () => undefined,
 ): HTMLElement {
@@ -34,8 +33,14 @@ export function renderMoreExperience(
     title: string;
     description: string;
     icon: IconName;
-    view: "recovery" | "nutrition" | "body" | "icons";
+    view: "recovery" | "nutrition" | "body" | "biomarkers" | "icons";
   }[] = [
+    {
+      title: "Wyniki badań (Biomarkers)",
+      description: "Przegląd badań laboratoryjnych, wskaźniki i weryfikacja danych.",
+      icon: "target",
+      view: "biomarkers",
+    },
     {
       title: "Regeneracja (Recovery)",
       description: "Szczegółowa ocena jakości snu, HRV i gotowości do wysiłku.",

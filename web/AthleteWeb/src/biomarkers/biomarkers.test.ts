@@ -10,6 +10,7 @@ import { biomarkersPreviewStates } from "./biomarkers-preview-data";
 import type { MappingContext } from "../mappers/mapping-context";
 import type { BiomarkersDashboardPayloadV1 } from "./biomarkers-payload-v1";
 import { resolveApplicationView, searchForView } from "../app/view-routing";
+import { createBiomarkersExperienceApp } from "./biomarkers-experience-view";
 
 const mockContext: MappingContext = {
   now: new Date("2026-08-05T12:00:00Z"),
@@ -186,7 +187,7 @@ describe("Biomarkers Payload Parser (Complete Audit Matrix)", () => {
         {
           observation_id: "obs-u",
           raw_name: "Glukoza",
-          raw_value: "90", // Privacy violation!
+          raw_value: "90",
           raw_unit: "mg/dL",
           collected_at: "2026-08-01T08:00:00Z",
           requires_review: true,
@@ -286,21 +287,21 @@ describe("Biomarkers Mapper and Temporal Semantics", () => {
   it("maps old data_as_of with fresh as_of to ready state (NOT stale)", () => {
     const oldLabDataPayload: BiomarkersDashboardPayloadV1 = {
       ...validReadyPayload,
-      as_of: "2026-08-05T10:00:00Z", // Fresh response today!
+      as_of: "2026-08-05T10:00:00Z",
       metadata: {
         ...validReadyPayload.metadata,
-        data_as_of: "2026-06-01T08:00:00Z", // Lab test from 2 months ago!
+        data_as_of: "2026-06-01T08:00:00Z",
       },
     };
 
     const state = mapBiomarkersPayloadToPresentation(oldLabDataPayload, mockContext);
-    expect(state.kind).toBe("ready"); // MUST NOT be stale!
+    expect(state.kind).toBe("ready");
   });
 
   it("maps old as_of payload timestamp to stale state", () => {
     const oldAsOfPayload: BiomarkersDashboardPayloadV1 = {
       ...validReadyPayload,
-      as_of: "2026-07-01T08:00:00Z", // Payload generated 35 days ago (> 7 days staleAfterMs)
+      as_of: "2026-07-01T08:00:00Z",
     };
 
     const state = mapBiomarkersPayloadToPresentation(oldAsOfPayload, mockContext);
@@ -325,7 +326,7 @@ describe("Biomarkers Mapper and Temporal Semantics", () => {
     const state = mapBiomarkersPayloadToPresentation(validReadyPayload, mockContext);
     if (state.kind === "ready") {
       const item = state.presentation.categories[0].biomarkers[0];
-      expect(item.laboratoryFlag).toBe("H"); // Raw string preserved
+      expect(item.laboratoryFlag).toBe("Flaga laboratorium: H");
     }
   });
 
@@ -333,15 +334,87 @@ describe("Biomarkers Mapper and Temporal Semantics", () => {
     const state = mapBiomarkersPayloadToPresentation(validReadyPayload, mockContext);
     if (state.kind === "ready") {
       const item = state.presentation.categories[0].biomarkers[0];
-      expect(item.trendLabel).toBe("Trend rosnący");
+      expect(item.trendLabel).toBe("Rośnie");
       expect(item.trendDirection).toBe("increasing");
-      // Confirm no diagnostic rating attached
       expect(item).not.toHaveProperty("isGood");
     }
   });
+
   it("returns failure state for malformed payload input", () => {
     const state = parseAndMapBiomarkersPayloadToPresentation({ invalid: "data" }, mockContext);
     expect(state.kind).toBe("failure");
+  });
+});
+
+describe("Biomarkers Experience View Component UI Tests", () => {
+  it("renders READY state UI correctly with categories and bottom navigation", () => {
+    const element = createBiomarkersExperienceApp(biomarkersPreviewStates.ready, vi.fn());
+    expect(element.querySelector("h1")?.textContent).toBe("Wyniki badań");
+    expect(element.querySelector(".card-hero")?.textContent).toContain("Twoje wyniki są uporządkowane");
+
+    const categoryHeaders = element.querySelectorAll(".category-toggle");
+    expect(categoryHeaders.length).toBe(3);
+
+    const bottomNav = element.querySelector(".bottom-navigation");
+    expect(bottomNav).not.toBeNull();
+    const moreBtn = bottomNav?.querySelector(".is-active");
+    expect(moreBtn?.getAttribute("aria-label")).toContain("Więcej");
+  });
+
+  it("renders PARTIAL state UI with unresolved items section and limitations", () => {
+    const element = createBiomarkersExperienceApp(biomarkersPreviewStates.partial, vi.fn());
+    expect(element.textContent).toContain("Część wyników wymaga uzupełnienia");
+
+    const unresolvedSection = element.querySelector(".card-unresolved");
+    expect(unresolvedSection).not.toBeNull();
+    expect(unresolvedSection?.textContent).toContain("Do weryfikacji");
+    expect(unresolvedSection?.textContent).not.toContain("raw_value");
+  });
+
+  it("renders UNAVAILABLE state UI with non-functional placeholder action button", () => {
+    const element = createBiomarkersExperienceApp(biomarkersPreviewStates.unavailable, vi.fn());
+    expect(element.textContent).toContain("Nie masz jeszcze dodanych wyników badań");
+
+    const actionBtn = element.querySelector<HTMLButtonElement>(".btn-action-placeholder");
+    expect(actionBtn).not.toBeNull();
+    expect(actionBtn?.getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("renders STALE state UI with view refresh notice", () => {
+    const element = createBiomarkersExperienceApp(biomarkersPreviewStates.stale, vi.fn());
+    expect(element.textContent).toContain("Widok danych nie był ostatnio odświeżany");
+  });
+
+  it("renders LOADING state UI with skeleton loader and aria-busy", () => {
+    const element = createBiomarkersExperienceApp(biomarkersPreviewStates.loading, vi.fn());
+    const skeleton = element.querySelector(".biomarkers-skeleton");
+    expect(skeleton).not.toBeNull();
+    expect(skeleton?.getAttribute("aria-busy")).toBe("true");
+  });
+
+  it("renders FAILURE state UI with retry button and no technical stack trace", () => {
+    const onRetry = vi.fn();
+    const element = createBiomarkersExperienceApp(biomarkersPreviewStates.failure, vi.fn(), onRetry);
+
+    expect(element.textContent).toContain("Nie udało się pobrać wyników badań");
+    const retryBtn = element.querySelector<HTMLButtonElement>(".btn-retry");
+    expect(retryBtn).not.toBeNull();
+
+    retryBtn?.click();
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("toggles category accordion visibility on click", () => {
+    const element = createBiomarkersExperienceApp(biomarkersPreviewStates.ready, vi.fn());
+    const toggleBtn = element.querySelector<HTMLButtonElement>(".category-toggle");
+    const body = element.querySelector<HTMLDivElement>(".category-body");
+
+    expect(toggleBtn?.getAttribute("aria-expanded")).toBe("true");
+    expect(body?.style.display).not.toBe("none");
+
+    toggleBtn?.click();
+    expect(toggleBtn?.getAttribute("aria-expanded")).toBe("false");
+    expect(body?.style.display).toBe("none");
   });
 });
 

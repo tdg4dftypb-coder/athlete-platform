@@ -53,7 +53,7 @@ export function createBottomNavigation(
       (item.id === "morning" && (activeView === "morning" || activeView === "morning-briefing")) ||
       (item.id === "training" && activeView === "training") ||
       (item.id === "progress" && activeView === "progress") ||
-      (item.id === "more" && (activeView === "more" || activeView === "recovery" || activeView === "nutrition" || activeView === "body"));
+      (item.id === "more" && (activeView === "more" || activeView === "recovery" || activeView === "nutrition" || activeView === "body" || activeView === "biomarkers"));
 
     button.className = isActive ? "is-active" : "";
     button.disabled = false;

@@ -25,7 +25,7 @@ import { progressPreviewStates } from "./preview-data/progress-preview-data";
 import { recoveryPreviewStates } from "./preview-data/recovery-preview-data";
 import { trainingPreviewStates } from "./preview-data/training-preview-data";
 import { biomarkersPreviewStates } from "./biomarkers/biomarkers-preview-data";
-import { createBiomarkersContractPreviewApp } from "./biomarkers/biomarkers-contract-preview-view";
+import { createBiomarkersExperienceApp } from "./biomarkers/biomarkers-experience-view";
 import { HttpBiomarkersPayloadSource } from "./biomarkers/biomarkers-payload-source";
 import { parseAndMapBiomarkersPayloadToPresentation } from "./biomarkers/biomarkers-mapper";
 import { MORNING_BRIEFING_MAX_AGE_MS } from "./mappers/mapping-context";
@@ -125,7 +125,7 @@ function renderPreview(focusHeading = false): void {
       window.location.search,
       biomarkersPreviewStates,
     );
-    appElement = createBiomarkersContractPreviewApp(state, openMorningBriefing, retry);
+    appElement = createBiomarkersExperienceApp(state, openMorningBriefing, retry);
   } else if (view === "more") {
     appElement = renderMoreExperience(openMorningBriefing);
   } else if (view === "icons") {
@@ -156,7 +156,7 @@ async function renderExternalSourceView(view: ApplicationView, mode: "live-file"
   else if (view === "progress") loadingElement = createProgressApp({ kind: "loading", message: "Wczytywanie..." }, openMorningBriefing, retry);
   else if (view === "nutrition") loadingElement = createNutritionApp({ kind: "loading", message: "Wczytywanie..." }, openMorningBriefing, retry);
   else if (view === "body") loadingElement = createBodyCompositionApp({ kind: "loading", message: "Wczytywanie..." }, openMorningBriefing, retry);
-  else if (view === "biomarkers") loadingElement = createBiomarkersContractPreviewApp({ kind: "loading", message: "Wczytywanie biomarkerów..." }, openMorningBriefing, retry);
+  else if (view === "biomarkers") loadingElement = createBiomarkersExperienceApp({ kind: "loading", message: "Wczytywanie biomarkerów..." }, openMorningBriefing, retry);
   else loadingElement = createApp({ kind: "loading", message: "Wczytywanie..." }, retry, openRecovery, openTraining, openProgress);
 
   loadingElement.classList.add("view-container");
@@ -167,7 +167,7 @@ async function renderExternalSourceView(view: ApplicationView, mode: "live-file"
       const source = new HttpBiomarkersPayloadSource("/api/v1/biomarkers");
       const rawData = await source.load();
       const state = parseAndMapBiomarkersPayloadToPresentation(rawData, previewMappingContext);
-      const appElement = createBiomarkersContractPreviewApp(state, openMorningBriefing, retry);
+      const appElement = createBiomarkersExperienceApp(state, openMorningBriefing, retry);
 
       appElement.classList.add("view-container");
       root.replaceChildren(appElement);
@@ -228,7 +228,7 @@ async function renderExternalSourceView(view: ApplicationView, mode: "live-file"
     };
 
     let errorElement: HTMLElement;
-    if (view === "biomarkers") errorElement = createBiomarkersContractPreviewApp(failureState, openMorningBriefing, retry);
+    if (view === "biomarkers") errorElement = createBiomarkersExperienceApp(failureState, openMorningBriefing, retry);
     else if (view === "recovery") errorElement = createRecoveryApp({ ...failureState, header: { title: "Błąd", dateText: "", lastUpdatedText: "", freshnessLabel: null } }, openMorningBriefing, retry);
     else if (view === "training") errorElement = createTrainingApp({ ...failureState, header: { title: "Błąd", dateText: "", lastUpdatedText: "", freshnessLabel: null } }, openMorningBriefing, retry);
     else if (view === "progress") errorElement = createProgressApp({ ...failureState, header: { title: "Błąd", dateText: "", lastUpdatedText: "", freshnessLabel: null } }, openMorningBriefing, retry);

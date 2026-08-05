@@ -18,12 +18,11 @@ export function parseAndMapBiomarkersPayloadToPresentation(
 ): PayloadMappedBiomarkersState {
   const parsed = parseBiomarkersDashboardPayloadV1(input);
   if (!parsed.success) {
-    const issueMsg = parsed.issues[0]?.message ?? "Błąd kontraktu payloadu.";
     return {
       kind: "failure",
       title: "Błąd walidacji danych biomarkerów",
-      message: "Otrzymany payload biomarkerów jest niezgodny z wersją v1.0.",
-      supportingText: `Błąd kontraktu: ${issueMsg}`,
+      message: "Nie udało się pobrać wyników badań.",
+      supportingText: `Wystąpił błąd kontraktu payloadu v1.0.`,
       retryLabel: "Spróbuj ponownie",
     };
   }
@@ -41,8 +40,8 @@ export function mapBiomarkersPayloadToPresentation(
     return {
       kind: "failure",
       title: "Błąd czasu synchronizacji",
-      message: "Payload biomarkerów zawiera niespójne znaczniki czasu.",
-      supportingText: "Znacznik as_of znajduje się w przyszłości lub zawiera błędną strefę czasową.",
+      message: "Nie udało się pobrać wyników badań.",
+      supportingText: "Znacznik czasu odpowiedzi API jest nieprawidłowy.",
       retryLabel: "Spróbuj ponownie",
     };
   }
@@ -51,10 +50,10 @@ export function mapBiomarkersPayloadToPresentation(
   if (payload.metadata.status === "unavailable" || payload.summary.total_reports === 0) {
     return {
       kind: "unavailable",
-      title: "Badania laboratoryjne",
-      message: "Brak aktywnych badań laboratoryjnych w profilu.",
-      reason: payload.metadata.limitations[0] ?? "Nie zaimportowano jeszcze żadnych wyników badań laboratoryjnych.",
-      nextAction: "Dodaj pierwsze wyniki badań, aby przejrzeć panel biomarkerów.",
+      title: "Wyniki badań",
+      message: "Nie masz jeszcze dodanych wyników badań.",
+      reason: payload.metadata.limitations[0] ?? "Po dodaniu raportu zobaczysz historię i zmiany biomarkerów.",
+      nextAction: "Dodaj wyniki",
     };
   }
 
@@ -66,7 +65,7 @@ export function mapBiomarkersPayloadToPresentation(
     return {
       kind: "stale",
       presentation,
-      message: "Dane laboratoryjne mogą być nieaktualne.",
+      message: "Widok danych nie był ostatnio odświeżany.",
       lastUpdatedText: `Ostatnia aktualizacja: ${formatContractDateTime(asOf, context)}.`,
     };
   }
@@ -76,7 +75,7 @@ export function mapBiomarkersPayloadToPresentation(
     return {
       kind: "partial",
       presentation,
-      message: "Panel biomarkerów jest dostępny, ale występują ograniczenia jakościowe danych.",
+      message: "Część wyników wymaga uzupełnienia lub weryfikacji.",
       limitations: payload.metadata.limitations,
     };
   }
@@ -96,7 +95,7 @@ function createBiomarkersPresentation(
       const valStr = bPayload.latest_value !== null ? formatNumber(bPayload.latest_value, context) : (bPayload.latest_text_value ?? "Brak");
       const valueLabel = bPayload.inequality_operator ? `${bPayload.inequality_operator} ${valStr}` : valStr;
       const unitLabel = bPayload.normalized_unit ?? bPayload.raw_unit ?? "";
-      const refLabel = bPayload.laboratory_reference_text ? `Norma lab: ${bPayload.laboratory_reference_text}` : "Brak zakresu referencyjnego";
+      const refLabel = bPayload.laboratory_reference_text ? `Norma lab: ${bPayload.laboratory_reference_text}` : "Brak zakresu laboratoryjnego";
 
       const collDate = parseContractTimestamp(bPayload.collected_at);
       const collLabel = formatContractDateTime(collDate, context);
@@ -105,6 +104,7 @@ function createBiomarkersPresentation(
       const trendLabel = mapTrendLabel(trendDirection);
 
       const verLabel = bPayload.verification_status === "verified" ? "Zweryfikowano" : "Niezweryfikowane";
+      const labFlagLabel = bPayload.laboratory_flag ? `Flaga laboratorium: ${bPayload.laboratory_flag}` : null;
 
       return {
         code: bPayload.canonical_code,
@@ -115,7 +115,7 @@ function createBiomarkersPresentation(
         collectedAtLabel: collLabel,
         trendLabel,
         trendDirection,
-        laboratoryFlag: bPayload.laboratory_flag,
+        laboratoryFlag: labFlagLabel,
         verificationLabel: verLabel,
         limitations: bPayload.limitations,
       };
@@ -141,9 +141,9 @@ function createBiomarkersPresentation(
   const compPct = Math.round(payload.metadata.completeness_score * 100);
 
   return {
-    title: "Badania laboratoryjne i biomarkery",
+    title: "Wyniki badań",
     statusLabel: mapStatusLabel(payload.metadata.status),
-    completenessLabel: `Kompletność danych: ${compPct}%`,
+    completenessLabel: `Jakość importu danych: ${compPct}%`,
     latestCollectionLabel: payload.summary.latest_collection_date ? `Ostatnie badanie: ${payload.summary.latest_collection_date}` : "Brak daty pobrania",
     attentionCount: categories.reduce((sum, c) => sum + c.attentionCount, 0),
     unresolvedCount: payload.unresolved_items.length,
@@ -165,24 +165,24 @@ function createBiomarkersPresentation(
 function mapStatusLabel(status: "ready" | "partial" | "unavailable"): string {
   switch (status) {
     case "ready":
-      return "Wszystkie biomarkery zweryfikowane";
+      return "Twoje wyniki są uporządkowane i gotowe do przeglądu.";
     case "partial":
-      return "Częściowe dane laboratoryjne";
+      return "Część wyników wymaga uzupełnienia lub weryfikacji.";
     case "unavailable":
-      return "Brak aktywnych wyników";
+      return "Nie masz jeszcze dodanych wyników badań.";
   }
 }
 
 function mapTrendLabel(trend: string): string {
   switch (trend) {
     case "increasing":
-      return "Trend rosnący";
+      return "Rośnie";
     case "decreasing":
-      return "Trend malejący";
+      return "Maleje";
     case "stable":
-      return "Wartość stabilna";
+      return "Bez wyraźnej zmiany";
     default:
-      return "Brak wystarczającego trendu";
+      return "Brak trendu";
   }
 }
 
