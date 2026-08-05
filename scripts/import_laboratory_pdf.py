@@ -88,20 +88,25 @@ def main() -> int:
         return 1
 
     if args.show_summary or summary.dry_run:
-        resolved_cnt = len(summary.resolved_canonical_codes)
         print("--- Execution Summary ---")
         print(f"  Laboratory:             {summary.laboratory_name or 'Unknown'}")
         print(f"  Collection Date Found:  {'YES' if summary.collected_at_detected else 'NO'}")
         print(f"  Page Count:             {summary.page_count}")
-        print(f"  Extracted Rows:         {summary.extracted_rows_count}")
+        print(f"  Candidate Lines:        {summary.candidate_rows_count}")
+        print(f"  Ignored Lines:          {summary.ignored_lines_count}")
+        print(f"  Failed Rows:            {summary.failed_rows_count}")
+        print(f"  Parsed/Extracted Rows:  {summary.extracted_rows_count}")
         print(f"  Imported Observations:  {summary.imported_observations_count}")
-        print(f"  Resolved Biomarkers:    {resolved_cnt}")
+        print(f"  Resolved Observations:  {summary.resolved_observations_count}")
         print(f"  Unresolved Items:       {summary.unresolved_observations_count}")
         print(f"  Possible Duplicates:    {summary.possible_duplicates_count}")
+        print(f"  Accuracy Rate:          {summary.accuracy_percentage}%")
         if summary.resolved_canonical_codes:
-            print(f"  Recognized Codes:       [{', '.join(summary.resolved_canonical_codes)}]")
+            print(f"  Recognized Codes ({len(summary.resolved_canonical_codes)}):")
+            print(f"    [{', '.join(summary.resolved_canonical_codes)}]")
         if summary.unresolved_raw_names:
-            print(f"  Unresolved Names:       [{', '.join(summary.unresolved_raw_names)}]")
+            print(f"  Unresolved Names ({len(summary.unresolved_raw_names)}):")
+            print(f"    [{', '.join(summary.unresolved_raw_names)}]")
         if summary.report_id:
             print(f"  Report ID:              {summary.report_id}")
         if summary.warnings:

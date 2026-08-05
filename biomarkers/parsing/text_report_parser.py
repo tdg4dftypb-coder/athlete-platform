@@ -14,12 +14,16 @@ from biomarkers.ingestion import RawLaboratoryRow
 
 @dataclass(frozen=True)
 class ParsedReportHeader:
-    """Header metadata extracted from lab report document."""
+    """Header metadata and accounting metrics extracted from lab report document."""
 
     laboratory_name: Optional[str] = None
     collected_at: Optional[datetime] = None
     reported_at: Optional[datetime] = None
     warnings: Tuple[str, ...] = ()
+    candidate_rows_count: int = 0
+    ignored_lines_count: int = 0
+    failed_rows_count: int = 0
+    extracted_rows_count: int = 0
 
 
 class TextLaboratoryReportParser:

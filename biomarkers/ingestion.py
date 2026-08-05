@@ -278,7 +278,11 @@ class LaboratoryIngestionService:
                 obs_id = self.id_generator("obs")
                 row_collected = row.collected_at or collected_at
 
-                match = self.biomarker_registry.match_alias(row.raw_name)
+                match = self.biomarker_registry.match_alias(
+                    row.raw_name,
+                    raw_unit=row.raw_unit,
+                    raw_value=row.raw_value,
+                )
                 if match.normalization_status == NormalizationStatus.UNRESOLVED:
                     unresolved_cnt += 1
 

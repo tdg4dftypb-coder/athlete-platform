@@ -441,3 +441,28 @@ Managed by `biomarkers/persistence/schema.py` and `biomarkers/persistence/migrat
 - Comprehensive Polish ALAB Aliases: Added explicit aliases for complete CBC morphology, white blood cell differential (`WBC`, `NEU#`, `NEU%`, `LYMPH#`, `LYMPH%`, `MON#`, `MON%`, `EOS#`, `EOS%`, `BASO#`, `BASO%`, `IG#`, `IG%`), coagulation (`APTT`, `PT`, `INR`, `D-dimer`), and immunochemistry (`HBsAg`).
 - Distinct Canonical Codes: Strictly separates `rdw_cv` (percentage `%`) from `rdw_sd` (femtoliters `fL`), `hbs_antigen_numeric` from `hbs_antigen_qualitative`.
 - Unit Normalization Aliases: Maps ALAB representations (`10^3/µl`, `10^6/µl`, `fL`, `pg`, `sek`, `ng/mL FEU`, `S/CO`).
+
+---
+
+## 13. ALAB Import Accounting & Completeness Audit (Sprint 7C.1)
+
+### 13.1 Strict Accounting Invariants
+- Enforces strict line and observation accounting across parser, ingestion, and CLI summary:
+  $$\text{imported\_observations\_count} = \text{resolved\_observations\_count} + \text{unresolved\_observations\_count}$$
+- Metrics defined:
+  - `candidate_rows_count`: Total non-empty text lines examined.
+  - `ignored_lines_count`: Lines identified as headers, footers, page numbers, clinical comments, or section/group titles.
+  - `extracted_rows_count`: Valid result lines parsed into `RawLaboratoryRow`.
+  - `failed_rows_count`: Lines attempting result match but failing syntax.
+  - `imported_observations_count`: `LaboratoryObservation` records created.
+  - `resolved_observations_count`: Observations matched to valid `canonical_code`.
+  - `unresolved_observations_count`: Observations without canonical code match.
+  - `accuracy_percentage`: $\frac{\text{resolved\_observations\_count}}{\text{imported\_observations\_count}} \times 100\%$. Ignored comments and headers are strictly excluded from denominator.
+
+### 13.2 Format & Parser Hardening for Real ALAB PDF
+- Trailing Method Notes: `result_line_pattern` accepts trailing method text (e.g. `Instrukcja Abbott`), capturing value `0,37` and unit `S/CO` cleanly.
+- Lab Code Tag Stripping: `match_alias` strips trailing lab test code tags (e.g. `(G49)`, `(V39)`, `(G37)`, `(G11)`) before lookup.
+- Spaced-Hyphen Aliases: Added spaced-hyphen alias support (`"czas kaolinowo - kefalinowy"` $\rightarrow$ `aptt`).
+- HBsAg Contextual Resolution: Differentiates `hbs_antigen_numeric` (numeric value with `S/CO` unit) from `hbs_antigen_qualitative` (qualitative value `"nieobecny"`).
+- RDW Contextual Resolution: Differentiates `rdw_cv` (`%` unit) from `rdw_sd` (`fL` unit).
+- Group Header Filtering: Ignores group title lines (`Czas protrombinowy (PT), INR/`) without creating empty or duplicate observations.

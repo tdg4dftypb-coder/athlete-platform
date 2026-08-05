@@ -3,6 +3,7 @@ Versioned Biomarker Registry and Alias Matching engine.
 """
 
 from dataclasses import dataclass
+import re
 from typing import Dict, Optional, Set
 
 from biomarkers.errors import DuplicateAliasError, DuplicateCanonicalCodeError
@@ -99,10 +100,16 @@ class BiomarkerRegistry:
             return None
         return definition
 
-    def match_alias(self, raw_name: str, include_inactive: bool = False) -> BiomarkerMatch:
+    def match_alias(
+        self,
+        raw_name: str,
+        raw_unit: Optional[str] = None,
+        raw_value: Optional[str] = None,
+        include_inactive: bool = False,
+    ) -> BiomarkerMatch:
         """
         Matches a raw laboratory name string against registered aliases.
-        Case-insensitive and trimmed. NO fuzzy matching in this sprint.
+        Case-insensitive and trimmed with unit/value context fallback.
         Returns explicit BiomarkerMatch object.
         """
         if not raw_name or not raw_name.strip():
@@ -115,8 +122,28 @@ class BiomarkerRegistry:
                 requires_review=True,
             )
 
-        raw_key = raw_name.strip().lower()
+        raw_name_clean = re.sub(r"\s*\([A-Z]\d{2,4}\)", "", raw_name.strip(), flags=re.IGNORECASE)
+        raw_key = raw_name_clean.lower()
         target_code = self._alias_index.get(raw_key)
+
+        # Contextual Fallback for RDW (rdw_cv vs rdw_sd)
+        if not target_code or target_code in ("rdw_cv", "rdw_sd"):
+            if "rdw" in raw_key or "anizocytozy erytrocytów" in raw_key:
+                clean_u = (raw_unit or "").strip().lower()
+                if clean_u in ("fl", "femtoliter") or "sd" in raw_key:
+                    target_code = "rdw_sd"
+                elif clean_u == "%" or "cv" in raw_key or "rdw" in raw_key:
+                    target_code = "rdw_cv"
+
+        # Contextual Fallback for HBsAg (hbs_antigen_numeric vs hbs_antigen_qualitative)
+        if not target_code or target_code in ("hbs_antigen_numeric", "hbs_antigen_qualitative"):
+            if "hbs" in raw_key or "antygen hbs" in raw_key:
+                clean_v = (raw_value or "").strip().lower()
+                clean_u = (raw_unit or "").strip().lower()
+                if clean_v in ("nieobecny", "obecny", "ujemny", "dodatni") or clean_u == "":
+                    target_code = "hbs_antigen_qualitative"
+                else:
+                    target_code = "hbs_antigen_numeric"
 
         if not target_code:
             return BiomarkerMatch(
@@ -454,7 +481,7 @@ def create_default_biomarker_registry() -> BiomarkerRegistry:
             canonical_name="APTT",
             category=BiomarkerCategory.OTHER,
             default_unit="s",
-            accepted_aliases=("aptt", "czas kaolinowo-kefalinowy", "czas kaolinowo-kefalinowy (aptt)"),
+            accepted_aliases=("aptt", "czas kaolinowo-kefalinowy", "czas kaolinowo-kefalinowy (aptt)", "czas kaolinowo - kefalinowy", "czas kaolinowo - kefalinowy (aptt)"),
             accepted_units=("s", "sek", "sek."),
             value_type=BiomarkerValueType.NUMERIC,
         ),

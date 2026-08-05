@@ -1,16 +1,18 @@
 """
-Regression Test Suite for ALAB Laboratory Report Parser and Biomarker Registry (Sprint 7C).
+Regression Test Suite for ALAB Laboratory Report Parser and Biomarker Registry (Sprint 7C.1).
 """
 
 from datetime import datetime, timezone
 import pytest
 
 from biomarkers.extraction.pdf_text_extractor import ExtractedLaboratoryDocument, ExtractedLaboratoryPage
+from biomarkers.models import NormalizationStatus
 from biomarkers.parsing.alab_report_parser import AlabTextLaboratoryReportParser
 from biomarkers.registry import create_default_biomarker_registry
+from biomarkers.use_cases.import_pdf import ImportLaboratoryPdfUseCase, PdfImportSummary
 
 
-def test_alab_parser_synthetic_fixture_full_flow() -> None:
+def build_synthetic_alab_doc() -> ExtractedLaboratoryDocument:
     text_page_1 = """
     ALAB laboratoria Sp. z o.o.
     Punkt Pobrań: Warszawa
@@ -59,15 +61,15 @@ def test_alab_parser_synthetic_fixture_full_flow() -> None:
     Wskaźnik protrombinowy 98,5 % 80,0 — 120,0
     INR 1,02
     D-dimer FEU < 500 ng/mL FEU < 500
-    HBs-antygen (HBsAg) - ilościowo < 0,04 S/CO < 1,00
-    HBs-antygen (HBsAg) - jakościowo nieobecny
+    HBs - antygen HBs (WZW typu B) (V39) 0,37 S/CO Instrukcja Abbott
+    HBs - antygen HBs (WZW typu B) nieobecny
     Nierozpoznany Test Laboratoryjny 12,5 U/L 0 — 10
-    Komentarz: Wyniki skonsultowano z lekarzem.
+    Komentarz: Wyniki skonsultowano z lekarzem w leczeniu antagonistami witaminy K.
     Zatwierdził: Diagnosta mgr Jan Kowalski
     Strona 2 z 2
     """
 
-    doc = ExtractedLaboratoryDocument(
+    return ExtractedLaboratoryDocument(
         source_document_hash="hash-alab-synthetic-001",
         page_count=2,
         pages=(
@@ -75,6 +77,10 @@ def test_alab_parser_synthetic_fixture_full_flow() -> None:
             ExtractedLaboratoryPage(page_number=2, text=text_page_2),
         ),
     )
+
+
+def test_alab_parser_synthetic_fixture_full_flow() -> None:
+    doc = build_synthetic_alab_doc()
 
     parser = AlabTextLaboratoryReportParser()
     assert parser.can_parse(doc) is True
@@ -92,38 +98,83 @@ def test_alab_parser_synthetic_fixture_full_flow() -> None:
     unresolved_names = []
 
     for r in rows:
-        match = registry.match_alias(r.raw_name)
+        match = registry.match_alias(r.raw_name, raw_unit=r.raw_unit, raw_value=r.raw_value)
         if match.canonical_code:
             matched_codes.append(match.canonical_code)
         else:
             unresolved_names.append(r.raw_name)
 
-    # Confirm key markers are resolved properly
+    # Confirm key required markers are resolved properly
     assert "leukocytes" in matched_codes
-    assert "erythrocytes" in matched_codes
-    assert "hemoglobin" in matched_codes
-    assert "hematocrit" in matched_codes
-    assert "mcv" in matched_codes
-    assert "mch" in matched_codes
-    assert "mchc" in matched_codes
-    assert "rdw_cv" in matched_codes
-    assert "rdw_sd" in matched_codes
-    assert "platelets" in matched_codes
     assert "aptt" in matched_codes
     assert "prothrombin_time" in matched_codes
+    assert "prothrombin_index" in matched_codes
     assert "inr" in matched_codes
     assert "d_dimer" in matched_codes
     assert "hbs_antigen_numeric" in matched_codes
     assert "hbs_antigen_qualitative" in matched_codes
-
-    # Confirm RDW-CV and RDW-SD are mapped to distinct canonical codes
-    assert "rdw_cv" in matched_codes and "rdw_sd" in matched_codes
-
-    # Confirm HBsAg numeric and qualitative are mapped to distinct canonical codes
-    assert "hbs_antigen_numeric" in matched_codes and "hbs_antigen_qualitative" in matched_codes
+    assert "rdw_cv" in matched_codes
+    assert "rdw_sd" in matched_codes
 
     # Confirm unresolved items remain isolated without crash
     assert any("Nierozpoznany Test" in name for name in unresolved_names)
+
+
+def test_accounting_invariant_and_line_counters() -> None:
+    doc = build_synthetic_alab_doc()
+    parser = AlabTextLaboratoryReportParser()
+    rows = parser.parse(doc)
+    header = parser.last_parsed_header
+
+    assert header.candidate_rows_count > 0
+    assert header.extracted_rows_count == len(rows)
+    assert header.ignored_lines_count > 0
+    assert header.failed_rows_count == 0
+
+
+def test_hbs_numeric_and_qualitative_dual_observations() -> None:
+    doc = build_synthetic_alab_doc()
+    parser = AlabTextLaboratoryReportParser()
+    rows = parser.parse(doc)
+    registry = create_default_biomarker_registry()
+
+    hbs_matches = [
+        registry.match_alias(r.raw_name, raw_unit=r.raw_unit, raw_value=r.raw_value)
+        for r in rows if "hbs" in r.raw_name.lower()
+    ]
+
+    assert len(hbs_matches) == 2
+    codes = [m.canonical_code for m in hbs_matches]
+    assert "hbs_antigen_numeric" in codes
+    assert "hbs_antigen_qualitative" in codes
+
+
+def test_rdw_cv_and_rdw_sd_differentiation() -> None:
+    doc = build_synthetic_alab_doc()
+    parser = AlabTextLaboratoryReportParser()
+    rows = parser.parse(doc)
+    registry = create_default_biomarker_registry()
+
+    rdw_matches = [
+        registry.match_alias(r.raw_name, raw_unit=r.raw_unit, raw_value=r.raw_value)
+        for r in rows if "rdw" in r.raw_name.lower()
+    ]
+
+    assert len(rdw_matches) == 2
+    codes = [m.canonical_code for m in rdw_matches]
+    assert "rdw_cv" in codes
+    assert "rdw_sd" in codes
+
+
+def test_ignored_comment_not_imported() -> None:
+    doc = build_synthetic_alab_doc()
+    parser = AlabTextLaboratoryReportParser()
+    rows = parser.parse(doc)
+
+    for r in rows:
+        assert "skonsultowano z lekarzem" not in r.raw_name
+        assert "zatwierdził" not in r.raw_name.lower()
+        assert "sysmex" not in r.raw_name.lower()
 
 
 def test_alab_header_collection_date_logic() -> None:

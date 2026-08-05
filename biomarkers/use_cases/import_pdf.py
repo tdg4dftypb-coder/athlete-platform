@@ -15,7 +15,7 @@ from biomarkers.ingestion import (
     LaboratoryIngestionResult,
     LaboratoryIngestionService,
 )
-from biomarkers.models import ImportRunStatus
+from biomarkers.models import ImportRunStatus, NormalizationStatus
 from biomarkers.parsing import (
     ParsedReportHeader,
     TextLaboratoryReportParser,
@@ -32,10 +32,15 @@ class PdfImportSummary:
     import_run_id: Optional[str]
     status: ImportRunStatus
     page_count: int
+    candidate_rows_count: int
+    ignored_lines_count: int
+    failed_rows_count: int
     extracted_rows_count: int
     imported_observations_count: int
+    resolved_observations_count: int
     unresolved_observations_count: int
     possible_duplicates_count: int
+    accuracy_percentage: float
     warnings: Tuple[str, ...]
     dry_run: bool = False
     duplicate_document: bool = False
@@ -116,18 +121,35 @@ class ImportLaboratoryPdfUseCase:
             )
             res = dry_service.ingest(req)
 
-            resolved_codes = tuple(sorted({o.canonical_code for o in res.observations if o.canonical_code}))
-            unresolved_names = tuple(sorted({o.raw_name for o in res.observations if not o.canonical_code}))
+            imported_cnt = len(res.observations)
+            resolved_obs = [o for o in res.observations if o.normalization_status == NormalizationStatus.RESOLVED and o.canonical_code]
+            unresolved_obs = [o for o in res.observations if o.normalization_status == NormalizationStatus.UNRESOLVED or not o.canonical_code]
+
+            resolved_cnt = len(resolved_obs)
+            unresolved_cnt = len(unresolved_obs)
+
+            # Strict Accounting Invariant Verification
+            assert imported_cnt == resolved_cnt + unresolved_cnt
+
+            accuracy_pct = (resolved_cnt / imported_cnt * 100.0) if imported_cnt > 0 else 0.0
+
+            resolved_codes = tuple(sorted({o.canonical_code for o in resolved_obs if o.canonical_code}))
+            unresolved_names = tuple(sorted({o.raw_name for o in unresolved_obs}))
 
             return PdfImportSummary(
                 report_id="dry-run",
                 import_run_id="dry-run",
                 status=res.status,
                 page_count=extracted_doc.page_count,
+                candidate_rows_count=header.candidate_rows_count,
+                ignored_lines_count=header.ignored_lines_count,
+                failed_rows_count=header.failed_rows_count,
                 extracted_rows_count=len(raw_rows),
-                imported_observations_count=len(res.observations),
-                unresolved_observations_count=res.unresolved_count,
+                imported_observations_count=imported_cnt,
+                resolved_observations_count=resolved_cnt,
+                unresolved_observations_count=unresolved_cnt,
                 possible_duplicates_count=res.possible_duplicate_count,
+                accuracy_percentage=round(accuracy_pct, 1),
                 warnings=tuple(warnings_list + list(res.warnings)),
                 dry_run=True,
                 duplicate_document=res.duplicate_document,
@@ -149,18 +171,35 @@ class ImportLaboratoryPdfUseCase:
 
         res = self.ingestion_service.ingest(req)
 
-        resolved_codes = tuple(sorted({o.canonical_code for o in res.observations if o.canonical_code}))
-        unresolved_names = tuple(sorted({o.raw_name for o in res.observations if not o.canonical_code}))
+        imported_cnt = len(res.observations)
+        resolved_obs = [o for o in res.observations if o.normalization_status == NormalizationStatus.RESOLVED and o.canonical_code]
+        unresolved_obs = [o for o in res.observations if o.normalization_status == NormalizationStatus.UNRESOLVED or not o.canonical_code]
+
+        resolved_cnt = len(resolved_obs)
+        unresolved_cnt = len(unresolved_obs)
+
+        # Strict Accounting Invariant Verification
+        assert imported_cnt == resolved_cnt + unresolved_cnt
+
+        accuracy_pct = (resolved_cnt / imported_cnt * 100.0) if imported_cnt > 0 else 0.0
+
+        resolved_codes = tuple(sorted({o.canonical_code for o in resolved_obs if o.canonical_code}))
+        unresolved_names = tuple(sorted({o.raw_name for o in unresolved_obs}))
 
         return PdfImportSummary(
             report_id=res.report.report_id if res.report else None,
             import_run_id=res.import_run.import_run_id if res.import_run else None,
             status=res.status,
             page_count=extracted_doc.page_count,
+            candidate_rows_count=header.candidate_rows_count,
+            ignored_lines_count=header.ignored_lines_count,
+            failed_rows_count=header.failed_rows_count,
             extracted_rows_count=len(raw_rows),
-            imported_observations_count=len(res.observations),
-            unresolved_observations_count=res.unresolved_count,
+            imported_observations_count=imported_cnt,
+            resolved_observations_count=resolved_cnt,
+            unresolved_observations_count=unresolved_cnt,
             possible_duplicates_count=res.possible_duplicate_count,
+            accuracy_percentage=round(accuracy_pct, 1),
             warnings=tuple(warnings_list + list(res.warnings)),
             dry_run=False,
             duplicate_document=res.duplicate_document,
