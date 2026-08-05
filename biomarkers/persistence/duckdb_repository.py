@@ -62,20 +62,45 @@ class DuckDBLaboratoryRepository:
 
         run_migrations(self._conn)
 
+    def close(self) -> None:
+        """Idempotently closes DuckDB connection."""
+        with self._lock:
+            if self._conn is not None:
+                self._conn.close()
+                self._conn = None
+
+    def _ensure_open(self) -> duckdb.DuckDBPyConnection:
+        if self._conn is None:
+            raise RuntimeError("Repository connection is closed.")
+        return self._conn
+
+    def is_source_tombstoned(self, source_document_hash: str) -> bool:
+        if not source_document_hash:
+            return False
+        doc_hash = source_document_hash.strip()
+        with self._lock:
+            conn = self._ensure_open()
+            tombstone = conn.execute(
+                "SELECT tombstone_id FROM laboratory_tombstones WHERE source_document_hash = ?",
+                [doc_hash],
+            ).fetchone()
+            return tombstone is not None
+
     def find_report_by_source_hash(self, source_document_hash: str) -> Optional[LaboratoryReport]:
         if not source_document_hash:
             return None
         doc_hash = source_document_hash.strip()
 
         with self._lock:
-            tombstone = self._conn.execute(
+            conn = self._ensure_open()
+            tombstone = conn.execute(
                 "SELECT tombstone_id FROM laboratory_tombstones WHERE source_document_hash = ?",
                 [doc_hash],
             ).fetchone()
             if tombstone:
                 return None
 
-            row = self._conn.execute(
+            row = conn.execute(
                 """
                 SELECT report_id, collected_at, reported_at, laboratory_name, source_type, source_document_hash, created_at
                 FROM laboratory_reports
@@ -95,7 +120,8 @@ class DuckDBLaboratoryRepository:
         r_id = report_id.strip()
 
         with self._lock:
-            row = self._conn.execute(
+            conn = self._ensure_open()
+            row = conn.execute(
                 """
                 SELECT report_id, collected_at, reported_at, laboratory_name, source_type, source_document_hash, created_at
                 FROM laboratory_reports
@@ -111,7 +137,8 @@ class DuckDBLaboratoryRepository:
 
     def get_all_reports(self) -> Tuple[LaboratoryReport, ...]:
         with self._lock:
-            rows = self._conn.execute(
+            conn = self._ensure_open()
+            rows = conn.execute(
                 """
                 SELECT report_id, collected_at, reported_at, laboratory_name, source_type, source_document_hash, created_at
                 FROM laboratory_reports
@@ -126,7 +153,8 @@ class DuckDBLaboratoryRepository:
         r_id = report_id.strip()
 
         with self._lock:
-            rows = self._conn.execute(
+            conn = self._ensure_open()
+            rows = conn.execute(
                 """
                 SELECT import_run_id, report_id, parser_version, extractor_version, registry_version,
                        unit_rules_version, started_at, completed_at, status, active, warnings_json
@@ -140,7 +168,7 @@ class DuckDBLaboratoryRepository:
             runs: List[LaboratoryImportRun] = []
             for row in rows:
                 run_id = row[0]
-                obs_rows = self._conn.execute(
+                obs_rows = conn.execute(
                     """
                     SELECT observation_id, import_run_id, report_id, report_row_index, observation_source_fingerprint,
                            raw_name, raw_value, raw_unit, canonical_code, normalization_status, requires_review,
@@ -169,7 +197,8 @@ class DuckDBLaboratoryRepository:
         r_id = report_id.strip()
 
         with self._lock:
-            row = self._conn.execute(
+            conn = self._ensure_open()
+            row = conn.execute(
                 """
                 SELECT import_run_id, report_id, parser_version, extractor_version, registry_version,
                        unit_rules_version, started_at, completed_at, status, active, warnings_json
@@ -183,7 +212,7 @@ class DuckDBLaboratoryRepository:
                 return None
 
             run_id = row[0]
-            obs_rows = self._conn.execute(
+            obs_rows = conn.execute(
                 """
                 SELECT observation_id, import_run_id, report_id, report_row_index, observation_source_fingerprint,
                        raw_name, raw_value, raw_unit, canonical_code, normalization_status, requires_review,
@@ -218,6 +247,7 @@ class DuckDBLaboratoryRepository:
         target_date_str = (collected_at.date() if isinstance(collected_at, datetime) else collected_at).isoformat()
 
         with self._lock:
+            conn = self._ensure_open()
             query = """
                 SELECT o.observation_id, o.import_run_id, o.report_id, o.report_row_index, o.observation_source_fingerprint,
                        o.raw_name, o.raw_value, o.raw_unit, o.canonical_code, o.normalization_status, o.requires_review,
@@ -236,7 +266,7 @@ class DuckDBLaboratoryRepository:
                   AND strftime(o.collected_at, '%Y-%m-%d') = ?
             """
             params = [exclude_report_id, target_code, target_date_str]
-            obs_rows = self._conn.execute(query, params).fetchall()
+            obs_rows = conn.execute(query, params).fetchall()
 
             matching: List[LaboratoryObservation] = []
             for r in obs_rows:
@@ -257,10 +287,11 @@ class DuckDBLaboratoryRepository:
         run_id = import_run.import_run_id.strip()
 
         with self._lock:
-            self._conn.execute("BEGIN TRANSACTION")
+            conn = self._ensure_open()
+            conn.execute("BEGIN TRANSACTION")
             try:
                 # 1. Upsert Report
-                self._conn.execute(
+                conn.execute(
                     """
                     INSERT INTO laboratory_reports (report_id, collected_at, reported_at, laboratory_name, source_type, source_document_hash, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -284,11 +315,11 @@ class DuckDBLaboratoryRepository:
                 )
 
                 # 2. Delete old observations for run_id before upserting import_run
-                self._conn.execute("DELETE FROM laboratory_observations WHERE import_run_id = ?", [run_id])
+                conn.execute("DELETE FROM laboratory_observations WHERE import_run_id = ?", [run_id])
 
                 # 3. Upsert Import Run
                 warnings_json = json.dumps(list(import_run.warnings))
-                self._conn.execute(
+                conn.execute(
                     """
                     INSERT INTO laboratory_import_runs (import_run_id, report_id, parser_version, extractor_version, registry_version, unit_rules_version, started_at, completed_at, status, active, warnings_json)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -327,7 +358,7 @@ class DuckDBLaboratoryRepository:
                     ref_unit = obs.laboratory_reference_range.unit if obs.laboratory_reference_range else None
                     ref_lab_provided = obs.laboratory_reference_range.laboratory_provided if obs.laboratory_reference_range else None
 
-                    self._conn.execute(
+                    conn.execute(
                         """
                         INSERT INTO laboratory_observations (
                             observation_id, import_run_id, report_id, report_row_index, observation_source_fingerprint,
@@ -390,9 +421,9 @@ class DuckDBLaboratoryRepository:
                         ],
                     )
 
-                self._conn.execute("COMMIT")
+                conn.execute("COMMIT")
             except Exception:
-                self._conn.execute("ROLLBACK")
+                conn.execute("ROLLBACK")
                 raise
 
     def activate_import_run(self, report_id: str, import_run_id: str) -> None:
@@ -400,31 +431,33 @@ class DuckDBLaboratoryRepository:
         run_id = import_run_id.strip()
 
         with self._lock:
-            self._conn.execute("BEGIN TRANSACTION")
+            conn = self._ensure_open()
+            conn.execute("BEGIN TRANSACTION")
             try:
-                rep = self._conn.execute("SELECT report_id FROM laboratory_reports WHERE report_id = ?", [r_id]).fetchone()
+                rep = conn.execute("SELECT report_id FROM laboratory_reports WHERE report_id = ?", [r_id]).fetchone()
                 if not rep:
                     raise ReportNotFoundError(f"Report '{r_id}' not found for run activation.")
 
-                target_run = self._conn.execute("SELECT import_run_id FROM laboratory_import_runs WHERE report_id = ? AND import_run_id = ?", [r_id, run_id]).fetchone()
+                target_run = conn.execute("SELECT import_run_id FROM laboratory_import_runs WHERE report_id = ? AND import_run_id = ?", [r_id, run_id]).fetchone()
                 if not target_run:
                     raise ImportRunActivationError(f"Import run '{run_id}' not found in report '{r_id}'.")
 
-                self._conn.execute("UPDATE laboratory_import_runs SET active = FALSE WHERE report_id = ?", [r_id])
-                self._conn.execute("UPDATE laboratory_import_runs SET active = TRUE WHERE report_id = ? AND import_run_id = ?", [r_id, run_id])
+                conn.execute("UPDATE laboratory_import_runs SET active = FALSE WHERE report_id = ?", [r_id])
+                conn.execute("UPDATE laboratory_import_runs SET active = TRUE WHERE report_id = ? AND import_run_id = ?", [r_id, run_id])
 
-                self._conn.execute("COMMIT")
+                conn.execute("COMMIT")
             except Exception:
-                self._conn.execute("ROLLBACK")
+                conn.execute("ROLLBACK")
                 raise
 
     def delete_report(self, report_id: str, deletion_mode: DeletionMode) -> DeletionResult:
         r_id = report_id.strip()
 
         with self._lock:
-            self._conn.execute("BEGIN TRANSACTION")
+            conn = self._ensure_open()
+            conn.execute("BEGIN TRANSACTION")
             try:
-                report_row = self._conn.execute(
+                report_row = conn.execute(
                     "SELECT report_id, source_document_hash FROM laboratory_reports WHERE report_id = ?",
                     [r_id],
                 ).fetchone()
@@ -434,19 +467,19 @@ class DuckDBLaboratoryRepository:
 
                 doc_hash = report_row[1]
 
-                obs_count = self._conn.execute("SELECT COUNT(*) FROM laboratory_observations WHERE report_id = ?", [r_id]).fetchone()[0]
-                runs_count = self._conn.execute("SELECT COUNT(*) FROM laboratory_import_runs WHERE report_id = ?", [r_id]).fetchone()[0]
+                obs_count = conn.execute("SELECT COUNT(*) FROM laboratory_observations WHERE report_id = ?", [r_id]).fetchone()[0]
+                runs_count = conn.execute("SELECT COUNT(*) FROM laboratory_import_runs WHERE report_id = ?", [r_id]).fetchone()[0]
 
-                self._conn.execute("DELETE FROM laboratory_observations WHERE report_id = ?", [r_id])
-                self._conn.execute("DELETE FROM laboratory_import_runs WHERE report_id = ?", [r_id])
-                self._conn.execute("DELETE FROM laboratory_reports WHERE report_id = ?", [r_id])
+                conn.execute("DELETE FROM laboratory_observations WHERE report_id = ?", [r_id])
+                conn.execute("DELETE FROM laboratory_import_runs WHERE report_id = ?", [r_id])
+                conn.execute("DELETE FROM laboratory_reports WHERE report_id = ?", [r_id])
 
                 now_utc = datetime.now(timezone.utc)
                 tombstone_retained = False
 
                 if deletion_mode == DeletionMode.DELETE_DATA_KEEP_TOMBSTONE:
                     t_id = f"tombstone-{r_id}"
-                    self._conn.execute(
+                    conn.execute(
                         """
                         INSERT INTO laboratory_tombstones (tombstone_id, source_document_hash, deleted_at)
                         VALUES (?, ?, ?)
@@ -455,9 +488,9 @@ class DuckDBLaboratoryRepository:
                     )
                     tombstone_retained = True
                 elif deletion_mode == DeletionMode.DELETE_EVERYTHING:
-                    self._conn.execute("DELETE FROM laboratory_tombstones WHERE source_document_hash = ?", [doc_hash])
+                    conn.execute("DELETE FROM laboratory_tombstones WHERE source_document_hash = ?", [doc_hash])
 
-                self._conn.execute("COMMIT")
+                conn.execute("COMMIT")
 
                 return DeletionResult(
                     report_id=r_id,
@@ -469,7 +502,7 @@ class DuckDBLaboratoryRepository:
                     deleted_at=now_utc,
                 )
             except Exception:
-                self._conn.execute("ROLLBACK")
+                conn.execute("ROLLBACK")
                 raise
 
     def rebuild_derived_state(self, report_id: str) -> None:

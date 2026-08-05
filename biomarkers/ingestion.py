@@ -211,6 +211,20 @@ class LaboratoryIngestionService:
         now = self.clock()
         doc_hash = calculate_source_document_hash(request.content)
 
+        # 0. Tombstone Check: explicit tombstone check blocks automatic re-ingestion of deleted documents
+        if self.repository.is_source_tombstoned(doc_hash):
+            return LaboratoryIngestionResult(
+                report=None,
+                import_run=None,
+                observations=(),
+                status=ImportRunStatus.FAILED,
+                warnings=("Source document was previously deleted with tombstone retention. Automatic re-ingestion is blocked.",),
+                duplicate_document=True,
+                requires_review_count=0,
+                unresolved_count=0,
+                possible_duplicate_count=0,
+            )
+
         # 1. Idempotency Check: check if document hash already exists in repository
         existing_report = self.repository.find_report_by_source_hash(doc_hash)
         if existing_report:

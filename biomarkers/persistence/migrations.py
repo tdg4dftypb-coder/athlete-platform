@@ -29,6 +29,11 @@ def run_migrations(conn: duckdb.DuckDBPyConnection) -> int:
         res = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()
         current_version = res[0] if res and res[0] is not None else 0
 
+        if current_version > SCHEMA_VERSION:
+            raise ValueError(
+                f"Database schema version {current_version} is newer than supported version {SCHEMA_VERSION}."
+            )
+
         if current_version < 1:
             conn.execute(CREATE_LABORATORY_REPORTS_TABLE)
             conn.execute(CREATE_LABORATORY_IMPORT_RUNS_TABLE)

@@ -21,6 +21,8 @@ class LaboratoryRepository(Protocol):
 
     def find_report_by_source_hash(self, source_document_hash: str) -> Optional[LaboratoryReport]: ...
 
+    def is_source_tombstoned(self, source_document_hash: str) -> bool: ...
+
     def get_report(self, report_id: str) -> Optional[LaboratoryReport]: ...
 
     def get_all_reports(self) -> Tuple[LaboratoryReport, ...]: ...
@@ -70,6 +72,12 @@ class InMemoryLaboratoryRepository:
             if not report_id:
                 return None
             return self._reports.get(report_id)
+
+    def is_source_tombstoned(self, source_document_hash: str) -> bool:
+        with self._lock:
+            if not source_document_hash:
+                return False
+            return source_document_hash.strip() in self._tombstones
 
     def get_report(self, report_id: str) -> Optional[LaboratoryReport]:
         with self._lock:

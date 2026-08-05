@@ -370,13 +370,24 @@ Managed by `biomarkers/persistence/schema.py` and `biomarkers/persistence/migrat
 - `laboratory_observations`: 45 domain columns mapping all `LaboratoryObservation` fields (`observation_id`, `import_run_id`, `report_id`, `report_row_index`, `raw_name`, `raw_value`, `raw_unit`, `canonical_code`, `normalization_status`, `requires_review`, `value_type`, `numeric_value`, `text_value`, `normalized_value`, `normalized_unit`, reference range, flags, confidence scores, verification status, metadata_json).
 - `laboratory_tombstones`: `tombstone_id`, `source_document_hash`, `deleted_at`.
 
-### 10.3 Idempotency & Transactional Invariants
-- `save_report_with_import_run`: Atomically inserts/updates report header, import run header, and observations in a single DuckDB transaction (`BEGIN TRANSACTION` ... `COMMIT`).
-- `activate_import_run`: Enforces ADR-012 invariant (at most 1 active run per `report_id`). Atomically sets `active = FALSE` for all runs of `report_id`, then sets `active = TRUE` for target run.
+### 10.3 Idempotency, Tombstone Audit & Transactional Invariants
+- `is_source_tombstoned(source_hash)`: Explicit contract method on `LaboratoryRepository`. Ingestion service checks `is_source_tombstoned()` BEFORE checking for existing report. Automatic re-ingestion of tombstoned document bytes returns controlled `status = FAILED`, `duplicate_document = True`, `report = None`, with zero reports/observations created.
+- `save_report_with_import_run`: Atomically inserts/updates report header, import run header, and observations in a single DuckDB transaction (`BEGIN TRANSACTION` ... `COMMIT`). Any constraint or type failure triggers `ROLLBACK`.
+- `activate_import_run`: Enforces ADR-012 invariant (at most 1 active run per `report_id`). If target run is invalid, transaction rolls back and previous active run remains active.
 - `find_report_by_source_hash`: Checks `laboratory_tombstones` first. If tombstone exists, returns `None` to prevent accidental auto-resurrection.
 - `delete_report`: Atomic single-transaction deletion supporting `DELETE_DATA_KEEP_TOMBSTONE` and `DELETE_EVERYTHING`.
 
-### 10.4 Composition & Environment Configuration
+### 10.4 Datetime Storage & UTC Round-Trip Policy
+- Schema uses DuckDB `TIMESTAMP` types mapped via `to_naive_utc` (converts aware UTC datetimes to naive UTC for DuckDB) and `from_naive_utc` (attaches `timezone.utc` upon read).
+- Eliminates external `pytz` module runtime dependencies.
+- Guarantees 100% loss-free round-trip with `tzinfo == timezone.utc`, `utcoffset() == timedelta(0)`, and ISO 8601 string formatting retaining `+00:00`.
+
+### 10.5 Schema Compatibility & Future Version Protection
+- Migration runner checks `schema_version`.
+- Re-running migrations on an existing database is idempotent.
+- Higher unknown `schema_version` (e.g. `version > 1`) raises a controlled `ValueError` to prevent schema corruption or unintentional downgrade.
+
+### 10.6 Composition & Environment Configuration
 - `BIOMARKERS_REPOSITORY`: Configurable via `build_repository_from_env()`.
   - `"in_memory"` (default for fast unit testing and lightweight mock runtime)
   - `"duckdb"` (persistent runtime using `BIOMARKERS_DB_PATH` or `data/database/biomarkers.duckdb`).
