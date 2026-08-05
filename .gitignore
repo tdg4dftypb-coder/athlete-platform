@@ -229,3 +229,7 @@ scratch/
 # Local private health data
 data/raw/export.xml
 data/database/*.duckdb
+data/imports/
+data/reports/
+*.pdf.txt
+*.extracted.json

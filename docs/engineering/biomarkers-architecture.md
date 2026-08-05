@@ -391,3 +391,37 @@ Managed by `biomarkers/persistence/schema.py` and `biomarkers/persistence/migrat
 - `BIOMARKERS_REPOSITORY`: Configurable via `build_repository_from_env()`.
   - `"in_memory"` (default for fast unit testing and lightweight mock runtime)
   - `"duckdb"` (persistent runtime using `BIOMARKERS_DB_PATH` or `data/database/biomarkers.duckdb`).
+
+---
+
+## 11. Text PDF Extraction & Import Subsystem (Sprint 7B)
+
+### 11.1 Document Extractor Adapter (`PdfTextLaboratoryDocumentExtractor`)
+- Lightweight pure-Python dependency: `pypdf>=5.0.0`.
+- Extractor Port: `PdfTextLaboratoryDocumentExtractor` implements `LaboratoryDocumentExtractor`.
+- Accepts binary content bytes (`content: bytes`).
+- Rejects empty documents (`InvalidPdfDocumentError`) and non-PDF files without `%PDF` magic header.
+- Detects PDFs without text layer (scanned images) and raises `PdfTextLayerUnavailableError`. OCR is explicitly disabled.
+
+### 11.2 Text Report Parser (`TextLaboratoryReportParser`)
+- Deterministic parser for digital Polish / European laboratory PDF reports (Synevo, Diagnostyka, ALAB).
+- Extract Header: Automatically detects `collected_at` (Data pobrania), `reported_at`, and `laboratory_name`. Print dates are NOT treated as collection dates.
+- Extract Rows:
+  - Table rows separated by `|` or regex column patterns.
+  - Handles integer and decimal values with commas (`14,2`) or dots (`14.2`).
+  - Handles bounded inequalities (`< 0.01`, `> 1000`) and ranges (`12–16`).
+  - Handles qualitative values (`Dodatni`, `Ujemny`, `Obecne`).
+  - Preserves laboratory flags (`"H"`, `"L"`, `"*"`).
+  - Handles wrapped biomarker names across multiple lines.
+  - Skips page headers, footers, page numbers (`Strona 1 z 2`), and lab signatures.
+
+### 11.3 Use Case Orchestration & Dry-Run Mode (`ImportLaboratoryPdfUseCase`)
+- Orchestrates PDF Extraction $\rightarrow$ Report Parsing $\rightarrow$ Ingestion Pipeline $\rightarrow$ DuckDB Persistence.
+- `--dry-run` Mode: Executes extraction, parsing, alias matching, and unit normalization against a transient in-memory repository without writing to DuckDB database or creating persistent records.
+
+### 11.4 CLI Utility (`scripts/import_laboratory_pdf.py`)
+- Command line interface for importing digital PDF laboratory reports.
+- Privacy & Safety Policy:
+  - ZERO health values (`raw_value`), test names, or patient data printed to `stdout` / `stderr`.
+  - ZERO full extracted text printed or saved to disk.
+  - Controlled privacy-safe error messages with non-zero exit codes.
