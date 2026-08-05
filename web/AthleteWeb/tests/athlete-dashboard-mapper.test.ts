@@ -149,7 +149,7 @@ describe("AthleteDashboard payload boundary", () => {
     expect(result.kind).toBe("partial");
     if (result.kind !== "partial") return;
 
-    expect(result.missingData).toContain("Brak HRV");
+    expect(result.missingData).toContain("Brak zmienności rytmu serca (HRV)");
     expect(result.missingData).toContain("Brak danych snu");
     expect(result.briefing.reasons).not.toContain("HRV wróciło do normy");
     expect(result.briefing.reasons).not.toContain("Sen był lepszy niż zwykle");

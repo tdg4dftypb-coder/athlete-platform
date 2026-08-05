@@ -72,7 +72,7 @@ export const progressPreviewData: ProgressPresentation = Object.freeze({
     }),
   ]),
   trend: Object.freeze({
-    title: "Tygodniowy trend formy (CTL)",
+    title: "Długoterminowa kondycja",
     description: "Systematyczny wzrost przewidywanej wydolności tlenowej.",
     periodText: "Ostatnie 6 tygodni",
     points: Object.freeze([
@@ -96,12 +96,12 @@ export const progressPreviewData: ProgressPresentation = Object.freeze({
     title: "Dane i wskaźniki techniczne",
     metrics: Object.freeze([
       Object.freeze({ label: "Moc progowa (FTP)", valueText: "285 W", changeText: "+10 W", description: "Szacowana moc na progu" }),
-      Object.freeze({ label: "Baza HRV", valueText: "45.0 ms", changeText: "+7%", description: "7-dniowa średnia nocna" }),
-      Object.freeze({ label: "Forma (TSB / Form)", valueText: "-15.5 TSS", changeText: null, description: "Aktualny balans świeżości" }),
-      Object.freeze({ label: "Zmęczenie (ATL / Fatigue)", valueText: "44.3 TSS/d", changeText: null, description: "Obciążenie z 7 dni" }),
-      Object.freeze({ label: "Kondycja (CTL / Fitness)", valueText: "28.8 TSS/d", changeText: "+4.8", description: "Obciążenie z 42 dni" }),
+      Object.freeze({ label: "Zmienność rytmu serca (HRV)", valueText: "45.0 ms", changeText: "+7%", description: "7-dniowa średnia nocna" }),
+      Object.freeze({ label: "Świeżość treningowa (TSB)", valueText: "-15.5 TSS", changeText: null, description: "Aktualny balans świeżości" }),
+      Object.freeze({ label: "Krótkoterminowe obciążenie (ATL)", valueText: "44.3 TSS/d", changeText: null, description: "Obciążenie z 7 dni" }),
+      Object.freeze({ label: "Długoterminowa kondycja (CTL)", valueText: "28.8 TSS/d", changeText: "+4.8", description: "Obciążenie z 42 dni" }),
       Object.freeze({ label: "Aktualna masa ciała", valueText: "80.0 kg", changeText: "-1.5 kg", description: "Waga poranna" }),
-      Object.freeze({ label: "Obciążenie tyg. (TSS)", valueText: "310 TSS", changeText: null, description: "Suma obciążenia z 7 dni" }),
+      Object.freeze({ label: "Tygodniowe obciążenie (TSS)", valueText: "310 TSS", changeText: null, description: "Suma obciążenia z 7 dni" }),
     ]),
   }),
 });

@@ -297,7 +297,7 @@ function createBreakdownSection(
       label: "Tkanka tłuszczowa",
       valueText: `${comp.body_fat_percent}%`,
       subtext: null,
-      statusTag: "BIA",
+      statusTag: "Analiza impedancji (BIA)",
     });
   }
 
@@ -306,7 +306,7 @@ function createBreakdownSection(
       label: "Masa mięśniowa",
       valueText: `${comp.muscle_mass_kg} kg`,
       subtext: null,
-      statusTag: "BIA",
+      statusTag: "Analiza impedancji (BIA)",
     });
   }
 

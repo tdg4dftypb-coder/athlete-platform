@@ -137,12 +137,12 @@ function createFactors(
   return [
     createFactor({
       id: "hrv",
-      label: "HRV",
+      label: "Zmienność rytmu serca (HRV)",
       valueText: formatOptional(payload.health.hrv_ms, "ms", context),
       status: payload.health.metadata.status,
       description: payload.health.hrv_ms === null
-        ? "Dzisiejszy pomiar HRV nie jest dostępny."
-        : "Dzisiejszy pomiar HRV jest dostępny w odprawie.",
+        ? "Dzisiejszy pomiar zmienności rytmu serca (HRV) nie jest dostępny."
+        : "Dzisiejszy pomiar zmienności rytmu serca (HRV) jest dostępny w odprawie.",
     }),
     createFactor({
       id: "sleep",
@@ -254,7 +254,7 @@ function createDetails(
 function collectMissingData(payload: AthleteDashboardPayloadV1): readonly string[] {
   const missing = new Set<string>();
   if (payload.recovery.recovery_score === null) missing.add("Brak wskaźnika regeneracji");
-  if (payload.health.hrv_ms === null) missing.add("Brak HRV");
+  if (payload.health.hrv_ms === null) missing.add("Brak zmienności rytmu serca (HRV)");
   if (payload.health.sleep_minutes === null) missing.add("Brak czasu snu");
   if (payload.health.resting_heart_rate_bpm === null) {
     missing.add("Brak tętna spoczynkowego");

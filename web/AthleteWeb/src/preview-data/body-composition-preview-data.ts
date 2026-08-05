@@ -48,7 +48,7 @@ export const bodyCompositionPreviewData: BodyCompositionPresentation = Object.fr
       trendDirection: "down",
       valueText: "-1.2%",
       periodText: "ostatnie 28 dni",
-      qualityNote: "Analiza bioimpedancji BIA",
+      qualityNote: "Analiza impedancji (BIA)",
       iconName: "heart",
     }),
     Object.freeze({

@@ -112,7 +112,6 @@ function createProgress(
   payload: AthleteDashboardPayloadV1,
   header: ProgressPresentationHeader,
 ): ProgressPresentation {
-  const ctl = payload.performance.fitness_tss_per_day;
   const tsb = payload.performance.form_tss_per_day;
   const hasForm = tsb !== null;
 
@@ -128,7 +127,7 @@ function createProgress(
 
   const improvements = createImprovements(payload);
   const areasToImprove = createAreasToImprove(payload);
-  const trend = createTrendPresentation(ctl);
+  const trend = createTrend(payload);
   const aiSummary = createAISummary(payload);
   const technicalMetrics = createTechnicalMetrics(payload);
 
@@ -246,18 +245,22 @@ function createAreasToImprove(
   return items.slice(0, 3);
 }
 
-function createTrendPresentation(currentCtl: number | null): ProgressPresentation["trend"] {
+function createTrend(
+  payload: AthleteDashboardPayloadV1,
+): ProgressPresentation["trend"] {
+  const currentCtl = payload.performance.fitness_tss_per_day;
+
   if (currentCtl === null) {
     return {
-      title: "Tygodniowy trend formy (CTL)",
+      title: "Długoterminowa kondycja",
       description: "Trend pojawi się po zebraniu wystarczającej historii danych.",
-      periodText: "Brak historii",
+      periodText: "Brak historii obciążenia",
       points: [],
     };
   }
 
   return {
-    title: "Tygodniowy trend formy (CTL)",
+    title: "Długoterminowa kondycja",
     description: "Długoterminowy wskaźnik obciążenia treningowego z bieżącego pomiaru.",
     periodText: "Bieżąca wartość",
     points: [
@@ -271,13 +274,13 @@ function createAISummary(
 ): ProgressPresentation["aiSummary"] {
   const workoutName = payload.training.workout_name ?? "treningów";
   const hrv = payload.health.hrv_ms;
-  const hrvText = hrv !== null ? `HRV na poziomie ${hrv} ms` : "stabilne wskaźniki regeneracji";
+  const hrvText = hrv !== null ? `zmienność rytmu serca na poziomie ${hrv} ms` : "stabilne wskaźniki regeneracji";
 
   return {
     title: "Podsumowanie Trenera AI",
     paragraphs: [
       `Analiza danych z ostatnich tygodni potwierdza prawidłową odpowiedź organizmu na zadane obciążenia. Praca nad ${workoutName} przynosi zamierzone efekty adaptacyjne.`,
-      `Twoje ${hrvText} pozwalają na bezpieczne kontynuowanie zaplanowanego cyklu bez ryzyka przetrenowania.`,
+      `Twoje ${hrvText} pozwala na bezpieczne kontynuowanie zaplanowanego cyklu bez ryzyka przetrenowania.`,
       "Skup się na rygorystycznym przestrzeganiu regeneracji powyczerpaniowej i nawodnieniu w trakcie dłuższych sesji.",
     ],
   };
@@ -290,25 +293,25 @@ function createTechnicalMetrics(
 
   if (payload.performance.fitness_tss_per_day !== null) {
     metrics.push({
-      label: "Kondycja (CTL / Fitness)",
+      label: "Długoterminowa kondycja (CTL)",
       valueText: `${payload.performance.fitness_tss_per_day} TSS/d`,
       changeText: null,
-      description: "Długoterminowe obciążenie (42 dni)",
+      description: "Obciążenie treningowe z 42 dni",
     });
   }
 
   if (payload.performance.fatigue_tss_per_day !== null) {
     metrics.push({
-      label: "Zmęczenie (ATL / Fatigue)",
+      label: "Krótkoterminowe obciążenie (ATL)",
       valueText: `${payload.performance.fatigue_tss_per_day} TSS/d`,
       changeText: null,
-      description: "Krótkoterminowe obciążenie (7 dni)",
+      description: "Obciążenie treningowe z 7 dni",
     });
   }
 
   if (payload.performance.form_tss_per_day !== null) {
     metrics.push({
-      label: "Forma (TSB / Form)",
+      label: "Świeżość treningowa (TSB)",
       valueText: `${payload.performance.form_tss_per_day} TSS/d`,
       changeText: null,
       description: "Balans świeżości i obciążenia",
@@ -317,7 +320,7 @@ function createTechnicalMetrics(
 
   if (payload.health.hrv_ms !== null) {
     metrics.push({
-      label: "Baza HRV",
+      label: "Zmienność rytmu serca (HRV)",
       valueText: `${payload.health.hrv_ms} ms`,
       changeText: null,
       description: "Nocna zmienność rytmu serca",
@@ -336,7 +339,7 @@ function createTechnicalMetrics(
 
   if (payload.performance.weekly_training_load_tss !== null) {
     metrics.push({
-      label: "Obciążenie tyg. (TSS)",
+      label: "Tygodniowe obciążenie (TSS)",
       valueText: `${payload.performance.weekly_training_load_tss} TSS`,
       changeText: null,
       description: "Suma obciążenia z 7 dni",
@@ -353,10 +356,10 @@ function collectMissingData(
   payload: AthleteDashboardPayloadV1,
 ): readonly string[] {
   const missing: string[] = [];
-  if (payload.performance.fitness_tss_per_day === null) missing.push("Brak wskaźnika CTL (Kondycja)");
-  if (payload.performance.form_tss_per_day === null) missing.push("Brak wskaźnika TSB (Forma)");
+  if (payload.performance.fitness_tss_per_day === null) missing.push("Brak wskaźnika długoterminowej kondycji (CTL)");
+  if (payload.performance.form_tss_per_day === null) missing.push("Brak wskaźnika świeżości treningowej (TSB)");
   if (payload.performance.weekly_training_load_tss === null) missing.push("Brak obciążenia tygodniowego");
-  if (payload.health.hrv_ms === null) missing.push("Brak wskaźnika HRV");
+  if (payload.health.hrv_ms === null) missing.push("Brak wskaźnika zmienności rytmu serca (HRV)");
   if (payload.performance.metadata.status === "partial") missing.push("Sekcja wydolności ma niepełne dane");
   return missing;
 }

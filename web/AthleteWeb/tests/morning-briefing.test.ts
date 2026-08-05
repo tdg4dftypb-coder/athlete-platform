@@ -27,8 +27,8 @@ describe("Morning Briefing", () => {
     expect(translateRecommendationMessage("Perform mobility work.")).toBe("Wykonaj dziś krótką sesję mobilności.");
   });
 
-  it("handles unknown recommendation strings safely without crashing", () => {
-    expect(translateRecommendationMessage("Custom recommendation message")).toBe("Custom recommendation message");
+  it("handles unknown recommendation strings safely using neutral Polish fallback", () => {
+    expect(translateRecommendationMessage("Custom unknown recommendation")).toBe("Sprawdź szczegóły rekomendacji.");
   });
 
   it("ready renders every main section", () => {

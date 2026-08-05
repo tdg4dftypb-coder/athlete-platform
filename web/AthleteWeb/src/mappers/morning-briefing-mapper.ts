@@ -24,7 +24,7 @@ export function translateRecommendationMessage(message: string): string {
     "Increase hydration.": "Zadbaj dziś o większą podaż płynów.",
     "Perform mobility work.": "Wykonaj dziś krótką sesję mobilności.",
   };
-  return dictionary[message] ?? message;
+  return dictionary[message] ?? "Sprawdź szczegóły rekomendacji.";
 }
 
 export function parseAndMapAthleteDashboardToMorningBriefing(
@@ -150,7 +150,7 @@ function hasKeyDecision(payload: AthleteDashboardPayloadV1): boolean {
 
 function supportingDataGaps(payload: AthleteDashboardPayloadV1): readonly string[] {
   const gaps = new Set<string>();
-  if (payload.health.hrv_ms === null) gaps.add("Brak HRV");
+  if (payload.health.hrv_ms === null) gaps.add("Brak zmienności rytmu serca (HRV)");
   if (payload.health.sleep_minutes === null) gaps.add("Brak danych snu");
   if (payload.health.metadata.status !== "ready") gaps.add("Niepełne dane zdrowotne");
   if (payload.recovery.metadata.status !== "ready") gaps.add("Brak pełnej oceny regeneracji");
