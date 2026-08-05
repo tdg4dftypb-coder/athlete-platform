@@ -23,6 +23,8 @@ class LaboratoryRepository(Protocol):
 
     def get_report(self, report_id: str) -> Optional[LaboratoryReport]: ...
 
+    def get_all_reports(self) -> Tuple[LaboratoryReport, ...]: ...
+
     def get_import_runs(self, report_id: str) -> Tuple[LaboratoryImportRun, ...]: ...
 
     def get_active_import_run(self, report_id: str) -> Optional[LaboratoryImportRun]: ...
@@ -74,6 +76,10 @@ class InMemoryLaboratoryRepository:
             if not report_id:
                 return None
             return self._reports.get(report_id.strip())
+
+    def get_all_reports(self) -> Tuple[LaboratoryReport, ...]:
+        with self._lock:
+            return tuple(self._reports.values())
 
     def get_import_runs(self, report_id: str) -> Tuple[LaboratoryImportRun, ...]:
         with self._lock:

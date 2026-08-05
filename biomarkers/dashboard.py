@@ -167,8 +167,11 @@ class BiomarkersDashboardBuilder:
         active_reports_count = 0
         latest_coll_dt: Optional[datetime] = None
 
-        # Fetch reports list if repository supports listing or iterate stored reports
-        reports = getattr(self.repository, "_reports", {}).values()
+        # Fetch reports list if repository supports get_all_reports or fallback to _reports
+        if hasattr(self.repository, "get_all_reports"):
+            reports = self.repository.get_all_reports()
+        else:
+            reports = tuple(getattr(self.repository, "_reports", {}).values())
         reports_count = len(reports)
 
         for report in reports:

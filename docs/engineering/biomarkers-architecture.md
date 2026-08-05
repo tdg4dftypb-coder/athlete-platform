@@ -348,3 +348,35 @@ The ingestion pipeline orchestrates document identity, extraction, row parsing, 
 - **Controlled Error Contract**:
   - Internal processing failures return HTTP `500 Internal Server Error` with `{"error": "Internal server error generating biomarkers payload"}`.
   - Zero stack traces, zero health metric leakage, zero document hashes in error payloads.
+
+---
+
+## 10. DuckDB Persistence Subsystem (Sprint 7A)
+
+### 10.1 Database Selection & Rationale
+The persistent DuckDB adapter uses a dedicated database file:
+$$\text{Path: } \text{data/database/biomarkers.duckdb}$$
+
+**Rationale for Dedicated Database**:
+1. **Safety & Domain Isolation**: Decouples sensitive laboratory intelligence from core athlete metrics in `health.duckdb`, preventing accidental schema corruption or data loss during lab module iterations.
+2. **Granular Privacy & Purge Control**: Enables independent backup, encryption, or full deletion (`DELETE_EVERYTHING`) without impacting core morning briefing metrics.
+3. **Environment & Testing Safety**: `biomarkers.duckdb` is ignored by `.gitignore` (`*.duckdb`). Unit and integration tests run strictly against isolated temporary DuckDB files (`tmp_path`) or `:memory:`, ensuring zero mutation of production or local health databases.
+
+### 10.2 Database Schema & Migration Strategy (`schema_version = 1`)
+Managed by `biomarkers/persistence/schema.py` and `biomarkers/persistence/migrations.py`:
+- `schema_version`: `version` (INTEGER PRIMARY KEY), `applied_at` (TIMESTAMP).
+- `laboratory_reports`: `report_id`, `collected_at`, `reported_at`, `laboratory_name`, `source_type`, `source_document_hash`, `created_at`.
+- `laboratory_import_runs`: `import_run_id`, `report_id`, `parser_version`, `extractor_version`, `registry_version`, `unit_rules_version`, `started_at`, `completed_at`, `status`, `active`, `warnings_json`.
+- `laboratory_observations`: 45 domain columns mapping all `LaboratoryObservation` fields (`observation_id`, `import_run_id`, `report_id`, `report_row_index`, `raw_name`, `raw_value`, `raw_unit`, `canonical_code`, `normalization_status`, `requires_review`, `value_type`, `numeric_value`, `text_value`, `normalized_value`, `normalized_unit`, reference range, flags, confidence scores, verification status, metadata_json).
+- `laboratory_tombstones`: `tombstone_id`, `source_document_hash`, `deleted_at`.
+
+### 10.3 Idempotency & Transactional Invariants
+- `save_report_with_import_run`: Atomically inserts/updates report header, import run header, and observations in a single DuckDB transaction (`BEGIN TRANSACTION` ... `COMMIT`).
+- `activate_import_run`: Enforces ADR-012 invariant (at most 1 active run per `report_id`). Atomically sets `active = FALSE` for all runs of `report_id`, then sets `active = TRUE` for target run.
+- `find_report_by_source_hash`: Checks `laboratory_tombstones` first. If tombstone exists, returns `None` to prevent accidental auto-resurrection.
+- `delete_report`: Atomic single-transaction deletion supporting `DELETE_DATA_KEEP_TOMBSTONE` and `DELETE_EVERYTHING`.
+
+### 10.4 Composition & Environment Configuration
+- `BIOMARKERS_REPOSITORY`: Configurable via `build_repository_from_env()`.
+  - `"in_memory"` (default for fast unit testing and lightweight mock runtime)
+  - `"duckdb"` (persistent runtime using `BIOMARKERS_DB_PATH` or `data/database/biomarkers.duckdb`).
