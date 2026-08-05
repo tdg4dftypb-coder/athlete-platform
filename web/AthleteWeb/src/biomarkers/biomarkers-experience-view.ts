@@ -34,9 +34,9 @@ export function createBiomarkersExperienceApp(
       loadingSection.setAttribute("aria-live", "polite");
 
       loadingSection.innerHTML = `
-        <div class="skeleton-pill" style="height: 1.5rem; width: 60%; margin-bottom: 1rem; background: var(--color-bg-tertiary); border-radius: 4px;"></div>
-        <div class="skeleton-pill" style="height: 4rem; width: 100%; margin-bottom: 1rem; background: var(--color-bg-tertiary); border-radius: 8px;"></div>
-        <div class="skeleton-pill" style="height: 8rem; width: 100%; background: var(--color-bg-tertiary); border-radius: 8px;"></div>
+        <div class="skeleton-pill" style="height: 1.5rem; width: 60%; margin-bottom: 1rem; background: var(--color-surface-muted); border-radius: 4px;"></div>
+        <div class="skeleton-pill" style="height: 4rem; width: 100%; margin-bottom: 1rem; background: var(--color-surface-muted); border-radius: 8px;"></div>
+        <div class="skeleton-pill" style="height: 8rem; width: 100%; background: var(--color-surface-muted); border-radius: 8px;"></div>
       `;
       main.appendChild(loadingSection);
       break;
@@ -97,7 +97,7 @@ export function createBiomarkersExperienceApp(
       const placeholderBtn = document.createElement("button");
       placeholderBtn.type = "button";
       placeholderBtn.className = "btn-action-placeholder";
-      placeholderBtn.style.cssText = "padding: 0.7rem 1.5rem; border-radius: 8px; background: var(--color-bg-tertiary); color: var(--color-text-primary); border: 1px solid var(--color-border); font-weight: 600; cursor: not-allowed; opacity: 0.8;";
+      placeholderBtn.style.cssText = "padding: 0.7rem 1.5rem; border-radius: 8px; background: var(--color-surface-muted); color: var(--color-text-primary); border: 1px solid var(--color-border); font-weight: 600; cursor: not-allowed; opacity: 0.8;";
       placeholderBtn.textContent = state.nextAction;
       placeholderBtn.setAttribute("aria-disabled", "true");
       unavSection.appendChild(placeholderBtn);
@@ -134,19 +134,19 @@ export function createBiomarkersExperienceApp(
       pillGrid.style.cssText = "display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem; margin-bottom: 0.8rem;";
 
       pillGrid.innerHTML = `
-        <div style="background: var(--color-bg-tertiary); padding: 0.6rem; border-radius: 6px;">
+        <div style="background: var(--color-surface-muted); padding: 0.6rem; border-radius: 6px;">
           <small style="color: var(--color-text-secondary); display: block;">Raporty</small>
           <strong>${pres.summary.totalReports}</strong>
         </div>
-        <div style="background: var(--color-bg-tertiary); padding: 0.6rem; border-radius: 6px;">
+        <div style="background: var(--color-surface-muted); padding: 0.6rem; border-radius: 6px;">
           <small style="color: var(--color-text-secondary); display: block;">Biomarkery</small>
           <strong>${pres.summary.totalObservations}</strong>
         </div>
-        <div style="background: var(--color-bg-tertiary); padding: 0.6rem; border-radius: 6px;">
+        <div style="background: var(--color-surface-muted); padding: 0.6rem; border-radius: 6px;">
           <small style="color: var(--color-text-secondary); display: block;">Do weryfikacji</small>
           <strong>${pres.unresolvedCount}</strong>
         </div>
-        <div style="background: var(--color-bg-tertiary); padding: 0.6rem; border-radius: 6px;">
+        <div style="background: var(--color-surface-muted); padding: 0.6rem; border-radius: 6px;">
           <small style="color: var(--color-text-secondary); display: block;">Ostatnie badanie</small>
           <strong style="font-size: 0.85rem;">${pres.summary.latestCollectionDate ?? "Brak"}</strong>
         </div>
@@ -154,8 +154,8 @@ export function createBiomarkersExperienceApp(
       heroCard.appendChild(pillGrid);
 
       const compText = document.createElement("div");
-      compText.style.cssText = "font-size: 0.82rem; color: var(--color-text-secondary); border-top: 1px solid var(--color-border); padding-top: 0.6rem;";
-      compText.textContent = `${pres.completenessLabel} | ${pres.latestCollectionLabel}`;
+      compText.style.cssText = "display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.4rem; font-size: 0.78rem; color: var(--color-text-secondary); border-top: 1px solid var(--color-border); padding-top: 0.6rem;";
+      compText.innerHTML = `<span>${pres.completenessLabel}</span><span>${pres.latestCollectionLabel}</span>`;
       heroCard.appendChild(compText);
 
       main.appendChild(heroCard);
@@ -164,13 +164,13 @@ export function createBiomarkersExperienceApp(
       if (state.kind === "stale") {
         const staleNotice = document.createElement("section");
         staleNotice.className = "card card-notice warning-notice";
-        staleNotice.style.cssText = "border-left: 4px solid var(--color-border); padding: 0.8rem 1rem; margin-bottom: 1rem;";
+        staleNotice.style.cssText = "border-left: 4px solid var(--color-warning); padding: 0.8rem 1rem; margin-bottom: 1rem;";
         staleNotice.textContent = `${state.message} (${state.lastUpdatedText})`;
         main.appendChild(staleNotice);
       } else if (state.kind === "partial") {
         const partialNotice = document.createElement("section");
         partialNotice.className = "card card-notice warning-notice";
-        partialNotice.style.cssText = "border-left: 4px solid var(--color-border); padding: 0.8rem 1rem; margin-bottom: 1rem;";
+        partialNotice.style.cssText = "border-left: 4px solid var(--color-info); padding: 0.8rem 1rem; margin-bottom: 1rem;";
         partialNotice.textContent = state.message;
         main.appendChild(partialNotice);
       }
@@ -228,17 +228,17 @@ export function createBiomarkersExperienceApp(
         for (const b of cat.biomarkers) {
           const bLi = document.createElement("li");
           bLi.className = "biomarker-item-row";
-          bLi.style.cssText = "padding: 0.75rem; border-radius: 6px; background: var(--color-bg-tertiary); display: flex; flex-direction: column; gap: 0.35rem;";
+          bLi.style.cssText = "padding: 0.75rem; border-radius: 6px; background: var(--color-surface-muted); display: flex; flex-direction: column; gap: 0.35rem;";
 
           const mainRow = document.createElement("div");
-          mainRow.style.cssText = "display: flex; justify-content: space-between; align-items: baseline;";
+          mainRow.style.cssText = "display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; flex-wrap: wrap;";
 
           const bName = document.createElement("span");
-          bName.style.cssText = "font-weight: 680; font-size: 0.9rem;";
+          bName.style.cssText = "font-weight: 680; font-size: 0.9rem; flex: 1 1 auto; overflow-wrap: anywhere;";
           bName.textContent = b.name;
 
           const bVal = document.createElement("span");
-          bVal.style.cssText = "font-weight: 700; font-size: 0.95rem;";
+          bVal.style.cssText = "font-weight: 700; font-size: 0.95rem; text-align: right; margin-left: auto; flex: 0 0 auto;";
           bVal.textContent = `${b.valueLabel} ${b.unitLabel}`.trim();
 
           mainRow.append(bName, bVal);
@@ -252,13 +252,13 @@ export function createBiomarkersExperienceApp(
 
           if (b.laboratoryFlag) {
             const flagSpan = document.createElement("span");
-            flagSpan.style.cssText = "font-weight: 600; padding: 0.1rem 0.3rem; border-radius: 4px; background: var(--color-bg-primary);";
+            flagSpan.style.cssText = "font-weight: 600; padding: 0.1rem 0.35rem; border-radius: 4px; background: var(--color-surface-elevated); border: 1px solid var(--color-border);";
             flagSpan.textContent = b.laboratoryFlag;
             metaRow.appendChild(flagSpan);
           }
 
           const trendBadge = document.createElement("span");
-          trendBadge.style.cssText = "padding: 0.1rem 0.4rem; border-radius: 4px; background: var(--color-bg-primary); font-weight: 500;";
+          trendBadge.style.cssText = "padding: 0.1rem 0.4rem; border-radius: 4px; background: var(--color-surface-elevated); font-weight: 500; border: 1px solid var(--color-border);";
           trendBadge.textContent = `Trend: ${b.trendLabel}`;
           metaRow.appendChild(trendBadge);
 
@@ -273,12 +273,20 @@ export function createBiomarkersExperienceApp(
         listContainer.appendChild(bList);
         catCard.appendChild(listContainer);
 
-        // Accordion Toggle Handler
-        toggleBtn.addEventListener("click", () => {
+        // Accordion Toggle Handler with Keyboard accessibility
+        const toggleAccordion = () => {
           const expanded = toggleBtn.getAttribute("aria-expanded") === "true";
           toggleBtn.setAttribute("aria-expanded", String(!expanded));
           listContainer.style.display = expanded ? "none" : "block";
           chevron.style.transform = expanded ? "rotate(0deg)" : "rotate(180deg)";
+        };
+
+        toggleBtn.addEventListener("click", toggleAccordion);
+        toggleBtn.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            toggleAccordion();
+          }
         });
 
         main.appendChild(catCard);
@@ -299,7 +307,7 @@ export function createBiomarkersExperienceApp(
 
         for (const u of pres.unresolvedItems) {
           const uLi = document.createElement("li");
-          uLi.style.cssText = "padding: 0.65rem 0.8rem; border-radius: 6px; background: var(--color-bg-tertiary); font-size: 0.85rem;";
+          uLi.style.cssText = "padding: 0.65rem 0.8rem; border-radius: 6px; background: var(--color-surface-muted); font-size: 0.85rem;";
           uLi.innerHTML = `
             <div style="font-weight: 600;">${u.name} <span style="font-weight: 400; color: var(--color-text-secondary);">[${u.unit}]</span></div>
             <div style="font-size: 0.78rem; color: var(--color-text-secondary); margin-top: 0.2rem;">${u.reason} • ${u.collectedAtLabel}</div>
