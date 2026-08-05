@@ -425,3 +425,19 @@ Managed by `biomarkers/persistence/schema.py` and `biomarkers/persistence/migrat
   - ZERO health values (`raw_value`), test names, or patient data printed to `stdout` / `stderr`.
   - ZERO full extracted text printed or saved to disk.
   - Controlled privacy-safe error messages with non-zero exit codes.
+
+---
+
+## 12. ALAB Report Parser & Biomarker Registry Hardening (Sprint 7C)
+
+### 12.1 Specialized ALAB Parser (`AlabTextLaboratoryReportParser`)
+- Format Auto-Detection: `can_parse()` detects ALAB laboratoria headers and section text.
+- Parser Selection Boundary (`get_report_parser_for_document`): Automatically dispatches to `AlabTextLaboratoryReportParser` when ALAB signature is present, preserving `TextLaboratoryReportParser` as generic fallback.
+- Header Date Parsing: Extracts `data i godz. pobrania:` across document sections. Sets `collected_at` if exactly one unique collection date is present. Does not substitute execution date or print date.
+- Multiline Result Rows: Correctly associates wrapped biomarker names on line $N-1$ with numeric results on line $N$ without prepending section titles (`Morfologia krwi`, `Układ krzepnięcia`).
+- Qualitative & One-Sided Bounds: Supports qualitative values (`nieobecny`, `obecny`), single-sided reference bounds (`< 500`, `< 0,04`), and distinct numeric vs qualitative marker pairs (`HBsAg`).
+
+### 12.2 BiomarkerRegistry & Unit Registry Expansion
+- Comprehensive Polish ALAB Aliases: Added explicit aliases for complete CBC morphology, white blood cell differential (`WBC`, `NEU#`, `NEU%`, `LYMPH#`, `LYMPH%`, `MON#`, `MON%`, `EOS#`, `EOS%`, `BASO#`, `BASO%`, `IG#`, `IG%`), coagulation (`APTT`, `PT`, `INR`, `D-dimer`), and immunochemistry (`HBsAg`).
+- Distinct Canonical Codes: Strictly separates `rdw_cv` (percentage `%`) from `rdw_sd` (femtoliters `fL`), `hbs_antigen_numeric` from `hbs_antigen_qualitative`.
+- Unit Normalization Aliases: Maps ALAB representations (`10^3/µl`, `10^6/µl`, `fL`, `pg`, `sek`, `ng/mL FEU`, `S/CO`).

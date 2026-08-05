@@ -16,7 +16,11 @@ from biomarkers.ingestion import (
     LaboratoryIngestionService,
 )
 from biomarkers.models import ImportRunStatus
-from biomarkers.parsing import ParsedReportHeader, TextLaboratoryReportParser
+from biomarkers.parsing import (
+    ParsedReportHeader,
+    TextLaboratoryReportParser,
+    get_report_parser_for_document,
+)
 from biomarkers.repository import InMemoryLaboratoryRepository, LaboratoryRepository
 
 
@@ -35,6 +39,10 @@ class PdfImportSummary:
     warnings: Tuple[str, ...]
     dry_run: bool = False
     duplicate_document: bool = False
+    laboratory_name: Optional[str] = None
+    collected_at_detected: bool = False
+    resolved_canonical_codes: Tuple[str, ...] = ()
+    unresolved_raw_names: Tuple[str, ...] = ()
 
 
 class ImportLaboratoryPdfUseCase:
@@ -50,9 +58,9 @@ class ImportLaboratoryPdfUseCase:
         parser: Optional[TextLaboratoryReportParser] = None,
     ) -> None:
         self.extractor = extractor or PdfTextLaboratoryDocumentExtractor()
+        self.custom_parser = parser
         self.parser = parser or TextLaboratoryReportParser()
         self.ingestion_service = ingestion_service
-        # Configure ingestion service to use text PDF extractor and parser ports
         self.ingestion_service.extractor = self.extractor
         self.ingestion_service.parser = self.parser
 
@@ -71,9 +79,13 @@ class ImportLaboratoryPdfUseCase:
         # 1. Extract PDF Text Layer
         extracted_doc = self.extractor.extract(pdf_content)
 
-        # 2. Parse Raw Laboratory Rows
-        raw_rows = self.parser.parse(extracted_doc)
-        header: ParsedReportHeader = getattr(self.parser, "last_parsed_header", None) or ParsedReportHeader()
+        # 2. Select Appropriate Parser (ALAB specialized vs generic fallback)
+        active_parser = self.custom_parser or get_report_parser_for_document(extracted_doc)
+        self.ingestion_service.parser = active_parser
+
+        # 3. Parse Raw Laboratory Rows
+        raw_rows = active_parser.parse(extracted_doc)
+        header: ParsedReportHeader = getattr(active_parser, "last_parsed_header", None) or ParsedReportHeader()
 
         lab_name = laboratory_name_override or header.laboratory_name
         collected_at = collected_at_override or header.collected_at
@@ -83,7 +95,7 @@ class ImportLaboratoryPdfUseCase:
         if not raw_rows:
             warnings_list.append("No laboratory result rows could be extracted from document text layer.")
 
-        # 3. Handle Dry Run vs Persistent Ingestion
+        # 4. Handle Dry Run vs Persistent Ingestion
         if dry_run:
             transient_repo = InMemoryLaboratoryRepository()
             dry_service = LaboratoryIngestionService(
@@ -91,7 +103,7 @@ class ImportLaboratoryPdfUseCase:
                 biomarker_registry=self.ingestion_service.biomarker_registry,
                 unit_normalizer=self.ingestion_service.unit_normalizer,
                 extractor=self.extractor,
-                parser=self.parser,
+                parser=active_parser,
                 clock=self.ingestion_service.clock,
             )
             req = LaboratoryIngestionRequest(
@@ -103,6 +115,10 @@ class ImportLaboratoryPdfUseCase:
                 laboratory_name_fallback=lab_name,
             )
             res = dry_service.ingest(req)
+
+            resolved_codes = tuple(sorted({o.canonical_code for o in res.observations if o.canonical_code}))
+            unresolved_names = tuple(sorted({o.raw_name for o in res.observations if not o.canonical_code}))
+
             return PdfImportSummary(
                 report_id="dry-run",
                 import_run_id="dry-run",
@@ -115,6 +131,10 @@ class ImportLaboratoryPdfUseCase:
                 warnings=tuple(warnings_list + list(res.warnings)),
                 dry_run=True,
                 duplicate_document=res.duplicate_document,
+                laboratory_name=lab_name,
+                collected_at_detected=collected_at is not None,
+                resolved_canonical_codes=resolved_codes,
+                unresolved_raw_names=unresolved_names,
             )
 
         # Persistent Ingestion
@@ -129,6 +149,9 @@ class ImportLaboratoryPdfUseCase:
 
         res = self.ingestion_service.ingest(req)
 
+        resolved_codes = tuple(sorted({o.canonical_code for o in res.observations if o.canonical_code}))
+        unresolved_names = tuple(sorted({o.raw_name for o in res.observations if not o.canonical_code}))
+
         return PdfImportSummary(
             report_id=res.report.report_id if res.report else None,
             import_run_id=res.import_run.import_run_id if res.import_run else None,
@@ -141,4 +164,8 @@ class ImportLaboratoryPdfUseCase:
             warnings=tuple(warnings_list + list(res.warnings)),
             dry_run=False,
             duplicate_document=res.duplicate_document,
+            laboratory_name=lab_name,
+            collected_at_detected=collected_at is not None,
+            resolved_canonical_codes=resolved_codes,
+            unresolved_raw_names=unresolved_names,
         )

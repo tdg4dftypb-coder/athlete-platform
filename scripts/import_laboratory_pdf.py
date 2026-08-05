@@ -59,7 +59,7 @@ def main() -> int:
         print(f"Error reading PDF file content: {type(err).__name__}", file=sys.stderr)
         return 1
 
-    # Initialize Application Context with persistent DuckDB repository
+    # Initialize Application Context
     try:
         ctx = BiomarkersApplicationContext(db_path=args.db_path)
         use_case = ImportLaboratoryPdfUseCase(ingestion_service=ctx.ingestion_service)
@@ -88,12 +88,20 @@ def main() -> int:
         return 1
 
     if args.show_summary or summary.dry_run:
+        resolved_cnt = len(summary.resolved_canonical_codes)
         print("--- Execution Summary ---")
+        print(f"  Laboratory:             {summary.laboratory_name or 'Unknown'}")
+        print(f"  Collection Date Found:  {'YES' if summary.collected_at_detected else 'NO'}")
         print(f"  Page Count:             {summary.page_count}")
         print(f"  Extracted Rows:         {summary.extracted_rows_count}")
         print(f"  Imported Observations:  {summary.imported_observations_count}")
+        print(f"  Resolved Biomarkers:    {resolved_cnt}")
         print(f"  Unresolved Items:       {summary.unresolved_observations_count}")
         print(f"  Possible Duplicates:    {summary.possible_duplicates_count}")
+        if summary.resolved_canonical_codes:
+            print(f"  Recognized Codes:       [{', '.join(summary.resolved_canonical_codes)}]")
+        if summary.unresolved_raw_names:
+            print(f"  Unresolved Names:       [{', '.join(summary.unresolved_raw_names)}]")
         if summary.report_id:
             print(f"  Report ID:              {summary.report_id}")
         if summary.warnings:
