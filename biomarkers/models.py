@@ -311,3 +311,93 @@ def calculate_observation_fingerprint(
     ]
     payload = "|".join(components).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
+
+
+def create_laboratory_observation(
+    observation_id: str,
+    report_id: str,
+    import_run_id: str,
+    report_row_index: int,
+    raw_name: str,
+    raw_value: str,
+    raw_unit: str,
+    source_document_hash: str,
+    collected_at: datetime,
+    parsed_value: Any,
+    biomarker_match: Any,
+    unit_result: Optional[Any] = None,
+    confidence_components: Optional[Any] = None,
+    laboratory_reference_range: Optional[LaboratoryReferenceRange] = None,
+    laboratory_flag: Optional[str] = None,
+    laboratory_provided_critical_flag: Optional[str] = None,
+    source_type: str = "pdf_text",
+    laboratory_name: Optional[str] = None,
+    is_possible_duplicate: bool = False,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> LaboratoryObservation:
+    """
+    Factory function for instantiating a LaboratoryObservation from parsed values and registry matches.
+    Keeps raw fields 100% intact and leaves platform_message_level neutral (INFORMATIONAL).
+    """
+    fingerprint = calculate_observation_fingerprint(
+        source_document_hash=source_document_hash,
+        report_id=report_id,
+        import_run_id=import_run_id,
+        report_row_index=report_row_index,
+        raw_name=raw_name,
+        raw_value=raw_value,
+        raw_unit=raw_unit,
+        collected_at=collected_at,
+    )
+
+    norm_val = unit_result.normalized_value if unit_result else None
+    norm_unit = unit_result.normalized_unit if unit_result else None
+
+    # Confidence components
+    name_conf = confidence_components.name_confidence if confidence_components else 1.0
+    val_conf = confidence_components.value_confidence if confidence_components else 1.0
+    unit_conf = confidence_components.unit_confidence if confidence_components else 1.0
+    ref_conf = confidence_components.reference_confidence if confidence_components else 1.0
+    ext_conf = confidence_components.extraction_confidence if confidence_components else 1.0
+    ver_stat = confidence_components.verification_status if confidence_components else VerificationStatus.UNVERIFIED
+
+    return LaboratoryObservation(
+        observation_id=observation_id,
+        report_id=report_id,
+        import_run_id=import_run_id,
+        report_row_index=report_row_index,
+        observation_source_fingerprint=fingerprint,
+        raw_name=raw_name,
+        raw_value=raw_value,
+        raw_unit=raw_unit,
+        canonical_code=biomarker_match.canonical_code,
+        normalization_status=biomarker_match.normalization_status,
+        requires_review=biomarker_match.requires_review,
+        alias_match_confidence=biomarker_match.alias_match_confidence,
+        value_type=parsed_value.value_type,
+        numeric_value=parsed_value.numeric_value,
+        text_value=parsed_value.text_value,
+        qualitative_value=parsed_value.qualitative_value,
+        inequality_operator=parsed_value.inequality_operator,
+        range_low=parsed_value.range_low,
+        range_high=parsed_value.range_high,
+        normalized_value=norm_val,
+        normalized_unit=norm_unit,
+        laboratory_reference_range=laboratory_reference_range,
+        laboratory_flag=laboratory_flag,
+        laboratory_provided_critical_flag=laboratory_provided_critical_flag,
+        collected_at=collected_at,
+        laboratory_name=laboratory_name,
+        source_type=source_type,
+        source_document_hash=source_document_hash,
+        name_confidence=name_conf,
+        value_confidence=val_conf,
+        unit_confidence=unit_conf,
+        reference_confidence=ref_conf,
+        extraction_confidence=ext_conf,
+        overall_confidence=1.0,
+        verification_status=ver_stat,
+        platform_message_level=PlatformMessageLevel.INFORMATIONAL,  # Always neutral default
+        is_possible_duplicate=is_possible_duplicate,
+        metadata=metadata or {},
+    )

@@ -37,3 +37,33 @@ class InvalidImportRunError(BiomarkersError):
     """Raised when a LaboratoryImportRun fails validation or invariant checks."""
 
     pass
+
+
+class InvalidUnitConversionRuleError(BiomarkersError):
+    """Raised when a UnitConversionRule fails validation or invariant checks."""
+
+    pass
+
+
+class DuplicateUnitConversionRuleError(BiomarkersError):
+    """Raised when attempting to register a duplicate UnitConversionRule."""
+
+    pass
+
+
+class UnitConversionNotAvailableError(BiomarkersError):
+    """Raised when unit conversion is requested but no conversion rule exists."""
+
+    pass
+
+
+class InvalidLaboratoryValueError(BiomarkersError):
+    """Raised when parsing a laboratory raw value fails or input is invalid."""
+
+    pass
+
+
+class InvalidConfidenceComponentError(BiomarkersError):
+    """Raised when confidence component values fail validation."""
+
+    pass

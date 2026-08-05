@@ -219,13 +219,32 @@ When a raw lab name cannot be mapped to any `BiomarkerDefinition` in `BiomarkerR
 
 ---
 
-## 4. Confidence Scoring & Verification (Draft Policy)
+## 4. Value Parsing, Unit Conversion Engine & Confidence Assessment
 
-Component confidence scores are stored individually:
-- `name_confidence`, `value_confidence`, `unit_confidence`, `reference_confidence`, `extraction_confidence`, `overall_confidence`.
+### 4.1 Value Parser Contract (`ParsedLaboratoryValue`)
+The value parser parses raw strings into structured types without medical interpretation or OCR dependency:
+- Supports numeric (`14.2`), bounded inequalities (`< 0.01`, `>1000`), ranges (`12-16`), qualitative (`POSITIVE`, `NEGATIVE`, `Obecne`), and text (`Przejrzysty`).
+- Preserves `raw_value` intact.
 
-> [!NOTE]
-> Specific threshold weights and numerical cutoffs (e.g. 0.70 or 0.90) are classified as **Draft / Future Policy**. In MVP, any unverified or unresolved record requires review before affecting athletic decision inputs.
+### 4.2 Unit Conversion Engine Contract (`UnitNormalizer` & `UnitAliasRegistry`)
+- `UnitAliasRegistry`: Standardizes whitespace, Greek symbols (`μg/L`, `ug/L` → `µg/L`), and typographic capitalization variants (`mmol/l` → `mmol/L`).
+- `UnitNormalizer`: Converts values using exact match `(biomarker_code, source_unit, target_unit)` with formula:
+  $$\text{normalized} = \text{raw} \cdot \text{factor} + \text{offset}$$
+- `UnitNormalizationResult`: Explicitly returns `converted: bool`, `normalized_value`, `normalized_unit`, `reason`. If no rule exists, retains raw source unit without guessing.
+
+### 4.3 Confidence Components & Eligibility Policy (`ConfidenceComponents`)
+Individual component scores (`name_confidence`, `value_confidence`, `unit_confidence`, `reference_confidence`, `extraction_confidence`, `verification_status`) are stored separately without hardcoded weight formulas or arbitrary cutoffs (e.g. 0.70/0.90).
+
+#### Conservative Eligibility Rules (`evaluate_confidence_eligibility`):
+- **`eligible_for_trends`**:
+  - `normalization_status == RESOLVED`
+  - Valid parsed value (numeric, inequality, qualitative, or text)
+  - `verification_status != REJECTED`
+- **`eligible_for_ai_coach`**:
+  - Meets all `eligible_for_trends` criteria
+  - `verification_status == VERIFIED` by user
+  - `is_possible_duplicate == False`
+  - No automated medical diagnosis conclusions
 
 ---
 
