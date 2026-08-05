@@ -225,3 +225,7 @@ __marimo__/
 # Temporary scratch directories
 scratch/
 **/scratch/
+
+# Local private health data
+data/raw/export.xml
+data/database/*.duckdb
