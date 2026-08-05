@@ -28,7 +28,16 @@ def build_repository_from_env(
     - 'in_memory' (default for testing and lightweight runtime) -> InMemoryLaboratoryRepository
     - 'duckdb' -> DuckDBLaboratoryRepository (persisted to db_path or BIOMARKERS_DB_PATH)
     """
-    repo_kind = (repository_type or os.environ.get("BIOMARKERS_REPOSITORY", "in_memory")).strip().lower()
+    env_type = os.environ.get("BIOMARKERS_REPOSITORY")
+    if repository_type:
+        repo_kind = repository_type.strip().lower()
+    elif env_type:
+        repo_kind = env_type.strip().lower()
+    elif db_path:
+        repo_kind = "duckdb"
+    else:
+        repo_kind = "in_memory"
+
     if repo_kind == "duckdb":
         target_path = db_path or os.environ.get("BIOMARKERS_DB_PATH", "data/database/biomarkers.duckdb")
         return DuckDBLaboratoryRepository(db_path=target_path)
