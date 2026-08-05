@@ -442,6 +442,36 @@ Warstwa prezentacyjna Web (`AthleteWeb`) wymaga niezależnego od frameworka i ś
 - **Wbudowanie FastAPI/Uvicorn w Stage 11** — odrzucone; brak potrzeby produkcyjnego runtime na etapie budowy i walidacji warstwy UX.
 - **Szeroka polityka CORS na backendzie** — odrzucona; same-origin dev proxy Vite zapewnia czystsze i bezpieczniejsze środowisko deweloperskie.
 
+## ADR-012 — Biomarker Ingestion, Alias Registry, and Unit Normalization Boundary
+
+### Status
+
+**Accepted**
+
+Decyzję opisuje `docs/engineering/biomarkers-architecture.md` oraz specyfikacja Stage 13.
+
+### Context
+
+Wprowadzenie badań laboratoryjnych (morfologia, gospodarka żelazowa, hormony, lipidy, witaminy, elektrolity, mocz) wymaga elastycznego importu oraz zachowania ścisłej prywatności, proweniencji danych i bezpieczeństwa medycznego. Laboratoria stosują rozbieżne nazwy, aliasy i jednostki.
+
+### Decision
+
+- Wyciąganie dokumentów (PDF/OCR) jest odseparowane od rejestru aliasów (`BiomarkerRegistry`) oraz przelicznika jednostek (`UnitNormalizer`);
+- Nierozpoznany biomarker posiada `canonical_code = None`, `normalization_status = "unresolved"` oraz `requires_review = True`, bez wpływu na AI Coach;
+- Identyfikacja plików i idempotentność importu opiera się na skrócie SHA-256 (`source_document_hash`);
+- Historia zmian parsera/rejestru tworzy nową instancję `LaboratoryImportRun` zamiast nadpisywania danych;
+- Konwersja jednostek używa jawnych, wersjonowanych reguł bez konwersji automatycznej na ślepo;
+- Wykrycie podobieństwa między raportami generuje ostrzeżenie `is_possible_duplicate` bez automatycznego scalania;
+- Dedykowany Read Model `BiomarkersDashboardPayloadV1` udostępnia dane przez osobny kontrakt i endpoint `/api/v1/biomarkers`;
+- Usuwanie raportu czyści pliki, obserwacje i wskaźniki, pozostawiając wyłącznie minimalny tombstone bez danych zdrowotnych;
+- Platforma prezentuje trendy i odchylenia od norm laboratoryjnych, lecz nie stawia diagnoz medycznych ani nie przepisuje leków.
+
+### Consequences
+
+- System jest w 100% zdatny do testowania na danych syntetycznych;
+- Nazwy i jednostki są ujednolicone niezależnie od dostawcy laboratorium;
+- Ścieżka analityczna zachowuje pełną proweniencję od surowej wartości po ocenę pewności.
+
 ## Rejestr ADR
 
 | ADR | Tytuł | Status | Główne źródło |
@@ -457,6 +487,7 @@ Warstwa prezentacyjna Web (`AthleteWeb`) wymaga niezależnego od frameworka i ś
 | ADR-009 | Adaptive Goals | Accepted | `adaptive/`, `application/intelligence_decision_workflow.py` |
 | ADR-010 | Kanoniczny Athlete Dashboard Read Model | Accepted | `dashboard/`, `application/morning_coach_use_case.py` |
 | ADR-011 | Web Product Layer & Transport Boundary Architecture | Accepted | `web/AthleteWeb/`, `server/app.py`, `docs/dashboard_http_transport_boundary.md` |
+| ADR-012 | Biomarker Ingestion, Alias Registry, and Unit Normalization Boundary | Accepted | `docs/engineering/biomarkers-architecture.md` |
 
 ## Powiązane dokumenty
 

@@ -1,0 +1,278 @@
+# Biomarkers & Laboratory Intelligence — Architecture Specification (Draft)
+
+## 1. Domain Architecture Overview
+
+The Biomarkers module is designed as an independent domain boundary following Clean Architecture principles. It decouples document extraction (PDF/OCR) from biomarker alias matching (`BiomarkerRegistry`), unit conversion (`UnitNormalizer`), and decision engine integration (`AI Coach`).
+
+```
+                              [ Incoming Lab Report (PDF / Manual) ]
+                                                │
+                                                ▼
+                                   [ SHA-256 Identity Check ]
+                                                │
+                                                ▼
+                                  [ LaboratoryImportRun Created ]
+                                                │
+                                                ▼
+                                  [ Document Extractor Port ]
+                                                │
+                                                ▼
+                                      ( Raw Key-Value Rows )
+                                                │
+                                                ▼
+                                   [ BiomarkerRegistry Port ]
+                                                │
+                        ┌───────────────────────┴───────────────────────┐
+                        ▼                                               ▼
+              ( Canonical Biomarker )                         ( Unresolved Biomarker )
+                        │                                               │
+                        ▼                                               ▼
+             [ UnitNormalizer Port ]                         [ canonical_code = None ]
+                        │                                    [ normalization_status = "unresolved" ]
+                        ▼                                    [ requires_review = True ]
+            ( Normalized Value & Unit )                                 │
+                        │                                               ▼
+                        └───────────────────────┬───────────────────────┘
+                                                │
+                                                ▼
+                                    [ Confidence & Provenance ]
+                                                │
+                                                ▼
+                                    [ LaboratoryRepository ]
+                                                │
+                                                ▼
+                                 [ BiomarkersDashboardPayloadV1 ]
+```
+
+---
+
+## 2. Updated Domain Data Models
+
+```python
+from dataclasses import dataclass, field
+from datetime import date, datetime
+from enum import Enum
+from typing import Optional, Tuple, Dict, Any
+
+
+class BiomarkerCategory(Enum):
+    MORPHOLOGY = "morphology"
+    IRON_PANEL = "iron_panel"
+    HORMONES = "hormones"
+    LIPIDS = "lipids"
+    VITAMINS = "vitamins"
+    ELECTROLYTES = "electrolytes"
+    INFLAMMATORY_MARKERS = "inflammatory_markers"
+    URINALYSIS = "urinalysis"
+    OTHER = "other"
+
+
+class BiomarkerValueType(Enum):
+    NUMERIC = "numeric"
+    QUALITATIVE = "qualitative"
+    BOUNDED_INEQUALITY = "bounded_inequality"
+    RANGE = "range"
+    TEXT = "text"
+
+
+class NormalizationStatus(Enum):
+    RESOLVED = "resolved"
+    UNRESOLVED = "unresolved"
+    MANUALLY_OVERRIDDEN = "manually_overridden"
+
+
+class VerificationStatus(Enum):
+    UNVERIFIED = "unverified"
+    USER_VERIFIED = "user_verified"
+    REJECTED = "rejected"
+
+
+class ImportRunStatus(Enum):
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    PARTIAL = "partial"
+    FAILED = "failed"
+
+
+class PlatformMessageLevel(Enum):
+    INFORMATIONAL = "informational"
+    ATTENTION = "attention"
+    CONSULT_CLINICIAN = "consult_clinician"
+    # URGENT_REVIEW is marked as Future Medical Policy
+
+
+@dataclass(frozen=True)
+class BiomarkerDefinition:
+    canonical_code: str
+    canonical_name: str
+    category: BiomarkerCategory
+    default_unit: str
+    accepted_aliases: Tuple[str, ...]
+    accepted_units: Tuple[str, ...]
+    value_type: BiomarkerValueType
+    interpretation_policy: str = "standard"
+    active: bool = True
+
+
+@dataclass(frozen=True)
+class LaboratoryReferenceRange:
+    reference_low: Optional[float] = None
+    reference_high: Optional[float] = None
+    reference_text: Optional[str] = None
+    demographic_context: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class LaboratoryObservation:
+    observation_id: str
+    report_id: str
+    import_run_id: str
+    report_row_index: int
+    raw_name: str
+    raw_value: str
+    raw_unit: str
+    collected_at: datetime
+    
+    # Biomarker Matching (Unresolved handling)
+    canonical_code: Optional[str] = None  # None when unresolved!
+    normalization_status: NormalizationStatus = NormalizationStatus.UNRESOLVED
+    requires_review: bool = False
+    alias_match_confidence: Optional[float] = None
+    
+    # Values & Units
+    numeric_value: Optional[float] = None
+    text_value: Optional[str] = None
+    qualitative_value: Optional[str] = None
+    inequality_operator: Optional[str] = None
+    normalized_value: Optional[float] = None
+    normalized_unit: Optional[str] = None
+    
+    # Reference Range & Laboratory Flags
+    laboratory_reference_range: Optional[LaboratoryReferenceRange] = None
+    laboratory_flag: Optional[str] = None  # e.g., "H", "L", "*" from lab
+    laboratory_provided_critical_flag: Optional[str] = None  # Lab's own panic mark
+    fasting_status: Optional[str] = None  # "fasting", "non_fasting", "unknown"
+    
+    # Platform Athletic Context & Signals (Separated from lab range)
+    trend_status: Optional[str] = None  # "stable", "increasing", "decreasing", "insufficient_data"
+    training_context_signal: Optional[str] = None
+    platform_message_level: PlatformMessageLevel = PlatformMessageLevel.INFORMATIONAL
+    
+    # Separate Confidence Components (Draft / Future Policy)
+    name_confidence: float = 1.0
+    value_confidence: float = 1.0
+    unit_confidence: float = 1.0
+    reference_confidence: float = 1.0
+    extraction_confidence: float = 1.0
+    overall_confidence: float = 1.0
+    verification_status: VerificationStatus = VerificationStatus.UNVERIFIED
+    
+    # Deduplication Fingerprint
+    observation_source_fingerprint: str = ""
+    is_possible_duplicate: bool = False
+    
+    reported_at: Optional[datetime] = None
+    laboratory_name: Optional[str] = None
+    source_type: str = "pdf_text"
+    source_document_hash: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class LaboratoryImportRun:
+    """Explicit run model for full ingestion provenance without data overwrites."""
+    import_run_id: str
+    report_id: str
+    parser_version: str
+    extractor_version: str
+    registry_version: str
+    unit_rules_version: str
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+    status: ImportRunStatus = ImportRunStatus.IN_PROGRESS
+    active: bool = True
+    warnings: Tuple[str, ...] = ()
+    observations: Tuple[LaboratoryObservation, ...] = ()
+
+
+@dataclass(frozen=True)
+class LaboratoryReport:
+    report_id: str
+    collected_at: datetime
+    source_type: str
+    source_document_hash: str
+    import_runs: Tuple[LaboratoryImportRun, ...]
+    reported_at: Optional[datetime] = None
+    laboratory_name: Optional[str] = None
+```
+
+---
+
+## 3. Unrecognized Biomarker Handling
+
+When a raw lab name cannot be mapped to any `BiomarkerDefinition` in `BiomarkerRegistry`:
+1. `canonical_code` is set strictly to `None` (never `"unknown_<slug>"`).
+2. `normalization_status` is set to `NormalizationStatus.UNRESOLVED`.
+3. `requires_review` is set to `True`.
+4. The raw name, raw value, raw unit, and extracted numbers are preserved in full.
+5. **Impact Constraint**: Unresolved observations are **excluded from trends, aggregate calculations, and AI Coach decision inputs**.
+
+---
+
+## 4. Confidence Scoring & Verification (Draft Policy)
+
+Component confidence scores are stored individually:
+- `name_confidence`, `value_confidence`, `unit_confidence`, `reference_confidence`, `extraction_confidence`, `overall_confidence`.
+
+> [!NOTE]
+> Specific threshold weights and numerical cutoffs (e.g. 0.70 or 0.90) are classified as **Draft / Future Policy**. In MVP, any unverified or unresolved record requires review before affecting athletic decision inputs.
+
+---
+
+## 5. Medical Safety & Athletic Signals
+
+Platform interpretations are strictly decoupled from official laboratory reference ranges:
+- `laboratory_flag`: Raw flag provided by the testing laboratory (`"H"`, `"L"`, `"*"`).
+- `laboratory_reference_range`: Official range provided on the lab report.
+- `training_context_signal`: Athletic recovery or endurance signal.
+- `platform_message_level`: Restricted in MVP to `INFORMATIONAL`, `ATTENTION`, and `CONSULT_CLINICIAN`.
+- Results formally within the laboratory reference range receive only neutral trend information, never clinical diagnoses or custom "athletic normal ranges" without authoritative medical sources.
+
+---
+
+## 6. ImportRun Provenance & Reprocessing
+
+- Reprocessing the same source document creates a new `LaboratoryImportRun` with updated parser/registry versions.
+- **Atomic Repository Invariant**: For any single `report_id`, there can exist at most **one** active `LaboratoryImportRun` (`active == True`). Activating a new `LaboratoryImportRun` must be executed as an atomic repository transaction:
+  1. Deactivate all existing runs for the `report_id` (`active = False`);
+  2. Activate the new run (`active = True`);
+  3. Commit in a single transaction.
+- Observations are never overwritten or mutated in unstructured dictionaries; full historical runs are preserved.
+
+---
+
+## 7. Fingerprinting & Cross-Report Deduplication
+
+- **Observation Fingerprint**:
+  $$\text{Fingerprint} = \text{SHA256}(\text{source\_document\_hash} \parallel \text{report\_id} \parallel \text{import\_run\_id} \parallel \text{report\_row\_index} \parallel \text{raw\_name} \parallel \text{raw\_value} \parallel \text{raw\_unit} \parallel \text{collected\_at})$$
+- Detecting potential matching observations across different lab reports flags the new observation as `is_possible_duplicate = True` with a warning, rather than automatically deleting or merging observations.
+
+---
+
+## 8. Data Deletion Semantics
+
+Deleting a lab report executes the following atomic steps:
+1. Deletion of the source file from local disk.
+2. Deletion of `LaboratoryReport` and all `LaboratoryImportRun` records.
+3. Deletion of all `LaboratoryObservation` instances.
+4. Automatic Read Model cache invalidation and rebuild (`GET /api/v1/biomarkers`).
+5. Removal of derivative AI Coach insights.
+6. **Tombstone Retention Policy (Future Privacy Decision)**: Depending on final privacy governance, an optional minimal tombstone may record `deleted_at` and `is_tombstone: True`. In strict full erasure mode, `source_document_hash` is also purged to ensure zero lingering trace. Zero health metrics or lab values remain in tombstones or logs.
+
+---
+
+## 9. Read Model Strategy
+
+- Dediated Read Model contract: **`BiomarkersDashboardPayloadV1`**
+- Dedicated API endpoint: **`GET /api/v1/biomarkers`**
+- `AthleteDashboardPayloadV1` remains unchanged in Stage 13.
