@@ -306,7 +306,7 @@ The ingestion pipeline orchestrates document identity, extraction, row parsing, 
 
 ### 9.1 Read Model Architecture (`BiomarkersDashboard` & `BiomarkersDashboardBuilder`)
 - Dedicated Read Model contract: **`BiomarkersDashboardPayloadV1`** (`contract_version = "1.0"`).
-- Dedicated API endpoint: **`GET /api/v1/biomarkers`** (Sprint 6 HTTP layer).
+- Dedicated API endpoint: **`GET /api/v1/biomarkers`** served by `server/app.py`.
 - `AthleteDashboardPayloadV1` remains strictly unchanged in Stage 13.
 - Builder uses **ONLY active `LaboratoryImportRun` observations**. Inactive historical runs are excluded from current presentation.
 
@@ -336,3 +336,11 @@ The ingestion pipeline orchestrates document identity, extraction, row parsing, 
   - Excludes `raw_value` in public `unresolved_items` summary.
   - Excludes `NaN` and `Infinity`.
   - Presents `laboratory_flag` strictly as raw source string without AI diagnoses or treatment recommendations.
+
+### 9.6 HTTP Boundary & Development Composition (`server/app.py`)
+- Endpoint: **`GET /api/v1/biomarkers`**
+- Composition Flow: `build_biomarkers_dashboard_use_case()` (`LaboratoryRepository` $\rightarrow$ `BiomarkerRegistry` $\rightarrow$ `BiomarkersDashboardBuilder` $\rightarrow$ `BiomarkersDashboardSerializer`).
+- Development Adapter: Uses `InMemoryLaboratoryRepository` as a temporary development adapter. Data is not yet persisted to DuckDB (DuckDB repository adapter reserved for future stage).
+- **Controlled Error Contract**:
+  - Internal processing failures return HTTP `500 Internal Server Error` with `{"error": "Internal server error generating biomarkers payload"}`.
+  - Zero stack traces, zero health metric leakage, zero document hashes in error payloads.
