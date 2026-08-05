@@ -49,6 +49,11 @@ from biomarkers.errors import (
     ReportNotFoundError,
     UnitConversionNotAvailableError,
 )
+from biomarkers.history import (
+    BiomarkerHistory,
+    BiomarkerHistoryBuilder,
+    BiomarkerMeasurement,
+)
 from biomarkers.ingestion import (
     ExtractedDocument,
     LaboratoryDocumentExtractor,
@@ -185,4 +190,8 @@ __all__ = [
     "get_default_biomarkers_context",
     "build_biomarkers_dashboard_use_case",
     "CATEGORY_DISPLAY_NAMES",
+    # History
+    "BiomarkerMeasurement",
+    "BiomarkerHistory",
+    "BiomarkerHistoryBuilder",
 ]

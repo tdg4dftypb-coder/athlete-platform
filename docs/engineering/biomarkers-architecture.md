@@ -489,3 +489,20 @@ Managed by `biomarkers/persistence/schema.py` and `biomarkers/persistence/migrat
   $$\text{parsed\_result\_rows} = \text{imported\_observations}$$
   $$\text{imported\_observations} = \text{resolved\_observations} + \text{unresolved\_observations}$$
 - `accuracy_percentage`: $\frac{\text{resolved\_observations}}{\text{imported\_observations}} \times 100\%$. 100% accuracy achieved on real ALAB report with zero false administrative unresolved items.
+
+---
+
+## 15. Biomarker History Read Model (Sprint 7D.1)
+
+### 15.1 Domain Read Model & Measurements (`BiomarkerHistory`)
+- **`BiomarkerMeasurement`**: Immutable measurement dataclass containing `collected_at` (aware UTC `datetime`), `numeric_value` (`Optional[float]`), `qualitative_value` (`Optional[str]`), `laboratory_flag` (`Optional[str]`), and `verification_status` (`VerificationStatus`).
+- **`BiomarkerHistory`**: Immutable time series read model dataclass containing `canonical_code`, `display_name`, `preferred_unit`, and `measurements` (`Tuple[BiomarkerMeasurement, ...]`).
+
+### 15.2 Repository Extensions & `BiomarkerHistoryBuilder` Engine
+- **Repository Protocol Port**: Extended `LaboratoryRepository` protocol with `get_active_observations_grouped_by_canonical_code()`, implemented across `InMemoryLaboratoryRepository` and `DuckDBLaboratoryRepository`.
+- **`BiomarkerHistoryBuilder` Engine**:
+  - Chronological Ordering: Sorts measurements strictly from oldest to newest (`collected_at` ascending).
+  - Deterministic Tie-Breaking: Uses `(collected_at, report_row_index, observation_id)` for deterministic ordering.
+  - Deduplication: Prevents duplicate measurement entries at identical timestamps with identical values.
+  - Timezone Safety: Converts naive datetimes to aware UTC datetimes.
+  - Mixed Value Types: Handles numeric, qualitative, and bounded inequality markers seamlessly.

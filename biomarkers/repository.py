@@ -39,6 +39,10 @@ class LaboratoryRepository(Protocol):
         exclude_report_id: str,
     ) -> Tuple[LaboratoryObservation, ...]: ...
 
+    def get_active_observations_grouped_by_canonical_code(
+        self,
+    ) -> Dict[str, Tuple[LaboratoryObservation, ...]]: ...
+
     def save_report_with_import_run(
         self, report: LaboratoryReport, import_run: LaboratoryImportRun
     ) -> None: ...
@@ -140,6 +144,21 @@ class InMemoryLaboratoryRepository:
                             matching_obs.append(obs)
 
             return tuple(matching_obs)
+
+    def get_active_observations_grouped_by_canonical_code(
+        self,
+    ) -> Dict[str, Tuple[LaboratoryObservation, ...]]:
+        with self._lock:
+            result: Dict[str, List[LaboratoryObservation]] = {}
+            for report_id, runs in self._import_runs.items():
+                for run in runs:
+                    if not run.active:
+                        continue
+                    for obs in run.observations:
+                        if obs.canonical_code:
+                            code = obs.canonical_code.strip().lower()
+                            result.setdefault(code, []).append(obs)
+            return {code: tuple(obs_list) for code, obs_list in result.items()}
 
     def save_report_with_import_run(
         self, report: LaboratoryReport, import_run: LaboratoryImportRun

@@ -280,6 +280,37 @@ class DuckDBLaboratoryRepository:
 
             return tuple(matching)
 
+    def get_active_observations_grouped_by_canonical_code(
+        self,
+    ) -> Dict[str, Tuple[LaboratoryObservation, ...]]:
+        with self._lock:
+            conn = self._ensure_open()
+            query = """
+                SELECT o.observation_id, o.import_run_id, o.report_id, o.report_row_index, o.observation_source_fingerprint,
+                       o.raw_name, o.raw_value, o.raw_unit, o.canonical_code, o.normalization_status, o.requires_review,
+                       o.alias_match_confidence, o.value_type, o.numeric_value, o.text_value, o.qualitative_value,
+                       o.inequality_operator, o.range_low, o.range_high, o.normalized_value, o.normalized_unit,
+                       o.ref_low, o.ref_high, o.ref_text, o.ref_unit, o.ref_lab_provided, o.laboratory_flag,
+                       o.laboratory_provided_critical_flag, o.collected_at, o.reported_at, o.laboratory_name,
+                       o.source_type, o.source_document_hash, o.name_confidence, o.value_confidence, o.unit_confidence,
+                       o.reference_confidence, o.extraction_confidence, o.overall_confidence, o.verification_status,
+                       o.trend_status, o.training_context_signal, o.platform_message_level, o.is_possible_duplicate, o.metadata_json
+                FROM laboratory_observations o
+                JOIN laboratory_import_runs r ON o.import_run_id = r.import_run_id
+                WHERE r.active = TRUE AND o.canonical_code IS NOT NULL AND o.canonical_code != ''
+                ORDER BY o.collected_at ASC, o.report_row_index ASC
+            """
+            obs_rows = conn.execute(query).fetchall()
+
+            result: Dict[str, List[LaboratoryObservation]] = {}
+            for r in obs_rows:
+                obs = self._row_to_observation(r)
+                if obs.canonical_code:
+                    code = obs.canonical_code.strip().lower()
+                    result.setdefault(code, []).append(obs)
+
+            return {code: tuple(obs_list) for code, obs_list in result.items()}
+
     def save_report_with_import_run(
         self, report: LaboratoryReport, import_run: LaboratoryImportRun
     ) -> None:
