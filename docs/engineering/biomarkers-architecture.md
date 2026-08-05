@@ -259,14 +259,24 @@ Platform interpretations are strictly decoupled from official laboratory referen
 
 ---
 
-## 6. ImportRun Provenance & Reprocessing
+## 6. Ingestion Pipeline & Repository Ports
 
-- Reprocessing the same source document creates a new `LaboratoryImportRun` with updated parser/registry versions.
-- **Atomic Repository Invariant**: For any single `report_id`, there can exist at most **one** active `LaboratoryImportRun` (`active == True`). Activating a new `LaboratoryImportRun` must be executed as an atomic repository transaction:
-  1. Deactivate all existing runs for the `report_id` (`active = False`);
+### 6.1 Ingestion Service (`LaboratoryIngestionService`)
+The ingestion pipeline orchestrates document identity, extraction, row parsing, alias matching, unit normalization, duplicate detection, and repository persistence:
+1. Calculates SHA-256 document hash (`SourceDocumentIdentity`). Rejects empty content.
+2. Checks repository for duplicate document hash. If match found, returns `duplicate_document = True` without re-creating reports or observations.
+3. Extractor port (`LaboratoryDocumentExtractor`) & Parser port (`LaboratoryResultParser`) extract raw rows (`RawLaboratoryRow`).
+4. Processes each row into `LaboratoryObservation` using `BiomarkerRegistry` & `UnitNormalizer`.
+5. Atomic Persistence: Saves `LaboratoryReport` & `LaboratoryImportRun` to `LaboratoryRepository` and activates run.
+
+### 6.2 Reprocessing Use Case (`reprocess_report`)
+- Reprocesses an existing `LaboratoryReport` using updated parser/registry versions.
+- Creates a NEW `LaboratoryImportRun` attached to the same `report_id`.
+- **Atomic Repository Invariant**: For any single `report_id`, there can exist at most **one** active `LaboratoryImportRun` (`active == True`). Activating a new run is executed as an atomic repository transaction:
+  1. Deactivate all existing runs for `report_id` (`active = False`);
   2. Activate the new run (`active = True`);
   3. Commit in a single transaction.
-- Observations are never overwritten or mutated in unstructured dictionaries; full historical runs are preserved.
+- If reprocessing fails, the previous active run remains active and untouched.
 
 ---
 
@@ -274,19 +284,21 @@ Platform interpretations are strictly decoupled from official laboratory referen
 
 - **Observation Fingerprint**:
   $$\text{Fingerprint} = \text{SHA256}(\text{source\_document\_hash} \parallel \text{report\_id} \parallel \text{import\_run\_id} \parallel \text{report\_row\_index} \parallel \text{raw\_name} \parallel \text{raw\_value} \parallel \text{raw\_unit} \parallel \text{collected\_at})$$
-- Detecting potential matching observations across different lab reports flags the new observation as `is_possible_duplicate = True` with a warning, rather than automatically deleting or merging observations.
+- **Cross-Report Duplicate Heuristic**:
+  A new observation is flagged as `is_possible_duplicate = True` only if an active observation in another report matches `canonical_code`, `collected_at`, value (`numeric_value` / `normalized_value`), and unit.
+- Yields warning count in `LaboratoryIngestionResult`; NO automatic merging or deletion occurs.
 
 ---
 
-## 8. Data Deletion Semantics
+## 8. Data Deletion Semantics & Document Store
 
-Deleting a lab report executes the following atomic steps:
-1. Deletion of the source file from local disk.
-2. Deletion of `LaboratoryReport` and all `LaboratoryImportRun` records.
-3. Deletion of all `LaboratoryObservation` instances.
-4. Automatic Read Model cache invalidation and rebuild (`GET /api/v1/biomarkers`).
-5. Removal of derivative AI Coach insights.
-6. **Tombstone Retention Policy (Future Privacy Decision)**: Depending on final privacy governance, an optional minimal tombstone may record `deleted_at` and `is_tombstone: True`. In strict full erasure mode, `source_document_hash` is also purged to ensure zero lingering trace. Zero health metrics or lab values remain in tombstones or logs.
+### 8.1 Deletion Modes (`DeletionMode`)
+1. **`DELETE_DATA_KEEP_TOMBSTONE`**: Deletes source file from `SourceDocumentStore`, removes `LaboratoryReport`, all `LaboratoryImportRun` records, and all `LaboratoryObservation` instances. Retains minimal `TombstoneRecord` (`source_document_hash`, `deleted_at`, `is_tombstone = True`).
+2. **`DELETE_EVERYTHING`**: Purges document file, reports, runs, observations, AND document hash tombstone.
+
+### 8.2 Privacy-Safe Error & Logging Policy
+- All domain exceptions (`EmptySourceDocumentError`, `LaboratoryIngestionError`, `ReportNotFoundError`, `LaboratoryDeletionError`) MUST NOT contain raw test values, test names, full file paths, or document health contents in exception messages.
+- Raw health data is excluded from application debug logs.
 
 ---
 

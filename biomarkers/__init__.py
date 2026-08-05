@@ -7,18 +7,45 @@ from biomarkers.confidence import (
     ConfidenceComponents,
     evaluate_confidence_eligibility,
 )
+from biomarkers.deletion import (
+    DeletionMode,
+    DeletionResult,
+    InMemorySourceDocumentStore,
+    LaboratoryDeletionService,
+    SourceDocumentStore,
+    TombstoneRecord,
+)
 from biomarkers.errors import (
     BiomarkersError,
     DuplicateAliasError,
     DuplicateCanonicalCodeError,
+    DuplicateSourceDocumentError,
     DuplicateUnitConversionRuleError,
+    EmptySourceDocumentError,
+    ImportRunActivationError,
     InvalidBiomarkerDefinitionError,
     InvalidConfidenceComponentError,
     InvalidImportRunError,
     InvalidLaboratoryObservationError,
     InvalidLaboratoryValueError,
     InvalidUnitConversionRuleError,
+    LaboratoryDeletionError,
+    LaboratoryIngestionError,
+    ReportNotFoundError,
     UnitConversionNotAvailableError,
+)
+from biomarkers.ingestion import (
+    ExtractedDocument,
+    LaboratoryDocumentExtractor,
+    LaboratoryIngestionRequest,
+    LaboratoryIngestionResult,
+    LaboratoryIngestionService,
+    LaboratoryResultParser,
+    RawLaboratoryRow,
+    SourceDocumentIdentity,
+    SyntheticLaboratoryDocumentExtractor,
+    SyntheticLaboratoryResultParser,
+    calculate_source_document_hash,
 )
 from biomarkers.models import (
     BiomarkerCategory,
@@ -39,6 +66,10 @@ from biomarkers.registry import (
     BiomarkerMatch,
     BiomarkerRegistry,
     create_default_biomarker_registry,
+)
+from biomarkers.repository import (
+    InMemoryLaboratoryRepository,
+    LaboratoryRepository,
 )
 from biomarkers.units import (
     UnitAliasRegistry,
@@ -65,6 +96,12 @@ __all__ = [
     "UnitConversionNotAvailableError",
     "InvalidLaboratoryValueError",
     "InvalidConfidenceComponentError",
+    "EmptySourceDocumentError",
+    "DuplicateSourceDocumentError",
+    "LaboratoryIngestionError",
+    "ReportNotFoundError",
+    "ImportRunActivationError",
+    "LaboratoryDeletionError",
     # Enums
     "BiomarkerCategory",
     "BiomarkerValueType",
@@ -72,6 +109,7 @@ __all__ = [
     "VerificationStatus",
     "ImportRunStatus",
     "PlatformMessageLevel",
+    "DeletionMode",
     # Domain Models & Functions
     "BiomarkerDefinition",
     "LaboratoryReferenceRange",
@@ -97,4 +135,25 @@ __all__ = [
     "ConfidenceComponents",
     "ConfidenceAssessment",
     "evaluate_confidence_eligibility",
+    # Ingestion
+    "SourceDocumentIdentity",
+    "calculate_source_document_hash",
+    "RawLaboratoryRow",
+    "ExtractedDocument",
+    "LaboratoryDocumentExtractor",
+    "LaboratoryResultParser",
+    "SyntheticLaboratoryDocumentExtractor",
+    "SyntheticLaboratoryResultParser",
+    "LaboratoryIngestionRequest",
+    "LaboratoryIngestionResult",
+    "LaboratoryIngestionService",
+    # Repository & Store
+    "LaboratoryRepository",
+    "InMemoryLaboratoryRepository",
+    "SourceDocumentStore",
+    "InMemorySourceDocumentStore",
+    # Deletion
+    "TombstoneRecord",
+    "DeletionResult",
+    "LaboratoryDeletionService",
 ]

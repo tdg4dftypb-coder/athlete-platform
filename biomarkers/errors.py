@@ -67,3 +67,40 @@ class InvalidConfidenceComponentError(BiomarkersError):
     """Raised when confidence component values fail validation."""
 
     pass
+
+
+# Privacy-safe domain errors (exception messages MUST NOT leak raw health values or PII)
+class EmptySourceDocumentError(BiomarkersError):
+    """Raised when an empty source document content is provided for ingestion."""
+
+    pass
+
+
+class DuplicateSourceDocumentError(BiomarkersError):
+    """Raised when an identical source document hash already exists."""
+
+    pass
+
+
+class LaboratoryIngestionError(BiomarkersError):
+    """Raised when laboratory ingestion processing fails."""
+
+    pass
+
+
+class ReportNotFoundError(BiomarkersError):
+    """Raised when a requested laboratory report cannot be found."""
+
+    pass
+
+
+class ImportRunActivationError(BiomarkersError):
+    """Raised when activating a LaboratoryImportRun fails."""
+
+    pass
+
+
+class LaboratoryDeletionError(BiomarkersError):
+    """Raised when deleting a laboratory report or document fails."""
+
+    pass
