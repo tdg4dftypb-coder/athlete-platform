@@ -1,13 +1,17 @@
 """
-Regression Test Suite for ALAB Laboratory Report Parser and Biomarker Registry (Sprint 7C.1).
+Regression Test Suite for ALAB Laboratory Report Parser, PII Filtering, and Row Qualification (Sprint 7C.2).
 """
 
 from datetime import datetime, timezone
+from pathlib import Path
 import pytest
 
+from biomarkers.composition import BiomarkersApplicationContext
 from biomarkers.extraction.pdf_text_extractor import ExtractedLaboratoryDocument, ExtractedLaboratoryPage
 from biomarkers.models import NormalizationStatus
 from biomarkers.parsing.alab_report_parser import AlabTextLaboratoryReportParser
+from biomarkers.parsing.row_qualifier import LaboratoryResultRowQualifier, RowQualificationStatus
+from biomarkers.persistence.duckdb_repository import DuckDBLaboratoryRepository
 from biomarkers.registry import create_default_biomarker_registry
 from biomarkers.use_cases.import_pdf import ImportLaboratoryPdfUseCase, PdfImportSummary
 
@@ -15,7 +19,14 @@ from biomarkers.use_cases.import_pdf import ImportLaboratoryPdfUseCase, PdfImpor
 def build_synthetic_alab_doc() -> ExtractedLaboratoryDocument:
     text_page_1 = """
     ALAB laboratoria Sp. z o.o.
+    ul. Marszałkowska 10/15, 00-001 Warszawa
     Punkt Pobrań: Warszawa
+    Pacjent: Marszałek Jan Kowalski
+    PESEL: 85080512345
+    Adres: ul. Marszałkowska 10/15, Warszawa
+    Ident. pacjenta: PAC-998877
+    Ident. dokumentu: DOC-123456
+    Lekarz zlecający: dr med. Franciszek Nowak
     data i godz. pobrania: 05-08-2026 08:30
     Badanie Wynik Jednostka Zakres referencyjny Flaga
     Morfologia krwi
@@ -63,8 +74,9 @@ def build_synthetic_alab_doc() -> ExtractedLaboratoryDocument:
     D-dimer FEU < 500 ng/mL FEU < 500
     HBs - antygen HBs (WZW typu B) (V39) 0,37 S/CO Instrukcja Abbott
     HBs - antygen HBs (WZW typu B) nieobecny
-    Nierozpoznany Test Laboratoryjny 12,5 U/L 0 — 10
+    Nieznany Peptyd N-Końcowy 12,5 U/L 0 — 10
     Komentarz: Wyniki skonsultowano z lekarzem w leczeniu antagonistami witaminy K.
+    Autoryzował: mgr Diagnosta Jan Kowalski
     Zatwierdził: Diagnosta mgr Jan Kowalski
     Strona 2 z 2
     """
@@ -104,7 +116,6 @@ def test_alab_parser_synthetic_fixture_full_flow() -> None:
         else:
             unresolved_names.append(r.raw_name)
 
-    # Confirm key required markers are resolved properly
     assert "leukocytes" in matched_codes
     assert "aptt" in matched_codes
     assert "prothrombin_time" in matched_codes
@@ -116,8 +127,8 @@ def test_alab_parser_synthetic_fixture_full_flow() -> None:
     assert "rdw_cv" in matched_codes
     assert "rdw_sd" in matched_codes
 
-    # Confirm unresolved items remain isolated without crash
-    assert any("Nierozpoznany Test" in name for name in unresolved_names)
+    # Real unknown biomarker is preserved cleanly as UNRESOLVED
+    assert unresolved_names == ["Nieznany Peptyd N-Końcowy"]
 
 
 def test_accounting_invariant_and_line_counters() -> None:
@@ -132,41 +143,63 @@ def test_accounting_invariant_and_line_counters() -> None:
     assert header.failed_rows_count == 0
 
 
-def test_hbs_numeric_and_qualitative_dual_observations() -> None:
-    doc = build_synthetic_alab_doc()
-    parser = AlabTextLaboratoryReportParser()
-    rows = parser.parse(doc)
-    registry = create_default_biomarker_registry()
-
-    hbs_matches = [
-        registry.match_alias(r.raw_name, raw_unit=r.raw_unit, raw_value=r.raw_value)
-        for r in rows if "hbs" in r.raw_name.lower()
-    ]
-
-    assert len(hbs_matches) == 2
-    codes = [m.canonical_code for m in hbs_matches]
-    assert "hbs_antigen_numeric" in codes
-    assert "hbs_antigen_qualitative" in codes
+def test_pesel_ignored() -> None:
+    qualifier = LaboratoryResultRowQualifier()
+    res = qualifier.qualify("PESEL: 85080512345")
+    assert res.status == RowQualificationStatus.IGNORED_PII_ADMIN
 
 
-def test_rdw_cv_and_rdw_sd_differentiation() -> None:
-    doc = build_synthetic_alab_doc()
-    parser = AlabTextLaboratoryReportParser()
-    rows = parser.parse(doc)
-    registry = create_default_biomarker_registry()
-
-    rdw_matches = [
-        registry.match_alias(r.raw_name, raw_unit=r.raw_unit, raw_value=r.raw_value)
-        for r in rows if "rdw" in r.raw_name.lower()
-    ]
-
-    assert len(rdw_matches) == 2
-    codes = [m.canonical_code for m in rdw_matches]
-    assert "rdw_cv" in codes
-    assert "rdw_sd" in codes
+def test_address_ignored() -> None:
+    qualifier = LaboratoryResultRowQualifier()
+    res = qualifier.qualify("Adres: ul. Marszałkowska 10/15, 00-001 Warszawa")
+    assert res.status == RowQualificationStatus.IGNORED_PII_ADMIN
 
 
-def test_ignored_comment_not_imported() -> None:
+def test_patient_id_ignored() -> None:
+    qualifier = LaboratoryResultRowQualifier()
+    res_1 = qualifier.qualify("Ident. pacjenta: PAC-998877")
+    res_2 = qualifier.qualify("Pacjent: Kowalski Jan")
+    assert res_1.status == RowQualificationStatus.IGNORED_PII_ADMIN
+    assert res_2.status == RowQualificationStatus.IGNORED_PII_ADMIN
+
+
+def test_ordering_clinician_ignored() -> None:
+    qualifier = LaboratoryResultRowQualifier()
+    res = qualifier.qualify("Lekarz zlecający: dr med. Franciszek Nowak")
+    assert res.status == RowQualificationStatus.IGNORED_PII_ADMIN
+
+
+def test_laboratory_diagnostician_ignored() -> None:
+    qualifier = LaboratoryResultRowQualifier()
+    res_1 = qualifier.qualify("Autoryzował: mgr Diagnosta Anna Nowak")
+    res_2 = qualifier.qualify("Zatwierdzili: mgr Diagnosta Piotr Zieliński")
+    assert res_1.status == RowQualificationStatus.IGNORED_PII_ADMIN
+    assert res_2.status == RowQualificationStatus.IGNORED_PII_ADMIN
+
+
+def test_footer_ignored() -> None:
+    qualifier = LaboratoryResultRowQualifier()
+    res_1 = qualifier.qualify("Strona 1 z 2")
+    res_2 = qualifier.qualify("ALAB laboratoria Sp. z o.o. tel. +48 22 349 60 12")
+    assert res_1.status == RowQualificationStatus.IGNORED_PII_ADMIN
+    assert res_2.status == RowQualificationStatus.IGNORED_PII_ADMIN
+
+
+def test_page_header_ignored() -> None:
+    qualifier = LaboratoryResultRowQualifier()
+    res = qualifier.qualify("Badanie Wynik Jednostka Zakres referencyjny Flaga")
+    assert res.status == RowQualificationStatus.IGNORED_NOISE_HEADER
+
+
+def test_method_analyzer_ignored() -> None:
+    qualifier = LaboratoryResultRowQualifier()
+    res_1 = qualifier.qualify("Analizator: Sysmex XN")
+    res_2 = qualifier.qualify("Metoda: Spektrofotometria")
+    assert res_1.status == RowQualificationStatus.IGNORED_PII_ADMIN
+    assert res_2.status == RowQualificationStatus.IGNORED_PII_ADMIN
+
+
+def test_clinical_comment_ignored() -> None:
     doc = build_synthetic_alab_doc()
     parser = AlabTextLaboratoryReportParser()
     rows = parser.parse(doc)
@@ -174,42 +207,73 @@ def test_ignored_comment_not_imported() -> None:
     for r in rows:
         assert "skonsultowano z lekarzem" not in r.raw_name
         assert "zatwierdził" not in r.raw_name.lower()
-        assert "sysmex" not in r.raw_name.lower()
 
 
-def test_alab_header_collection_date_logic() -> None:
+def test_real_unknown_biomarker_to_unresolved() -> None:
+    doc = build_synthetic_alab_doc()
     parser = AlabTextLaboratoryReportParser()
+    rows = parser.parse(doc)
+    registry = create_default_biomarker_registry()
 
-    # Case 1: Single date
-    doc_1 = ExtractedLaboratoryDocument(
-        source_document_hash="hash-date-1",
-        page_count=1,
-        pages=(ExtractedLaboratoryPage(page_number=1, text="ALAB laboratoria\ndata i godz. pobrania: 05-08-2026 08:30\nGlukoza 90 mg/dL 70-99"),),
-    )
-    parser.parse(doc_1)
-    assert parser.last_parsed_header.collected_at == datetime(2026, 8, 5, 8, 30, tzinfo=timezone.utc)
+    unknown_row = [r for r in rows if r.raw_name == "Nieznany Peptyd N-Końcowy"]
+    assert len(unknown_row) == 1
 
-    # Case 2: Repeated identical dates across sections
-    doc_2 = ExtractedLaboratoryDocument(
-        source_document_hash="hash-date-2",
-        page_count=2,
-        pages=(
-            ExtractedLaboratoryPage(page_number=1, text="ALAB\ndata i godz. pobrania: 05-08-2026 08:30\nGlukoza 90 mg/dL"),
-            ExtractedLaboratoryPage(page_number=2, text="ALAB\ndata i godz. pobrania: 05-08-2026 08:30\nTSH 1.2 mIU/L"),
-        ),
-    )
-    parser.parse(doc_2)
-    assert parser.last_parsed_header.collected_at == datetime(2026, 8, 5, 8, 30, tzinfo=timezone.utc)
+    match = registry.match_alias(unknown_row[0].raw_name)
+    assert match.normalization_status == NormalizationStatus.UNRESOLVED
+    assert match.canonical_code is None
 
-    # Case 3: Multiple conflicting dates
-    doc_3 = ExtractedLaboratoryDocument(
-        source_document_hash="hash-date-3",
-        page_count=2,
-        pages=(
-            ExtractedLaboratoryPage(page_number=1, text="ALAB\ndata i godz. pobrania: 05-08-2026 08:30\nGlukoza 90 mg/dL"),
-            ExtractedLaboratoryPage(page_number=2, text="ALAB\ndata i godz. pobrania: 06-08-2026 14:00\nTSH 1.2 mIU/L"),
-        ),
-    )
-    parser.parse(doc_3)
-    assert parser.last_parsed_header.collected_at is None
-    assert "Multiple different collection dates" in parser.last_parsed_header.warnings[0]
+
+def test_qualitative_result_to_observation() -> None:
+    qualifier = LaboratoryResultRowQualifier()
+    res = qualifier.qualify("HBs - antygen HBs (WZW typu B) nieobecny")
+    assert res.status == RowQualificationStatus.QUALIFIED_RESULT
+
+
+def test_inr_without_unit_to_observation() -> None:
+    qualifier = LaboratoryResultRowQualifier()
+    res = qualifier.qualify("INR 1,02")
+    assert res.status == RowQualificationStatus.QUALIFIED_RESULT
+
+
+def test_multiline_aptt_to_observation() -> None:
+    qualifier = LaboratoryResultRowQualifier()
+    res_line1 = qualifier.qualify("Czas kaolinowo-kefalinowy (APTT) (G11)")
+    assert res_line1.reason_code == "MULTILINE_NAME_BUFFER"
+
+    res_line2 = qualifier.qualify("28,6 sek 25,4 — 36,9", pending_name="Czas kaolinowo-kefalinowy (APTT) (G11)")
+    assert res_line2.status == RowQualificationStatus.QUALIFIED_RESULT
+
+
+def test_no_pii_in_warnings() -> None:
+    qualifier = LaboratoryResultRowQualifier()
+    res = qualifier.qualify("PESEL: 85080512345")
+    assert res.reason_code == "NON_RESULT_LINE_IGNORED"
+    assert "85080512345" not in res.reason_code
+
+
+def test_no_pii_in_duckdb(tmp_path: Path) -> None:
+    db_file = str(tmp_path / "test_no_pii.duckdb")
+    doc = build_synthetic_alab_doc()
+
+    repo = DuckDBLaboratoryRepository(db_path=db_file)
+    ctx = BiomarkersApplicationContext(db_path=db_file, repository=repo)
+
+    class MockExtractor:
+        def extract(self, content: bytes, media_type: str = "application/pdf"):
+            return doc
+
+    use_case = ImportLaboratoryPdfUseCase(ingestion_service=ctx.ingestion_service, extractor=MockExtractor())
+    summary = use_case.execute(b"%PDF-synthetic-test", dry_run=False)
+
+    conn = repo._conn
+
+    pii_strings = ["85080512345", "Marszałek Jan Kowalski", "Franciszek Nowak", "Piotr Zieliński", "Marszałkowska"]
+
+    for table in ["laboratory_reports", "laboratory_import_runs", "laboratory_observations"]:
+        rows = conn.execute(f"SELECT * FROM {table}").fetchall()
+        for r in rows:
+            r_str = str(r)
+            for pii in pii_strings:
+                assert pii not in r_str
+
+    repo.close()

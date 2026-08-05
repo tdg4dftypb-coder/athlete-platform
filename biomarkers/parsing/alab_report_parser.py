@@ -1,7 +1,7 @@
 """
 ALAB Specialized Laboratory PDF Text Report Parser.
 Supports multi-line layout, grouped headers, single-sided reference ranges,
-and strict collected_at extraction with precise line accounting.
+and strict collected_at extraction with precise line accounting and PII filtering.
 """
 
 from dataclasses import dataclass
@@ -11,6 +11,10 @@ from typing import List, Optional, Tuple
 
 from biomarkers.extraction.pdf_text_extractor import ExtractedLaboratoryDocument
 from biomarkers.ingestion import RawLaboratoryRow
+from biomarkers.parsing.row_qualifier import (
+    LaboratoryResultRowQualifier,
+    RowQualificationStatus,
+)
 from biomarkers.parsing.text_report_parser import ParsedReportHeader
 
 
@@ -22,6 +26,7 @@ class AlabTextLaboratoryReportParser:
     def __init__(self, parser_version: str = "1.0") -> None:
         self.parser_version = parser_version
         self.last_parsed_header: Optional[ParsedReportHeader] = None
+        self.qualifier = LaboratoryResultRowQualifier()
 
     def can_parse(self, document: ExtractedLaboratoryDocument) -> bool:
         """Returns True if document text contains ALAB signatures."""
@@ -140,20 +145,10 @@ class AlabTextLaboratoryReportParser:
         ignored_cnt = 0
         failed_cnt = 0
 
-        # Lines to ignore (technical noise, comments, clinical footers, header block)
-        ignore_substrings = [
-            "strona ", "data wydruku", "pesel", "nr zlecenia", "pacjent:", "lekarz:",
-            "metoda:", "metoda ", "analizator:", "komentarz:", "zatwierdził", "zatwierdzili",
-            "punkt pobrań", "zleceniodawca", "opis badania", "uwagi:", "normy:",
-            "antagonistami", "witaminy k", "tel. ", "fax ", "sp. z o.o.",
-            "data i godz. pobrania:", "laboratoria sp.", "identyfikacja pacjenta",
-            "laboratorium analiz"
-        ]
-
         # Regular expression for full or partial result line
         result_line_pattern = re.compile(
             r"^(?:(?P<name>[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\(\)][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż0-9\s\(\)\-\/\.,%#\+]*?)\s+)?"
-            r"(?P<val>[<>]?\s*\d+(?:[\.,]\d+)?|nieobecny|obecny|dodatni|ujemny|nieobecne|obecne|przejrzysty)\s*"
+            r"(?P<val>[<>]?\s*\d+(?:[\.,]\d+)?|nieobecny|obecny|dodatni|ujemny|nieobecne|obecne|przejrzysty|prawidłowy|nieprawidłowy)\s*"
             r"(?P<unit>[A-Za-zµμ\%/0-9\^\-\#\*\+]+(?:\s+FEU)?)?\s*"
             r"(?P<ref>(?:[<>]\s*\d+(?:[\.,]\d+)?|\d+(?:[\.,]\d+)?\s*[\-\u2012\u2013\u2014\u2212]\s*\d+(?:[\.,]\d+)?))?\s*"
             r"(?P<flag>[HL\*])?"
@@ -165,26 +160,25 @@ class AlabTextLaboratoryReportParser:
 
         for page_num, line in lines:
             line_str = line.strip()
-            line_lower = line_str.lower()
 
-            if any(sub in line_lower for sub in ignore_substrings):
+            q_res = self.qualifier.qualify(line_str, pending_name=pending_name)
+
+            if q_res.status in (RowQualificationStatus.IGNORED_PII_ADMIN, RowQualificationStatus.IGNORED_NOISE_HEADER):
+                if q_res.reason_code == "MULTILINE_NAME_BUFFER":
+                    clean_name = line_str.rstrip("/:").strip()
+                    pending_name = clean_name
+                else:
+                    pending_name = None
                 ignored_cnt += 1
                 continue
 
-            # Skip table header lines
-            if "badanie" in line_lower and "wynik" in line_lower:
-                ignored_cnt += 1
-                continue
-
-            # Skip group title headers ending with / or section names
-            if line_str.endswith("/") or any(sec in line_lower for sec in ["morfologia krwi", "układ krzepnięcia", "serologia", "biochemia"]):
+            if q_res.status == RowQualificationStatus.MALFORMED_RESULT:
+                failed_cnt += 1
                 pending_name = None
-                ignored_cnt += 1
                 continue
 
-            # Check result line match
+            # Qualified Result Row
             m = result_line_pattern.match(line_str)
-
             if m:
                 matched_name = m.group("name")
                 matched_val = m.group("val")
@@ -202,7 +196,6 @@ class AlabTextLaboratoryReportParser:
                     ignored_cnt += 1
                     continue
 
-                # Final validation: name must contain letters
                 if not any(c.isalpha() for c in name_str):
                     ignored_cnt += 1
                     continue
@@ -223,15 +216,6 @@ class AlabTextLaboratoryReportParser:
                 row_idx += 1
                 continue
 
-            # If line is a biomarker name or part of multiline name without values
-            line_no_tag = re.sub(r"\([A-Z]\d{1,4}\)", "", line_str, flags=re.IGNORECASE)
-            if len(line_str) < 70 and not any(c.isdigit() for c in line_no_tag):
-                clean_name = line_str.rstrip("/:").strip()
-                if clean_name and not any(k in line_lower for k in ["badanie", "wynik", "zakres"]):
-                    pending_name = clean_name
-                    ignored_cnt += 1
-                    continue
-
-            failed_cnt += 1
+            ignored_cnt += 1
 
         return rows, candidate_cnt, ignored_cnt, failed_cnt

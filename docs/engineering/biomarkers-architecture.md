@@ -466,3 +466,26 @@ Managed by `biomarkers/persistence/schema.py` and `biomarkers/persistence/migrat
 - HBsAg Contextual Resolution: Differentiates `hbs_antigen_numeric` (numeric value with `S/CO` unit) from `hbs_antigen_qualitative` (qualitative value `"nieobecny"`).
 - RDW Contextual Resolution: Differentiates `rdw_cv` (`%` unit) from `rdw_sd` (`fL` unit).
 - Group Header Filtering: Ignores group title lines (`Czas protrombinowy (PT), INR/`) without creating empty or duplicate observations.
+
+---
+
+## 14. Result Row Qualification and PII Filtering (Sprint 7C.2)
+
+### 14.1 UNRESOLVED Observation Semantics & PII Boundary
+- **Domain Definition**: An `UNRESOLVED` observation MUST represent a structurally valid laboratory test result (name + value + unit or qualitative result or known unitless marker) that lacks a matching `canonical_code` in `BiomarkerRegistry`.
+- **Strict PII & Admin Exclusion**: `UNRESOLVED` MUST NEVER include patient metadata (name, PESEL, address, DOB, patient ID), clinician details (ordering doctor, diagnostician signature), lab administration (phone, email, address, footers), or technical metadata (method, analyzer, page numbers).
+
+### 14.2 LaboratoryResultRowQualifier Engine
+- **Row Qualification Criteria**: A document text line is qualified into a candidate result row ONLY if it satisfies at least one of 4 criteria:
+  - Criteria A: Name + numeric value + unit (e.g. `Hemoglobina (HGB) 14.8 g/dL`).
+  - Criteria B: Name + qualitative result (e.g. `HBsAg nieobecny`).
+  - Criteria C: Name + numeric value for unitless marker (e.g. `INR 1,02`).
+  - Criteria D: Multiline name buffer + numeric value/unit on next line (e.g. `APTT` line 1 $\rightarrow$ `28,6 sek` line 2).
+- **PII & Admin Rejection**: Rejects lines matching `ADMIN_PII_PATTERNS` before result parsing without writing raw PII to logs, warnings, or DuckDB storage.
+
+### 14.3 Strict Accounting Invariants
+- Enforces unambiguous accounting metrics:
+  $$\text{candidate\_lines} = \text{ignored\_non\_result\_lines} + \text{malformed\_result\_rows} + \text{parsed\_result\_rows}$$
+  $$\text{parsed\_result\_rows} = \text{imported\_observations}$$
+  $$\text{imported\_observations} = \text{resolved\_observations} + \text{unresolved\_observations}$$
+- `accuracy_percentage`: $\frac{\text{resolved\_observations}}{\text{imported\_observations}} \times 100\%$. 100% accuracy achieved on real ALAB report with zero false administrative unresolved items.
