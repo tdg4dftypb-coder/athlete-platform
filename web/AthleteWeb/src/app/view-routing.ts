@@ -7,7 +7,8 @@ export type ApplicationView =
   | "nutrition"
   | "body"
   | "more"
-  | "icons";
+  | "icons"
+  | "biomarkers";
 
 export function resolveApplicationView(search: string): ApplicationView {
   const params = new URLSearchParams(search);
@@ -22,7 +23,8 @@ export function resolveApplicationView(search: string): ApplicationView {
     view === "nutrition" ||
     view === "body" ||
     view === "more" ||
-    view === "icons"
+    view === "icons" ||
+    view === "biomarkers"
   ) {
     return view;
   }

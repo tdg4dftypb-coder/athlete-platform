@@ -198,6 +198,18 @@ export function resolveApplicationBodyState(
   return parseAndMapAthleteDashboardToBody(payloadFixtures[fixtureName], context);
 }
 
+import type { BiomarkersPresentationState } from "../biomarkers/biomarkers-presentation-state";
+import { biomarkersStateKinds } from "../biomarkers/biomarkers-presentation-state";
+
+export function resolveBiomarkersPreviewState(
+  search: string,
+  states: Readonly<Record<BiomarkersPresentationState["kind"], BiomarkersPresentationState>>,
+): BiomarkersPresentationState {
+  const requested = new URLSearchParams(search).get("state");
+  const kind = biomarkersStateKinds.find((candidate) => candidate === requested);
+  return states[kind ?? "ready"];
+}
+
 function isPayloadFixtureName(value: string | null): value is PayloadFixtureName {
   return value !== null && Object.prototype.hasOwnProperty.call(payloadFixtures, value);
 }

@@ -11,6 +11,7 @@ import {
   resolveApplicationProgressState,
   resolveApplicationRecoveryState,
   resolveApplicationTrainingState,
+  resolveBiomarkersPreviewState,
 } from "./app/preview-state";
 import {
   resolveApplicationView,
@@ -23,6 +24,10 @@ import { nutritionPreviewStates } from "./preview-data/nutrition-preview-data";
 import { progressPreviewStates } from "./preview-data/progress-preview-data";
 import { recoveryPreviewStates } from "./preview-data/recovery-preview-data";
 import { trainingPreviewStates } from "./preview-data/training-preview-data";
+import { biomarkersPreviewStates } from "./biomarkers/biomarkers-preview-data";
+import { createBiomarkersContractPreviewApp } from "./biomarkers/biomarkers-contract-preview-view";
+import { HttpBiomarkersPayloadSource } from "./biomarkers/biomarkers-payload-source";
+import { parseAndMapBiomarkersPayloadToPresentation } from "./biomarkers/biomarkers-mapper";
 import { MORNING_BRIEFING_MAX_AGE_MS } from "./mappers/mapping-context";
 
 const root = requireRoot();
@@ -115,6 +120,12 @@ function renderPreview(focusHeading = false): void {
       previewMappingContext,
     );
     appElement = createBodyCompositionApp(state, openMorningBriefing, retry);
+  } else if (view === "biomarkers") {
+    const state = resolveBiomarkersPreviewState(
+      window.location.search,
+      biomarkersPreviewStates,
+    );
+    appElement = createBiomarkersContractPreviewApp(state, openMorningBriefing, retry);
   } else if (view === "more") {
     appElement = renderMoreExperience(openMorningBriefing);
   } else if (view === "icons") {
@@ -145,12 +156,29 @@ async function renderExternalSourceView(view: ApplicationView, mode: "live-file"
   else if (view === "progress") loadingElement = createProgressApp({ kind: "loading", message: "Wczytywanie..." }, openMorningBriefing, retry);
   else if (view === "nutrition") loadingElement = createNutritionApp({ kind: "loading", message: "Wczytywanie..." }, openMorningBriefing, retry);
   else if (view === "body") loadingElement = createBodyCompositionApp({ kind: "loading", message: "Wczytywanie..." }, openMorningBriefing, retry);
+  else if (view === "biomarkers") loadingElement = createBiomarkersContractPreviewApp({ kind: "loading", message: "Wczytywanie biomarkerów..." }, openMorningBriefing, retry);
   else loadingElement = createApp({ kind: "loading", message: "Wczytywanie..." }, retry, openRecovery, openTraining, openProgress);
 
   loadingElement.classList.add("view-container");
   root.replaceChildren(loadingElement);
 
   try {
+    if (view === "biomarkers") {
+      const source = new HttpBiomarkersPayloadSource("/api/v1/biomarkers");
+      const rawData = await source.load();
+      const state = parseAndMapBiomarkersPayloadToPresentation(rawData, previewMappingContext);
+      const appElement = createBiomarkersContractPreviewApp(state, openMorningBriefing, retry);
+
+      appElement.classList.add("view-container");
+      root.replaceChildren(appElement);
+
+      if (focusHeading) {
+        const heading = root.querySelector<HTMLElement>("h1");
+        heading?.focus();
+      }
+      return;
+    }
+
     const payloadSource = mode === "http"
       ? new HttpDashboardPayloadSource()
       : new StaticJsonDashboardPayloadSource("/data/athlete-dashboard-v1.json");
@@ -191,40 +219,22 @@ async function renderExternalSourceView(view: ApplicationView, mode: "live-file"
     }
   } catch (error) {
     const errorText = error instanceof Error ? error.message : "Błąd pobierania danych.";
-    const expHeader = {
-      title: "Błąd odczytu danych",
-      dateText: "Wystąpił błąd",
-      lastUpdatedText: "Brak połączenia z transportem danych",
-      freshnessLabel: null,
-    };
     const failureState = {
       kind: "failure" as const,
-      header: expHeader,
-      message: mode === "http" ? "Nie udało się pobrać danych przez HTTP API." : "Nie udało się wczytać pliku payloadu v1.0.",
-      supportingText: `Błąd transportu: ${errorText}`,
-      retryLabel: "Spróbuj ponownie",
-    };
-
-    const briefingFailureState = {
-      kind: "failure" as const,
-      header: {
-        greeting: "Dzień dobry",
-        athleteName: previewMappingContext.athleteName,
-        dateText: "Wystąpił błąd",
-        timeText: "--:--",
-      },
-      message: mode === "http" ? "Nie udało się pobrać danych przez HTTP API." : "Nie udało się wczytać pliku payloadu v1.0.",
+      title: "Błąd odczytu danych",
+      message: mode === "http" ? "Nie udało się pobrać danych przez HTTP API." : "Nie udało się wczytać danych.",
       supportingText: `Błąd transportu: ${errorText}`,
       retryLabel: "Spróbuj ponownie",
     };
 
     let errorElement: HTMLElement;
-    if (view === "recovery") errorElement = createRecoveryApp(failureState, openMorningBriefing, retry);
-    else if (view === "training") errorElement = createTrainingApp(failureState, openMorningBriefing, retry);
-    else if (view === "progress") errorElement = createProgressApp(failureState, openMorningBriefing, retry);
-    else if (view === "nutrition") errorElement = createNutritionApp(failureState, openMorningBriefing, retry);
-    else if (view === "body") errorElement = createBodyCompositionApp(failureState, openMorningBriefing, retry);
-    else errorElement = createApp(briefingFailureState, retry, openRecovery, openTraining, openProgress);
+    if (view === "biomarkers") errorElement = createBiomarkersContractPreviewApp(failureState, openMorningBriefing, retry);
+    else if (view === "recovery") errorElement = createRecoveryApp({ ...failureState, header: { title: "Błąd", dateText: "", lastUpdatedText: "", freshnessLabel: null } }, openMorningBriefing, retry);
+    else if (view === "training") errorElement = createTrainingApp({ ...failureState, header: { title: "Błąd", dateText: "", lastUpdatedText: "", freshnessLabel: null } }, openMorningBriefing, retry);
+    else if (view === "progress") errorElement = createProgressApp({ ...failureState, header: { title: "Błąd", dateText: "", lastUpdatedText: "", freshnessLabel: null } }, openMorningBriefing, retry);
+    else if (view === "nutrition") errorElement = createNutritionApp({ ...failureState, header: { title: "Błąd", dateText: "", lastUpdatedText: "", freshnessLabel: null } }, openMorningBriefing, retry);
+    else if (view === "body") errorElement = createBodyCompositionApp({ ...failureState, header: { title: "Błąd", dateText: "", lastUpdatedText: "", freshnessLabel: null } }, openMorningBriefing, retry);
+    else errorElement = createApp({ ...failureState, header: { greeting: "Błąd", athleteName: "", dateText: "", timeText: "" } }, retry, openRecovery, openTraining, openProgress);
 
     errorElement.classList.add("view-container");
     root.replaceChildren(errorElement);
@@ -265,7 +275,8 @@ function openMorningBriefing(): void {
     window.history.state?.athleteView === "training" ||
     window.history.state?.athleteView === "progress" ||
     window.history.state?.athleteView === "nutrition" ||
-    window.history.state?.athleteView === "body"
+    window.history.state?.athleteView === "body" ||
+    window.history.state?.athleteView === "biomarkers"
   ) {
     window.history.back();
     return;
@@ -293,4 +304,3 @@ window.addEventListener("popstate", () => {
   renderPreview(true);
   restoreScrollPosition(view);
 });
-
