@@ -7,6 +7,16 @@ from biomarkers.confidence import (
     ConfidenceComponents,
     evaluate_confidence_eligibility,
 )
+from biomarkers.dashboard import (
+    CATEGORY_DISPLAY_NAMES,
+    BiomarkerCategorySummary,
+    BiomarkersDashboard,
+    BiomarkersDashboardBuilder,
+    BiomarkersDashboardMetadata,
+    BiomarkersDashboardStatus,
+    BiomarkerSummary,
+    UnresolvedBiomarkerItem,
+)
 from biomarkers.deletion import (
     DeletionMode,
     DeletionResult,
@@ -71,6 +81,7 @@ from biomarkers.repository import (
     InMemoryLaboratoryRepository,
     LaboratoryRepository,
 )
+from biomarkers.serialization import BiomarkersDashboardSerializer
 from biomarkers.units import (
     UnitAliasRegistry,
     UnitConversionRule,
@@ -110,6 +121,7 @@ __all__ = [
     "ImportRunStatus",
     "PlatformMessageLevel",
     "DeletionMode",
+    "BiomarkersDashboardStatus",
     # Domain Models & Functions
     "BiomarkerDefinition",
     "LaboratoryReferenceRange",
@@ -156,4 +168,13 @@ __all__ = [
     "TombstoneRecord",
     "DeletionResult",
     "LaboratoryDeletionService",
+    # Dashboard & Serialization
+    "BiomarkersDashboardMetadata",
+    "BiomarkerSummary",
+    "BiomarkerCategorySummary",
+    "UnresolvedBiomarkerItem",
+    "BiomarkersDashboard",
+    "BiomarkersDashboardBuilder",
+    "BiomarkersDashboardSerializer",
+    "CATEGORY_DISPLAY_NAMES",
 ]

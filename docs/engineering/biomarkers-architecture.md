@@ -302,8 +302,37 @@ The ingestion pipeline orchestrates document identity, extraction, row parsing, 
 
 ---
 
-## 9. Read Model Strategy
+## 9. Read Model Strategy & Public Serialization Contract (`BiomarkersDashboardPayloadV1`)
 
-- Dediated Read Model contract: **`BiomarkersDashboardPayloadV1`**
-- Dedicated API endpoint: **`GET /api/v1/biomarkers`**
-- `AthleteDashboardPayloadV1` remains unchanged in Stage 13.
+### 9.1 Read Model Architecture (`BiomarkersDashboard` & `BiomarkersDashboardBuilder`)
+- Dedicated Read Model contract: **`BiomarkersDashboardPayloadV1`** (`contract_version = "1.0"`).
+- Dedicated API endpoint: **`GET /api/v1/biomarkers`** (Sprint 6 HTTP layer).
+- `AthleteDashboardPayloadV1` remains strictly unchanged in Stage 13.
+- Builder uses **ONLY active `LaboratoryImportRun` observations**. Inactive historical runs are excluded from current presentation.
+
+### 9.2 Read Model Status Policy (`BiomarkersDashboardStatus`)
+- **`UNAVAILABLE`**: 0 active reports OR 0 usable active observations.
+- **`PARTIAL`**: Usable active observations exist, but limitations exist (unresolved items, unverified items, or possible duplicates).
+- **`READY`**: Usable active observations exist with 0 unresolved, 0 unverified, 0 possible duplicates.
+- Backend status is NOT based on whether a biomarker is "in range" or "out of range".
+
+### 9.3 Technical Trend Computation Policy
+- Evaluated only when $\ge 2$ non-rejected active observations exist for the same `canonical_code` with numeric values, compatible units, and distinct timestamps.
+- Deterministic stability threshold:
+  - $|\text{diff}| < 1e-4$: `"stable"`
+  - $\text{diff} > 1e-4$: `"increasing"`
+  - $\text{diff} < -1e-4$: `"decreasing"`
+- Trend direction carries NO medical diagnostic interpretation or rating.
+
+### 9.4 Completeness Semantics (`completeness_score`)
+- Simple deterministic ratio of usable resolved active observations to all active observations (range `0.0` - `1.0`).
+- Does NOT measure medical panel completeness or athletic norm compliance.
+
+### 9.5 Public Serialization Contract (`BiomarkersDashboardSerializer`)
+- Serializes `BiomarkersDashboard` into a JSON-native dictionary with ISO 8601 UTC strings.
+- **Strict Privacy & Safety Boundary**:
+  - `contract_version`: strictly `"1.0"`.
+  - Excludes binary content, file names, and `source_document_hash`.
+  - Excludes `raw_value` in public `unresolved_items` summary.
+  - Excludes `NaN` and `Infinity`.
+  - Presents `laboratory_flag` strictly as raw source string without AI diagnoses or treatment recommendations.
