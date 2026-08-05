@@ -15,6 +15,7 @@ import {
 } from "./app/preview-state";
 import {
   resolveApplicationView,
+  resolveHistoryCode,
   searchForView,
   type ApplicationView,
 } from "./app/view-routing";
@@ -28,6 +29,10 @@ import { biomarkersPreviewStates } from "./biomarkers/biomarkers-preview-data";
 import { createBiomarkersExperienceApp } from "./biomarkers/biomarkers-experience-view";
 import { HttpBiomarkersPayloadSource } from "./biomarkers/biomarkers-payload-source";
 import { parseAndMapBiomarkersPayloadToPresentation } from "./biomarkers/biomarkers-mapper";
+import { createHistoryExperienceApp } from "./biomarkers/history/history-experience-view";
+import { HttpHistoryPayloadSource, HistoryNotFoundError } from "./biomarkers/history/history-payload-source";
+import { parseHistoryPayloadV1 } from "./biomarkers/history/history-payload-parser";
+import { mapHistoryPayloadToPresentation } from "./biomarkers/history/history-presentation";
 import { MORNING_BRIEFING_MAX_AGE_MS } from "./mappers/mapping-context";
 
 const root = requireRoot();
@@ -126,6 +131,29 @@ function renderPreview(focusHeading = false): void {
       biomarkersPreviewStates,
     );
     appElement = createBiomarkersExperienceApp(state, openMorningBriefing, retry);
+  } else if (view === "history") {
+    const code = resolveHistoryCode(window.location.search);
+    if (!code) {
+      appElement = createHistoryExperienceApp(
+        { kind: "unavailable", title: "Historia biomarkera", message: "Nie podano kodu biomarkera." },
+        openBiomarkers,
+      );
+    } else {
+      // Preview mode: show a ready state with synthetic data
+      appElement = createHistoryExperienceApp(
+        {
+          kind: "ready",
+          presentation: {
+            title: code,
+            unit: "",
+            totalMeasurements: 0,
+            latestMeasurement: null,
+            measurements: [],
+          },
+        },
+        openBiomarkers,
+      );
+    }
   } else if (view === "more") {
     appElement = renderMoreExperience(openMorningBriefing);
   } else if (view === "icons") {
@@ -149,6 +177,64 @@ function renderPreview(focusHeading = false): void {
 }
 
 async function renderExternalSourceView(view: ApplicationView, mode: "live-file" | "http", focusHeading: boolean): Promise<void> {
+  if (view === "history") {
+    const code = resolveHistoryCode(window.location.search);
+    const loadingEl = createHistoryExperienceApp(
+      { kind: "loading", message: "Wczytywanie historii biomarkera..." },
+      openBiomarkers,
+    );
+    loadingEl.classList.add("view-container");
+    root.replaceChildren(loadingEl);
+
+    try {
+      if (!code) {
+        const appElement = createHistoryExperienceApp(
+          { kind: "unavailable", title: "Historia biomarkera", message: "Nie podano kodu biomarkera." },
+          openBiomarkers,
+        );
+        appElement.classList.add("view-container");
+        root.replaceChildren(appElement);
+        return;
+      }
+
+      const source = new HttpHistoryPayloadSource("/api/v1/biomarkers/history");
+      const rawData = await source.load(code);
+      const parseResult = parseHistoryPayloadV1(rawData);
+
+      let appElement: HTMLElement;
+      if (!parseResult.success) {
+        appElement = createHistoryExperienceApp(
+          { kind: "failure", title: "Błąd danych", message: "Nie udało się przetworzyć historii biomarkera." },
+          openBiomarkers,
+        );
+      } else {
+        const presentation = mapHistoryPayloadToPresentation(parseResult.data, {
+          locale: "pl-PL",
+          timeZone: "Europe/Warsaw",
+        });
+        appElement = createHistoryExperienceApp(
+          { kind: "ready", presentation },
+          openBiomarkers,
+        );
+      }
+
+      appElement.classList.add("view-container");
+      root.replaceChildren(appElement);
+      if (focusHeading) root.querySelector<HTMLElement>("h1")?.focus();
+    } catch (error) {
+      const isNotFound = error instanceof HistoryNotFoundError;
+      const appElement = createHistoryExperienceApp(
+        isNotFound
+          ? { kind: "unavailable", title: code, message: "Brak historii pomiarów." }
+          : { kind: "failure", title: "Błąd połączenia", message: "Nie udało się pobrać historii biomarkera." },
+        openBiomarkers,
+      );
+      appElement.classList.add("view-container");
+      root.replaceChildren(appElement);
+    }
+    return;
+  }
+
   // Step 1: Render loading state
   let loadingElement: HTMLElement;
   if (view === "recovery") loadingElement = createRecoveryApp({ kind: "loading", message: "Wczytywanie..." }, openMorningBriefing, retry);
@@ -276,7 +362,8 @@ function openMorningBriefing(): void {
     window.history.state?.athleteView === "progress" ||
     window.history.state?.athleteView === "nutrition" ||
     window.history.state?.athleteView === "body" ||
-    window.history.state?.athleteView === "biomarkers"
+    window.history.state?.athleteView === "biomarkers" ||
+    window.history.state?.athleteView === "history"
   ) {
     window.history.back();
     return;
@@ -287,6 +374,10 @@ function openMorningBriefing(): void {
   window.history.replaceState({ athleteView: "morning-briefing" }, "", url);
   renderPreview(true);
   restoreScrollPosition("morning-briefing");
+}
+
+function openBiomarkers(): void {
+  navigateTo("biomarkers");
 }
 
 function navigateTo(view: ApplicationView): void {

@@ -1,6 +1,7 @@
 import { createBottomNavigation } from "../components/bottom-navigation";
 import { createPageHeader } from "../components/page-header";
 import { createIcon } from "../components/icon";
+import { searchForHistory } from "../app/view-routing";
 import type { BiomarkersPresentationState } from "./biomarkers-presentation-state";
 
 export function createBiomarkersExperienceApp(
@@ -267,6 +268,26 @@ export function createBiomarkersExperienceApp(
           metaRow.appendChild(verSpan);
 
           bLi.append(mainRow, metaRow);
+
+          // Navigate to history view on click
+          bLi.style.cursor = "pointer";
+          bLi.setAttribute("role", "button");
+          bLi.setAttribute("tabindex", "0");
+          bLi.setAttribute("aria-label", `Historia: ${b.name}`);
+          const openHistory = () => {
+            const url = new URL(window.location.href);
+            url.search = searchForHistory(url.search, b.code);
+            window.history.pushState({ athleteView: "history" }, "", url);
+            window.dispatchEvent(new Event("popstate"));
+          };
+          bLi.addEventListener("click", openHistory);
+          bLi.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              openHistory();
+            }
+          });
+
           bList.appendChild(bLi);
         }
 
