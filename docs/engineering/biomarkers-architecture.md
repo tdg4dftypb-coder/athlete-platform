@@ -506,3 +506,129 @@ Managed by `biomarkers/persistence/schema.py` and `biomarkers/persistence/migrat
   - Deduplication: Prevents duplicate measurement entries at identical timestamps with identical values.
   - Timezone Safety: Converts naive datetimes to aware UTC datetimes.
   - Mixed Value Types: Handles numeric, qualitative, and bounded inequality markers seamlessly.
+
+---
+
+## 16. History HTTP API (Sprint 7E)
+
+### 16.1 Architecture
+
+The History HTTP API exposes the `BiomarkerHistoryBuilder` read model over a stable public HTTP endpoint.
+All four layers are strictly separated with no cross-layer leakage:
+
+```
+Domain (LaboratoryObservation)
+  │
+  ▼
+BiomarkerHistoryBuilder          [biomarkers/history.py — UNCHANGED]
+  │  builds BiomarkerHistory / BiomarkerMeasurement
+  ▼
+BiomarkerHistorySerializer       [biomarkers/history_serialization.py — NEW]
+  │  maps → HistoryPayloadV1 (privacy-audited dict)
+  ▼
+HTTP Endpoint                    [server/app.py — route added]
+  │  GET /api/v1/biomarkers/history/{canonical_code}
+  ▼
+JSON Response
+```
+
+**Architectural constraints observed:**
+- `BiomarkerHistoryBuilder` is not modified.
+- Domain models (`LaboratoryObservation`, `BiomarkerHistory`, `BiomarkerMeasurement`) are not modified.
+- PDF parsers and ingestion pipeline are not modified.
+- The existing Dashboard endpoint and Dashboard Read Model are not modified.
+- `BiomarkerHistoryBuilder` is the **only** data source for the endpoint.
+
+### 16.2 Endpoint
+
+```
+GET /api/v1/biomarkers/history/{canonical_code}
+```
+
+**`canonical_code` validation:** must match `^[a-z0-9_\-]+$`.
+Any code that does not match this pattern is rejected with `400 Bad Request` before touching the repository.
+
+**Example request:**
+```
+GET /api/v1/biomarkers/history/ferritin
+```
+
+### 16.3 HTTP Response Codes
+
+| Status | Condition |
+|--------|-----------|
+| `200 OK` | History found; payload contains ≥1 measurements |
+| `400 Bad Request` | `canonical_code` contains invalid characters or is empty |
+| `404 Not Found` | Biomarker not found or no active observations exist |
+| `500 Internal Server Error` | Unhandled exception — controlled, no traceback in body |
+
+### 16.4 HistoryPayloadV1 Contract
+
+```json
+{
+  "contract_version": "1.0",
+  "canonical_code": "ferritin",
+  "display_name": "Ferrityna",
+  "preferred_unit": "ng/mL",
+  "measurements": [
+    {
+      "collected_at": "2026-01-15T00:00:00+00:00",
+      "numeric_value": 42.5,
+      "qualitative_value": null,
+      "laboratory_flag": null,
+      "verification_status": "verified"
+    },
+    {
+      "collected_at": "2026-04-10T00:00:00+00:00",
+      "numeric_value": 38.0,
+      "qualitative_value": null,
+      "laboratory_flag": "L",
+      "verification_status": "unverified"
+    }
+  ]
+}
+```
+
+**Field types:**
+| Field | Type | Notes |
+|-------|------|-------|
+| `contract_version` | `string` | Always `"1.0"` |
+| `canonical_code` | `string` | Normalized slug |
+| `display_name` | `string` | Human-readable name from registry |
+| `preferred_unit` | `string` | Default unit from registry (may be empty) |
+| `measurements` | `array` | Ordered oldest→newest; no re-sorting |
+| `measurements[].collected_at` | `string` | ISO 8601 with timezone |
+| `measurements[].numeric_value` | `number \| null` | `null` for qualitative markers |
+| `measurements[].qualitative_value` | `string \| null` | `null` for numeric markers |
+| `measurements[].laboratory_flag` | `string \| null` | Lab-provided flag (e.g. `"H"`, `"L"`) |
+| `measurements[].verification_status` | `string` | Enum value: `"unverified"`, `"verified"`, `"rejected"` |
+
+### 16.5 Privacy Boundary
+
+The following fields are **never** present in the HTTP response body:
+
+| Excluded field | Reason |
+|----------------|--------|
+| `observation_id` | Internal repository key |
+| `report_id` | Internal repository key |
+| `import_run_id` | Internal provenance tracking |
+| `source_document_hash` | Document fingerprint — not for public API |
+| `filename` | Local filesystem path |
+| `original_filename` | Local filesystem path |
+| `raw_value` | Unprocessed lab string — privacy risk |
+
+Privacy is enforced statically in `BiomarkerHistorySerializer` by construction: only explicitly
+whitelisted fields are written to the output dict.
+
+### 16.6 Ordering Invariant
+
+The serializer preserves measurement order **exactly** as delivered by `BiomarkerHistoryBuilder`
+(oldest → newest, determined by `(collected_at, report_row_index, observation_id)` sort key).
+No additional sorting is performed in the HTTP layer.
+
+### 16.7 New Files
+
+| File | Role |
+|------|------|
+| `biomarkers/history_serialization.py` | `BiomarkerHistorySerializer` — privacy-safe serializer |
+| `tests/server/test_biomarker_history_endpoint.py` | 11 test scenarios for endpoint + serializer |

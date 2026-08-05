@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import sys
 import json
 from typing import Callable, Optional
@@ -13,8 +14,13 @@ from biomarkers.composition import (
     build_biomarkers_dashboard_use_case,
     get_default_biomarkers_context,
 )
+from biomarkers.history import BiomarkerHistoryBuilder
+from biomarkers.history_serialization import BiomarkerHistorySerializer
 from core.database import Database
 from dashboard.serialization import DashboardSerializer
+
+_CANONICAL_CODE_RE = re.compile(r'^[a-z0-9_\-]+$')
+_HISTORY_PREFIX = "/api/v1/biomarkers/history/"
 
 
 def create_dashboard_wsgi_app(
@@ -90,7 +96,54 @@ def create_dashboard_wsgi_app(
                 start_response(status, headers)
                 return [response_body]
 
-        # 3. CORS Preflight OPTIONS
+        # 3. Route: GET /api/v1/biomarkers/history/{canonical_code}
+        if path_info.startswith(_HISTORY_PREFIX) and request_method == "GET":
+            raw_code = path_info[len(_HISTORY_PREFIX):]
+
+            # 400 — invalid canonical_code (empty or forbidden characters)
+            if not raw_code or not _CANONICAL_CODE_RE.match(raw_code):
+                status = "400 Bad Request"
+                response_body = json.dumps(
+                    {"error": "Invalid canonical_code. Use only lowercase letters, digits, underscores, or hyphens."}
+                ).encode("utf-8")
+                headers = [
+                    ("Content-Type", "application/json; charset=utf-8"),
+                    ("Content-Length", str(len(response_body))),
+                ]
+                start_response(status, headers)
+                return [response_body]
+
+            try:
+                builder = BiomarkerHistoryBuilder(
+                    repository=context.repository,
+                    biomarker_registry=context.registry,
+                )
+                history = builder.build_for_code(raw_code)
+
+                if not history.measurements:
+                    status = "404 Not Found"
+                    response_body = json.dumps(
+                        {"error": f"No history found for biomarker '{raw_code}'."}
+                    ).encode("utf-8")
+                else:
+                    payload = BiomarkerHistorySerializer.serialize(history)
+                    status = "200 OK"
+                    response_body = json.dumps(payload, indent=2, ensure_ascii=False).encode("utf-8")
+
+            except Exception:
+                status = "500 Internal Server Error"
+                response_body = json.dumps(
+                    {"error": "Internal server error generating biomarker history."}
+                ).encode("utf-8")
+
+            headers = [
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Content-Length", str(len(response_body))),
+            ]
+            start_response(status, headers)
+            return [response_body]
+
+        # 4. CORS Preflight OPTIONS
         if request_method == "OPTIONS":
             headers = [
                 ("Access-Control-Allow-Origin", "*"),
@@ -100,7 +153,7 @@ def create_dashboard_wsgi_app(
             start_response("204 No Content", headers)
             return [b""]
 
-        # 4. 404 Not Found fallback
+        # 5. 404 Not Found fallback
         status = "404 Not Found"
         response_body = json.dumps({"error": "Not Found"}).encode("utf-8")
         headers = [
@@ -119,7 +172,12 @@ dashboard_wsgi_app = create_dashboard_wsgi_app()
 
 def run_server(port: int = 8000) -> None:
     from wsgiref.simple_server import make_server
-    print(f"Starting AthletePlatform HTTP Server on http://127.0.0.1:{port}/api/v1/dashboard & /api/v1/biomarkers")
+    print(
+        f"Starting AthletePlatform HTTP Server on "
+        f"http://127.0.0.1:{port}/api/v1/dashboard "
+        f"& /api/v1/biomarkers "
+        f"& /api/v1/biomarkers/history/{{canonical_code}}"
+    )
     httpd = make_server("127.0.0.1", port, dashboard_wsgi_app)
     try:
         httpd.serve_forever()
