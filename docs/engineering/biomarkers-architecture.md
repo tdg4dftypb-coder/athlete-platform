@@ -337,10 +337,14 @@ The ingestion pipeline orchestrates document identity, extraction, row parsing, 
   - Excludes `NaN` and `Infinity`.
   - Presents `laboratory_flag` strictly as raw source string without AI diagnoses or treatment recommendations.
 
-### 9.6 HTTP Boundary & Development Composition (`server/app.py`)
+### 9.6 HTTP Boundary & Development Application Context (`server/app.py` & `biomarkers/composition.py`)
 - Endpoint: **`GET /api/v1/biomarkers`**
-- Composition Flow: `build_biomarkers_dashboard_use_case()` (`LaboratoryRepository` $\rightarrow$ `BiomarkerRegistry` $\rightarrow$ `BiomarkersDashboardBuilder` $\rightarrow$ `BiomarkersDashboardSerializer`).
-- Development Adapter: Uses `InMemoryLaboratoryRepository` as a temporary development adapter. Data is not yet persisted to DuckDB (DuckDB repository adapter reserved for future stage).
+- Composition Root: **`BiomarkersApplicationContext`** holding singletons for `repository`, `registry`, `unit_normalizer`, `ingestion_service`, and `clock`.
+- Process-Wide Lifecycle: The development HTTP server process maintains one shared `BiomarkersApplicationContext` instance across requests, allowing ingestion services and read model endpoints to interact over the same repository state without resetting data between HTTP requests.
+- Dependency Injection: `create_dashboard_wsgi_app(biomarkers_context=...)` factory enables clean context injection for integration tests without global monkeypatching.
+- **CORS Policy & Hardening**:
+  - Wildcard `Access-Control-Allow-Origin: *` is explicitly removed from `/api/v1/biomarkers`.
+  - Client web application routes requests via Vite same-origin proxy (`/api` $\rightarrow$ `http://127.0.0.1:8000`).
 - **Controlled Error Contract**:
   - Internal processing failures return HTTP `500 Internal Server Error` with `{"error": "Internal server error generating biomarkers payload"}`.
   - Zero stack traces, zero health metric leakage, zero document hashes in error payloads.

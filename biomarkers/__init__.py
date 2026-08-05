@@ -2,6 +2,11 @@
 Biomarkers & Laboratory Intelligence Domain Package.
 """
 
+from biomarkers.composition import (
+    BiomarkersApplicationContext,
+    build_biomarkers_dashboard_use_case,
+    get_default_biomarkers_context,
+)
 from biomarkers.confidence import (
     ConfidenceAssessment,
     ConfidenceComponents,
@@ -168,7 +173,7 @@ __all__ = [
     "TombstoneRecord",
     "DeletionResult",
     "LaboratoryDeletionService",
-    # Dashboard & Serialization
+    # Dashboard, Composition & Serialization
     "BiomarkersDashboardMetadata",
     "BiomarkerSummary",
     "BiomarkerCategorySummary",
@@ -176,5 +181,8 @@ __all__ = [
     "BiomarkersDashboard",
     "BiomarkersDashboardBuilder",
     "BiomarkersDashboardSerializer",
+    "BiomarkersApplicationContext",
+    "get_default_biomarkers_context",
+    "build_biomarkers_dashboard_use_case",
     "CATEGORY_DISPLAY_NAMES",
 ]
