@@ -116,11 +116,11 @@ function createRecovery(
       statusLabel: partial ? "Ocena częściowa" : "Ocena regeneracji dostępna",
       narrative: partial
         ? "Wynik pochodzi z dostępnych pomiarów. Brakujące źródła zwiększają niepewność prezentacji."
-        : "Dzisiejszy wynik pochodzi z kanonicznej oceny. Poniżej zobaczysz pomiary, które są dostępne w odprawie.",
+        : "Dzisiejsza ocena została wyliczona na podstawie dostępnych danych o regeneracji. Poniżej zobaczysz dostępne pomiary.",
       score: payload.recovery.recovery_score,
       scoreLabel: payload.recovery.recovery_score === null
         ? null
-        : "Recovery Score z payloadu",
+        : "Poziom regeneracji",
       tone: partial ? "caution" : "positive",
     },
     factors: createFactors(payload, context),
@@ -175,17 +175,20 @@ function createFactors(
     createFactor({
       id: "fatigue",
       label: "Zmęczenie",
-      valueText: formatOptional(
-        payload.performance.fatigue_tss_per_day,
-        "TSS/d",
-        context,
-      ),
+      valueText: formatFatigueValue(payload.performance.fatigue_tss_per_day, context),
       status: payload.performance.metadata.status,
       description: payload.performance.fatigue_tss_per_day === null
         ? "Bieżący poziom zmęczenia nie jest dostępny."
-        : "Wartość zmęczenia pochodzi z kanonicznego stanu wydolności.",
+        : "Wartość zmęczenia pochodzi z bieżącego stanu obciążenia.",
     }),
   ];
+}
+
+function formatFatigueValue(val: number | null, context: MappingContext): string | null {
+  if (val === null) return null;
+  if (val <= 5) return `Niski poziom (${formatNumber(val, context)} TSS)`;
+  if (val <= 35) return `Umiarkowany poziom (${formatNumber(val, context)} TSS)`;
+  return `Wysoki poziom (${formatNumber(val, context)} TSS)`;
 }
 
 function createFactor(input: {
@@ -213,7 +216,7 @@ function createFactor(input: {
 
 function createInterpretation(payload: AthleteDashboardPayloadV1): string {
   if (payload.training.decision_reasons.includes("adaptation_reduce_load")) {
-    return "Dzisiejsze obciążenie zostało ograniczone w kanonicznej decyzji treningowej.";
+    return "Dzisiejsze obciążenie zostało dostosowane w decyzji treningowej.";
   }
   if (payload.training.decision_reasons.includes("insight_need_more_recovery")) {
     return "Dzisiejszy plan uwzględnia potrzebę większej regeneracji.";
@@ -234,7 +237,7 @@ function createDetails(
       id: "respiratory-rate",
       label: "Częstość oddechu",
       valueText: `${formatNumber(payload.health.respiratory_rate_per_minute, context)} /min`,
-      description: "Bieżący pomiar bez porównania do indywidualnej normy.",
+      description: "Bieżący pomiar oddechu w spoczynku.",
     });
   }
   if (payload.health.oxygen_saturation_percent !== null) {
@@ -242,7 +245,7 @@ function createDetails(
       id: "oxygen-saturation",
       label: "Saturacja",
       valueText: `${formatNumber(payload.health.oxygen_saturation_percent, context)}%`,
-      description: "Bieżący pomiar bez interpretacji klinicznej.",
+      description: "Bieżący pomiar nasycenia krwi tlenem.",
     });
   }
   return details;
@@ -250,7 +253,7 @@ function createDetails(
 
 function collectMissingData(payload: AthleteDashboardPayloadV1): readonly string[] {
   const missing = new Set<string>();
-  if (payload.recovery.recovery_score === null) missing.add("Brak Recovery Score");
+  if (payload.recovery.recovery_score === null) missing.add("Brak wskaźnika regeneracji");
   if (payload.health.hrv_ms === null) missing.add("Brak HRV");
   if (payload.health.sleep_minutes === null) missing.add("Brak czasu snu");
   if (payload.health.resting_heart_rate_bpm === null) {

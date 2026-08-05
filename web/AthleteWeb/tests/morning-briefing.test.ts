@@ -6,6 +6,7 @@ import {
   morningBriefingPreviewData,
   morningBriefingPreviewStates,
 } from "../src/preview-data/morning-briefing-preview-data";
+import { translateRecommendationMessage } from "../src/mappers/morning-briefing-mapper";
 
 describe("Morning Briefing", () => {
   beforeEach(() => {
@@ -17,6 +18,17 @@ describe("Morning Briefing", () => {
     expect(morningBriefingPreviewData.goal.progressValue).toBe(0.75);
     expect(Object.isFrozen(morningBriefingPreviewData)).toBe(true);
     expect(Object.isFrozen(morningBriefingPreviewData.coachMessage)).toBe(true);
+  });
+
+  it("translates known raw English recommendation strings to Polish", () => {
+    expect(translateRecommendationMessage("Extend sleep duration.")).toBe("Postaraj się dziś wydłużyć sen.");
+    expect(translateRecommendationMessage("Apply recovery protocol.")).toBe("Zaplanuj dziś dodatkową regenerację.");
+    expect(translateRecommendationMessage("Increase hydration.")).toBe("Zadbaj dziś o większą podaż płynów.");
+    expect(translateRecommendationMessage("Perform mobility work.")).toBe("Wykonaj dziś krótką sesję mobilności.");
+  });
+
+  it("handles unknown recommendation strings safely without crashing", () => {
+    expect(translateRecommendationMessage("Custom recommendation message")).toBe("Custom recommendation message");
   });
 
   it("ready renders every main section", () => {
@@ -51,7 +63,6 @@ describe("Morning Briefing", () => {
     expect(document.querySelectorAll(".bottom-navigation button:not(:disabled)")).toHaveLength(4);
   });
 
-
   it("partial names missing data and omits unsupported reasons", () => {
     document.body.append(createApp(morningBriefingPreviewStates.partial));
 
@@ -70,7 +81,7 @@ describe("Morning Briefing", () => {
         changesSinceYesterday: [],
         goal: {
           ...morningBriefingPreviewData.goal,
-          progressLabel: "Postęp niedostępny",
+          progressLabel: "Brak danych o postępie",
           progressValue: null,
         },
       },

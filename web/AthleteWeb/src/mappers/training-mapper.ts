@@ -157,7 +157,7 @@ function formatDescription(
     return "Jazda w strefie tempa (Strefa 3) dla zwiększenia pojemności glikogenowej.";
   }
   if (goal === "RECOVERY") {
-    return "Aktywna regeneracja przy niskiej intensywności przyspieszająca odbudowę tkankową.";
+    return "Lekka jazda regeneracyjna, która pomaga wrócić do pełnej gotowości.";
   }
   return `Plan treningowy: ${workoutName}`;
 }

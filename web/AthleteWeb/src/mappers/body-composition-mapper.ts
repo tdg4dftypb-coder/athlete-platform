@@ -63,7 +63,7 @@ export function mapAthleteDashboardToBody(
       header,
       message: "Dane o składzie ciała są niedostępne.",
       reason: "Brak zarejestrowanych pomiarów masy ciała.",
-      nextAction: "Zarejestruj pierwszy pomiar masy ciała, aby odblokować analizę.",
+      nextAction: "Dodaj pierwszy pomiar masy ciała, aby rozpocząć śledzenie zmian.",
     };
   }
 

@@ -99,7 +99,7 @@ describe("AthleteDashboard payload boundary", () => {
     if (result.kind !== "ready") return;
 
     expect(result.briefing.goal.progressAccessibilityLabel).toBe("Postęp celu");
-    expect(result.briefing.goal.progressLabel).toBe("Postęp niedostępny");
+    expect(result.briefing.goal.progressLabel).toBe("Brak danych o postępie");
     expect(result.briefing.goal.progressValue).toBeNull();
   });
 

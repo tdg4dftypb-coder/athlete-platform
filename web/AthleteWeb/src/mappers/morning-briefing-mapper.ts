@@ -17,6 +17,16 @@ import {
 
 export type PayloadMappedPresentationState = Exclude<MorningBriefingPresentationState, { kind: "loading" }>;
 
+export function translateRecommendationMessage(message: string): string {
+  const dictionary: Record<string, string> = {
+    "Extend sleep duration.": "Postaraj się dziś wydłużyć sen.",
+    "Apply recovery protocol.": "Zaplanuj dziś dodatkową regenerację.",
+    "Increase hydration.": "Zadbaj dziś o większą podaż płynów.",
+    "Perform mobility work.": "Wykonaj dziś krótką sesję mobilności.",
+  };
+  return dictionary[message] ?? message;
+}
+
 export function parseAndMapAthleteDashboardToMorningBriefing(
   input: unknown,
   context: MappingContext,
@@ -90,7 +100,7 @@ function createHeader(payload: AthleteDashboardPayloadV1, context: MappingContex
 function createBriefing(payload: AthleteDashboardPayloadV1, context: MappingContext): MorningBriefingPresentation {
   const header = createHeader(payload, context);
   const decisionTitle = payload.training.workout_name!;
-  const recommendationMessages = payload.recommendations.items.map((item) => item.message);
+  const recommendationMessages = payload.recommendations.items.map((item) => translateRecommendationMessage(item.message));
   const reasons = payload.training.decision_reasons.map(decisionReasonLabel);
   const plan = [decisionTitle];
   if (payload.nutrition.fueling_pre_workout_carbohydrate_g !== null) {
@@ -116,7 +126,7 @@ function createBriefing(payload: AthleteDashboardPayloadV1, context: MappingCont
     goal: {
       title: goalLabel(payload.goal.goal_type, payload.goal.target_body_mass_kg, context),
       progressAccessibilityLabel: "Postęp celu",
-      progressLabel: "Postęp niedostępny",
+      progressLabel: "Brak danych o postępie",
       progressValue: null,
       timeline: goalTimeline(payload.goal.valid_from, payload.goal.valid_until, context),
     },

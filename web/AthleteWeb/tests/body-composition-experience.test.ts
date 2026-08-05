@@ -153,6 +153,7 @@ describe("Body Composition Experience", () => {
       expect(result.kind).toBe("unavailable");
       if (result.kind === "unavailable") {
         expect(result.reason).toContain("Brak zarejestrowanych pomiarów masy ciała");
+      expect(result.nextAction).toBe("Dodaj pierwszy pomiar masy ciała, aby rozpocząć śledzenie zmian.");
       }
     });
 

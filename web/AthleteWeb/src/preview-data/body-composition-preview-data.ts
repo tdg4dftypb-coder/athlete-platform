@@ -100,7 +100,7 @@ export const bodyCompositionPreviewData: BodyCompositionPresentation = Object.fr
     limitations: Object.freeze([]),
     isComplete: true,
   }),
-  placeholderNote: "Regionalna mapa zmian — planowana funkcja",
+  placeholderNote: null,
   technical: Object.freeze({
     title: "Dane i wskaźniki techniczne",
     metrics: Object.freeze([

@@ -195,4 +195,13 @@ describe("Recovery Experience", () => {
     expect(state.recovery.source).toBe("payload");
     expect(state.recovery.trendSummary).toBeNull();
   });
+
+  it("does not contain developer term 'kanoniczny' in recovery text", () => {
+    const readyState = mapAthleteDashboardToRecovery(readyPayloadFixture, mappingContext);
+    const partialState = mapAthleteDashboardToRecovery(partialPayloadFixture, mappingContext);
+    const readyText = JSON.stringify(readyState);
+    const partialText = JSON.stringify(partialState);
+    expect(readyText).not.toContain("kanoniczn");
+    expect(partialText).not.toContain("kanoniczn");
+  });
 });

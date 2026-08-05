@@ -178,6 +178,14 @@ describe("Training Experience", () => {
       expect(result.kind).toBe("unavailable");
     });
 
+    it("does not output 'null' or 'undefined' text when rendering partial training", () => {
+      const state = parseAndMapAthleteDashboardToTraining(payloadFixtures.partial, mockContext);
+      const element = renderTrainingExperience(state);
+      const text = element.textContent ?? "";
+      expect(text).not.toContain("null");
+      expect(text).not.toContain("undefined");
+    });
+
     it("maps stale payload date to stale state", () => {
       const result = mapAthleteDashboardToTraining(
         {
