@@ -9,11 +9,15 @@ export type ParseResult<T> =
   | { readonly success: true; readonly data: T }
   | { readonly success: false; readonly issues: readonly ParseIssue[] };
 
+const VALID_STATUSES = new Set(["ready", "partial", "unavailable"]);
+const VALID_VERIFICATION_STATUSES = new Set(["verified", "unverified", "rejected"]);
+const VALID_TREND_DIRECTIONS = new Set(["increasing", "decreasing", "stable", "unavailable"]);
+
 export function parseBiomarkersDashboardPayloadV1(input: unknown): ParseResult<BiomarkersDashboardPayloadV1> {
   const issues: ParseIssue[] = [];
 
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
-    return { success: false, issues: [{ path: "payload", message: "Payload must be an object." }] };
+    return { success: false, issues: [{ path: "payload", message: "Payload must be a dictionary object." }] };
   }
 
   const record = input as Record<string, unknown>;
@@ -38,11 +42,14 @@ export function parseBiomarkersDashboardPayloadV1(input: unknown): ParseResult<B
     issues.push({ path: "metadata", message: "metadata must be an object." });
   } else {
     const meta = record.metadata as Record<string, unknown>;
-    if (meta.status !== "ready" && meta.status !== "partial" && meta.status !== "unavailable") {
+    if (typeof meta.status !== "string" || !VALID_STATUSES.has(meta.status)) {
       issues.push({ path: "metadata.status", message: `Invalid status '${String(meta.status)}'.` });
     }
     if (typeof meta.completeness_score !== "number" || !Number.isFinite(meta.completeness_score) || meta.completeness_score < 0 || meta.completeness_score > 1) {
       issues.push({ path: "metadata.completeness_score", message: "completeness_score must be a finite number between 0.0 and 1.0." });
+    }
+    if (meta.data_as_of !== null && (typeof meta.data_as_of !== "string" || !isIsoTimestamp(meta.data_as_of))) {
+      issues.push({ path: "metadata.data_as_of", message: "data_as_of must be null or a valid ISO timestamp string." });
     }
   }
 
@@ -59,9 +66,36 @@ export function parseBiomarkersDashboardPayloadV1(input: unknown): ParseResult<B
     }
   }
 
-  // 6. categories
+  // 6. categories structure & enum checks
   if (!Array.isArray(record.categories)) {
     issues.push({ path: "categories", message: "categories must be an array." });
+  } else {
+    for (let cIdx = 0; cIdx < record.categories.length; cIdx++) {
+      const cat = record.categories[cIdx];
+      if (typeof cat !== "object" || cat === null) {
+        issues.push({ path: `categories[${cIdx}]`, message: "Category item must be an object." });
+        continue;
+      }
+      const catObj = cat as Record<string, unknown>;
+      if (!Array.isArray(catObj.biomarkers)) {
+        issues.push({ path: `categories[${cIdx}].biomarkers`, message: "biomarkers must be an array." });
+      } else {
+        for (let bIdx = 0; bIdx < catObj.biomarkers.length; bIdx++) {
+          const b = catObj.biomarkers[bIdx];
+          if (typeof b !== "object" || b === null) {
+            issues.push({ path: `categories[${cIdx}].biomarkers[${bIdx}]`, message: "Biomarker item must be an object." });
+            continue;
+          }
+          const bObj = b as Record<string, unknown>;
+          if (typeof bObj.verification_status !== "string" || !VALID_VERIFICATION_STATUSES.has(bObj.verification_status)) {
+            issues.push({ path: `categories[${cIdx}].biomarkers[${bIdx}].verification_status`, message: `Invalid verification_status '${String(bObj.verification_status)}'.` });
+          }
+          if (typeof bObj.trend_direction !== "string" || !VALID_TREND_DIRECTIONS.has(bObj.trend_direction)) {
+            issues.push({ path: `categories[${cIdx}].biomarkers[${bIdx}].trend_direction`, message: `Invalid trend_direction '${String(bObj.trend_direction)}'.` });
+          }
+        }
+      }
+    }
   }
 
   // 7. unresolved_items & privacy check for raw_value
