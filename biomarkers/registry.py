@@ -88,6 +88,12 @@ class BiomarkerRegistry:
             self._alias_index[alias_key] = code_key
             self._exact_alias_str[alias_key] = cleaned
 
+    def list_all(self, include_inactive: bool = False) -> list[BiomarkerDefinition]:
+        """Returns all registered biomarker definitions."""
+        if include_inactive:
+            return list(self._definitions.values())
+        return [d for d in self._definitions.values() if d.active]
+
     def get(self, canonical_code: str, include_inactive: bool = False) -> Optional[BiomarkerDefinition]:
         """Looks up a definition by canonical_code."""
         if not canonical_code:
@@ -540,6 +546,15 @@ def create_default_biomarker_registry() -> BiomarkerRegistry:
             accepted_aliases=("hbsag jakościowo", "hbs-antygen jakościowo", "hbs-antygen (hbsag) - jakościowo", "hbsag qualitative", "hbs-antygen (hbsag) jakościowo"),
             accepted_units=("",),
             value_type=BiomarkerValueType.QUALITATIVE,
+        ),
+        BiomarkerDefinition(
+            canonical_code="crp",
+            canonical_name="Białko C-reaktywne (CRP)",
+            category=BiomarkerCategory.INFLAMMATORY_MARKERS,
+            default_unit="mg/L",
+            accepted_aliases=("crp", "białko c-reaktywne", "białko c-reaktywne (crp)", "białko ostrej fazy (crp)"),
+            accepted_units=("mg/L", "mg/l"),
+            value_type=BiomarkerValueType.NUMERIC,
         ),
     ]
 

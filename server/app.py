@@ -16,21 +16,62 @@ from biomarkers.composition import (
 )
 from biomarkers.history import BiomarkerHistoryBuilder
 from biomarkers.history_serialization import BiomarkerHistorySerializer
+from biomarkers.trends.analyzer import BiomarkerTrendAnalyzer
+from biomarkers.trends.serialization import BiomarkerTrendSerializer
+from biomarkers.intelligence.analyzer import BiomarkerInsightAnalyzer
+from biomarkers.intelligence.serialization import BiomarkerInsightSerializer
 from core.database import Database
 from dashboard.serialization import DashboardSerializer
+from morning_briefing.builder import MorningBriefingBuilder
+from morning_briefing.recommendations import MorningRecommendationEngine
+from morning_briefing.serialization import MorningBriefingSerializer
+from morning_briefing.provider import (
+    MorningBriefingInputProvider,
+    MorningBriefingInputError,
+    EmptyMorningBriefingInputProvider,
+)
+from performance_lab.history import PerformanceTestHistoryBuilder
+from performance_lab.provider import (
+    PerformanceTestSessionProvider,
+    PerformanceTestSessionProviderError,
+    EmptyPerformanceTestSessionProvider,
+)
+from performance_lab.serialization import PerformanceTestHistorySerializer
+
 
 _CANONICAL_CODE_RE = re.compile(r'^[a-z0-9_\-]+$')
 _HISTORY_PREFIX = "/api/v1/biomarkers/history/"
+_TRENDS_PREFIX = "/api/v1/biomarkers/trends/"
+_INSIGHTS_PREFIX = "/api/v1/biomarkers/insights/"
+
+
 
 
 def create_dashboard_wsgi_app(
     biomarkers_context: Optional[BiomarkersApplicationContext] = None,
+    morning_briefing_provider: Optional[MorningBriefingInputProvider] = None,
+    performance_lab_provider: Optional[PerformanceTestSessionProvider] = None,
 ) -> Callable[[dict, Callable], list[bytes]]:
     """
     Factory creating WSGI application for local development server.
     Accepts optional BiomarkersApplicationContext for dependency injection in tests.
+    Accepts optional MorningBriefingInputProvider for dependency injection in tests.
+    Accepts optional PerformanceTestSessionProvider for dependency injection in tests.
     """
     context = biomarkers_context or get_default_biomarkers_context()
+    _briefing_provider: MorningBriefingInputProvider = (
+        morning_briefing_provider or EmptyMorningBriefingInputProvider()
+    )
+    _briefing_builder = MorningBriefingBuilder()
+    _recommendation_engine = MorningRecommendationEngine()
+    _briefing_serializer = MorningBriefingSerializer()
+
+    _performance_provider: PerformanceTestSessionProvider = (
+        performance_lab_provider or EmptyPerformanceTestSessionProvider()
+    )
+    _performance_history_builder = PerformanceTestHistoryBuilder()
+    _performance_history_serializer = PerformanceTestHistorySerializer()
+
 
     def wsgi_app(environ: dict, start_response: Callable) -> list[bytes]:
         path_info = environ.get("PATH_INFO", "")
@@ -143,7 +184,187 @@ def create_dashboard_wsgi_app(
             start_response(status, headers)
             return [response_body]
 
-        # 4. CORS Preflight OPTIONS
+        # 3b. Route: GET /api/v1/biomarkers/trends/{canonical_code}
+        if path_info.startswith(_TRENDS_PREFIX) and request_method == "GET":
+            raw_code = path_info[len(_TRENDS_PREFIX):]
+
+            # 400 — invalid canonical_code
+            if not raw_code or not _CANONICAL_CODE_RE.match(raw_code):
+                status = "400 Bad Request"
+                response_body = json.dumps(
+                    {"error": "Invalid canonical_code. Use only lowercase letters, digits, underscores, or hyphens."}
+                ).encode("utf-8")
+                headers = [
+                    ("Content-Type", "application/json; charset=utf-8"),
+                    ("Content-Length", str(len(response_body))),
+                ]
+                start_response(status, headers)
+                return [response_body]
+
+            # Verify existence of biomarker in registry
+            definition = context.registry.get(raw_code)
+            if not definition:
+                status = "404 Not Found"
+                response_body = json.dumps(
+                    {"error": f"Biomarker '{raw_code}' not found in registry."}
+                ).encode("utf-8")
+                headers = [
+                    ("Content-Type", "application/json; charset=utf-8"),
+                    ("Content-Length", str(len(response_body))),
+                ]
+                start_response(status, headers)
+                return [response_body]
+
+            try:
+                # 1. Build history (may contain 0 measurements)
+                builder = BiomarkerHistoryBuilder(
+                    repository=context.repository,
+                    biomarker_registry=context.registry,
+                )
+                history = builder.build_for_code(raw_code)
+
+                # 2. Analyze trend
+                analyzer = BiomarkerTrendAnalyzer()
+                trend = analyzer.analyze(history)
+
+                # 3. Serialize trend
+                payload = BiomarkerTrendSerializer.serialize(trend)
+                status = "200 OK"
+                response_body = json.dumps(payload, indent=2, ensure_ascii=False).encode("utf-8")
+
+            except Exception:
+                status = "500 Internal Server Error"
+                response_body = json.dumps(
+                    {"error": "Internal server error generating biomarker trend."}
+                ).encode("utf-8")
+
+            headers = [
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Content-Length", str(len(response_body))),
+            ]
+            start_response(status, headers)
+            return [response_body]
+
+        # 3c. Route: GET /api/v1/biomarkers/insights/{canonical_code}
+        if path_info.startswith(_INSIGHTS_PREFIX) and request_method == "GET":
+            raw_code = path_info[len(_INSIGHTS_PREFIX):]
+
+            # 400 — invalid canonical_code
+            if not raw_code or not _CANONICAL_CODE_RE.match(raw_code):
+                status = "400 Bad Request"
+                response_body = json.dumps(
+                    {"error": "Invalid canonical_code. Use only lowercase letters, digits, underscores, or hyphens."}
+                ).encode("utf-8")
+                headers = [
+                    ("Content-Type", "application/json; charset=utf-8"),
+                    ("Content-Length", str(len(response_body))),
+                ]
+                start_response(status, headers)
+                return [response_body]
+
+            # Verify existence of biomarker in registry
+            definition = context.registry.get(raw_code)
+            if not definition:
+                status = "404 Not Found"
+                response_body = json.dumps(
+                    {"error": f"Biomarker '{raw_code}' not found in registry."}
+                ).encode("utf-8")
+                headers = [
+                    ("Content-Type", "application/json; charset=utf-8"),
+                    ("Content-Length", str(len(response_body))),
+                ]
+                start_response(status, headers)
+                return [response_body]
+
+            try:
+                # 1. Build history (may contain 0 measurements)
+                builder = BiomarkerHistoryBuilder(
+                    repository=context.repository,
+                    biomarker_registry=context.registry,
+                )
+                history = builder.build_for_code(raw_code)
+
+                # 2. Analyze trend
+                trend_analyzer = BiomarkerTrendAnalyzer()
+                trend = trend_analyzer.analyze(history)
+
+                # 3. Analyze insight
+                insight_analyzer = BiomarkerInsightAnalyzer()
+                insight = insight_analyzer.analyze(trend)
+
+                # 4. Serialize insight
+                payload = BiomarkerInsightSerializer.serialize(insight)
+                status = "200 OK"
+                response_body = json.dumps(payload, indent=2, ensure_ascii=False).encode("utf-8")
+
+            except Exception:
+                status = "500 Internal Server Error"
+                response_body = json.dumps(
+                    {"error": "Internal server error generating biomarker insight."}
+                ).encode("utf-8")
+
+            headers = [
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Content-Length", str(len(response_body))),
+            ]
+            start_response(status, headers)
+            return [response_body]
+
+        # 4. Route: GET /api/v1/morning-briefing
+        if path_info == "/api/v1/morning-briefing" and request_method == "GET":
+            try:
+                input_data = _briefing_provider.get_input()
+                briefing = _briefing_builder.build(input_data)
+                briefing = _recommendation_engine.apply(briefing)
+                payload = _briefing_serializer.serialize(briefing)
+                status = "200 OK"
+                response_body = json.dumps(payload, indent=2, ensure_ascii=False).encode("utf-8")
+            except MorningBriefingInputError:
+                status = "503 Service Unavailable"
+                response_body = json.dumps(
+                    {"error": "Morning Briefing data source is temporarily unavailable."}
+                ).encode("utf-8")
+            except Exception:
+                status = "500 Internal Server Error"
+                response_body = json.dumps(
+                    {"error": "Internal server error generating Morning Briefing."}
+                ).encode("utf-8")
+
+            headers = [
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Content-Length", str(len(response_body))),
+            ]
+            start_response(status, headers)
+            return [response_body]
+
+        # 4.5 Route: GET /api/v1/performance-lab/history
+        if path_info == "/api/v1/performance-lab/history" and request_method == "GET":
+            try:
+                sessions = _performance_provider.get_sessions()
+                history = _performance_history_builder.build(sessions)
+                payload = _performance_history_serializer.serialize(history)
+                status = "200 OK"
+                response_body = json.dumps(payload, indent=2, ensure_ascii=False).encode("utf-8")
+            except PerformanceTestSessionProviderError:
+                status = "503 Service Unavailable"
+                response_body = json.dumps(
+                    {"error": "Performance Lab data source is temporarily unavailable."}
+                ).encode("utf-8")
+            except Exception:
+                status = "500 Internal Server Error"
+                response_body = json.dumps(
+                    {"error": "Internal server error fetching Performance Lab history."}
+                ).encode("utf-8")
+
+            headers = [
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Content-Length", str(len(response_body))),
+            ]
+            start_response(status, headers)
+            return [response_body]
+
+
+        # 5. CORS Preflight OPTIONS
         if request_method == "OPTIONS":
             headers = [
                 ("Access-Control-Allow-Origin", "*"),

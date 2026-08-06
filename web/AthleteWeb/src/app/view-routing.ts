@@ -1,5 +1,6 @@
 export type ApplicationView =
   | "morning-briefing"
+  | "morning-briefing-detail"
   | "morning"
   | "recovery"
   | "training"
@@ -9,13 +10,25 @@ export type ApplicationView =
   | "more"
   | "icons"
   | "biomarkers"
-  | "history";
+  | "history"
+  | "performance-lab"
+  | "performance-lab-detail";
+
 
 export function resolveApplicationView(search: string): ApplicationView {
   const params = new URLSearchParams(search);
   const view = params.get("view");
   if (view === "morning" || view === "morning-briefing") {
     return "morning-briefing";
+  }
+  if (view === "morning-briefing-detail") {
+    return "morning-briefing-detail";
+  }
+  if (view === "performance-lab") {
+    return "performance-lab";
+  }
+  if (view === "performance-lab-detail") {
+    return "performance-lab-detail";
   }
   if (
     view === "recovery" ||
@@ -32,6 +45,12 @@ export function resolveApplicationView(search: string): ApplicationView {
   }
   return "morning-briefing";
 }
+
+/** Extracts the `id` query param for performance-lab-detail view, e.g. `?view=performance-lab-detail&id=lac-001` */
+export function resolvePerformanceTestId(search: string): string {
+  return new URLSearchParams(search).get("id") ?? "";
+}
+
 
 /** Extracts the `code` query param for the history view, e.g. `?view=history&code=ferritin` */
 export function resolveHistoryCode(search: string): string {

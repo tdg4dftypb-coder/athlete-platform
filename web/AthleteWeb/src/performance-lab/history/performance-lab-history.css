@@ -1,0 +1,196 @@
+.pl-history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4, 1rem);
+  width: 100%;
+  max-width: 1024px;
+  margin: 0 auto;
+  padding: var(--space-4, 1rem);
+  box-sizing: border-box;
+}
+
+.pl-history__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pl-history__title {
+  font-size: var(--font-size-2xl, 1.5rem);
+  font-weight: 700;
+  color: var(--color-text-primary, #f1f5f9);
+  margin: 0;
+  outline: none;
+}
+
+.pl-history__title:focus-visible {
+  outline: 2px solid var(--color-focus, #38bdf8);
+  outline-offset: 4px;
+}
+
+.pl-history__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4, 1rem);
+}
+
+.pl-history__state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8, 2rem);
+  background-color: var(--color-bg-surface, #1e293b);
+  border: 1px solid var(--color-border, #334155);
+  border-radius: var(--radius-lg, 0.75rem);
+  min-height: 200px;
+}
+
+.pl-history__spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 3px solid var(--color-border, #334155);
+  border-top-color: var(--color-accent, #0284c7);
+  border-radius: 50%;
+  animation: pl-spin 0.8s linear infinite;
+  margin-bottom: var(--space-2, 0.5rem);
+}
+
+@keyframes pl-spin {
+  to { transform: rotate(360deg); }
+}
+
+.pl-history__empty-text {
+  color: var(--color-text-secondary, #94a3b8);
+  font-size: var(--font-size-base, 1rem);
+  margin: 0;
+}
+
+.pl-history__error-title {
+  color: var(--color-error, #f87171);
+  font-size: var(--font-size-lg, 1.125rem);
+  margin: 0 0 var(--space-2, 0.5rem) 0;
+}
+
+.pl-history__error-message {
+  color: var(--color-text-secondary, #94a3b8);
+  font-size: var(--font-size-sm, 0.875rem);
+  margin: 0 0 var(--space-4, 1rem) 0;
+  text-align: center;
+}
+
+.pl-history__retry-btn {
+  background-color: var(--color-accent, #0284c7);
+  color: #ffffff;
+  border: none;
+  padding: var(--space-2, 0.5rem) var(--space-4, 1rem);
+  border-radius: var(--radius-md, 0.375rem);
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--color-accent-hover, #0369a1);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-focus, #38bdf8);
+    outline-offset: 2px;
+  }
+}
+
+.pl-history__count-badge {
+  align-self: flex-start;
+  font-size: var(--font-size-sm, 0.875rem);
+  color: var(--color-text-secondary, #94a3b8);
+  margin-bottom: var(--space-2, 0.5rem);
+}
+
+.pl-history__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 0.75rem);
+  width: 100%;
+}
+
+.pl-history-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 0.5rem);
+  padding: var(--space-4, 1rem);
+  background-color: var(--color-bg-surface, #1e293b);
+  border: 1px solid var(--color-border, #334155);
+  border-radius: var(--radius-md, 0.5rem);
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    border-color: var(--color-accent, #0284c7);
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-focus, #38bdf8);
+    outline-offset: 2px;
+  }
+}
+
+.pl-history-card__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pl-history-card__type {
+  font-size: var(--font-size-base, 1rem);
+  font-weight: 600;
+  color: var(--color-text-primary, #f1f5f9);
+  margin: 0;
+}
+
+.pl-history-card__status-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+}
+
+.pl-history-card__status-badge--completed {
+  background-color: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+}
+
+.pl-history-card__status-badge--planned {
+  background-color: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+}
+
+.pl-history-card__status-badge--partial {
+  background-color: rgba(251, 146, 60, 0.15);
+  color: #fb923c;
+}
+
+.pl-history-card__status-badge--invalid {
+  background-color: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+}
+
+
+.pl-history-card__meta {
+  font-size: var(--font-size-sm, 0.875rem);
+  color: var(--color-text-secondary, #94a3b8);
+}
+
+.pl-history-card__thresholds {
+  display: flex;
+  gap: var(--space-2, 0.5rem);
+  margin-top: var(--space-1, 0.25rem);
+}
+
+.pl-history-card__thresh-pill {
+  font-size: 0.75rem;
+  background-color: var(--color-bg-subtle, #0f172a);
+  border: 1px solid var(--color-border, #334155);
+  color: var(--color-text-secondary, #cbd5e1);
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-sm, 0.25rem);
+}

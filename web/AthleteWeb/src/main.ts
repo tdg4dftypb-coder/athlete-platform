@@ -34,6 +34,17 @@ import { HttpHistoryPayloadSource, HistoryNotFoundError } from "./biomarkers/his
 import { parseHistoryPayloadV1 } from "./biomarkers/history/history-payload-parser";
 import { mapHistoryPayloadToPresentation } from "./biomarkers/history/history-presentation";
 import { MORNING_BRIEFING_MAX_AGE_MS } from "./mappers/mapping-context";
+import { MorningBriefingApiClient } from "./morning-briefing/api/morning-briefing-api-client";
+import { MorningBriefingFullScreenContainer } from "./morning-briefing/full-screen/morning-briefing-full-screen-container";
+import { PerformanceLabApiClient } from "./performance-lab/api/performance-lab-api-client";
+import { PerformanceLabHistoryContainer } from "./performance-lab/history/performance-lab-history-container";
+import { PerformanceTestDetailContainer } from "./performance-lab/detail/performance-test-detail-container";
+import { resolvePerformanceTestId } from "./app/view-routing";
+import "./morning-briefing/full-screen/morning-briefing-full-screen.css";
+import "./performance-lab/history/performance-lab-history.css";
+import "./performance-lab/detail/performance-test-detail.css";
+
+
 
 const root = requireRoot();
 const previewMappingContext = {
@@ -158,13 +169,44 @@ function renderPreview(focusHeading = false): void {
     appElement = renderMoreExperience(openMorningBriefing);
   } else if (view === "icons") {
     appElement = renderActivityIconGallery(openMorningBriefing);
+  } else if (view === "morning-briefing-detail") {
+    // Full-screen Morning Briefing API view — render an async container
+    const shell = document.createElement("div");
+    shell.className = "view-container";
+    root.replaceChildren(shell);
+    const client = new MorningBriefingApiClient();
+    const container = new MorningBriefingFullScreenContainer(shell, client, openMorningBriefing);
+    container.init().catch(() => { /* container renders its own error state */ });
+    return;
+  } else if (view === "performance-lab") {
+    const shell = document.createElement("div");
+    shell.className = "view-container";
+    root.replaceChildren(shell);
+    const client = new PerformanceLabApiClient();
+    const container = new PerformanceLabHistoryContainer(shell, client, {
+      onSelectSession: openPerformanceTestDetail,
+    });
+    container.init().catch(() => { /* container handles errors */ });
+    return;
+  } else if (view === "performance-lab-detail") {
+    const testId = resolvePerformanceTestId(window.location.search);
+    const shell = document.createElement("div");
+    shell.className = "view-container";
+    root.replaceChildren(shell);
+    const client = new PerformanceLabApiClient();
+    const container = new PerformanceTestDetailContainer(shell, client, testId, {
+      onBack: openPerformanceLab,
+    });
+    container.init().catch(() => { /* container handles errors */ });
+    return;
   } else {
     const state = resolveApplicationPreviewState(
       window.location.search,
       morningBriefingPreviewStates,
       previewMappingContext,
     );
-    appElement = createApp(state, retry, openRecovery, openTraining, openProgress);
+    appElement = createApp(state, retry, openRecovery, openTraining, openProgress, openMorningBriefingDetail);
+
   }
 
   appElement.classList.add("view-container");
@@ -243,7 +285,18 @@ async function renderExternalSourceView(view: ApplicationView, mode: "live-file"
   else if (view === "nutrition") loadingElement = createNutritionApp({ kind: "loading", message: "Wczytywanie..." }, openMorningBriefing, retry);
   else if (view === "body") loadingElement = createBodyCompositionApp({ kind: "loading", message: "Wczytywanie..." }, openMorningBriefing, retry);
   else if (view === "biomarkers") loadingElement = createBiomarkersExperienceApp({ kind: "loading", message: "Wczytywanie biomarkerów..." }, openMorningBriefing, retry);
-  else loadingElement = createApp({ kind: "loading", message: "Wczytywanie..." }, retry, openRecovery, openTraining, openProgress);
+  else if (view === "morning-briefing-detail") {
+    // Morning Briefing detail is handled fully async with its own container
+    const shell = document.createElement("div");
+    shell.className = "view-container";
+    root.replaceChildren(shell);
+    const client = new MorningBriefingApiClient();
+    const container = new MorningBriefingFullScreenContainer(shell, client, openMorningBriefing);
+    container.init().catch(() => { /* container renders its own error state */ });
+    return;
+  }
+  else loadingElement = createApp({ kind: "loading", message: "Wczytywanie..." }, retry, openRecovery, openTraining, openProgress, openMorningBriefingDetail);
+
 
   loadingElement.classList.add("view-container");
   root.replaceChildren(loadingElement);
@@ -293,7 +346,8 @@ async function renderExternalSourceView(view: ApplicationView, mode: "live-file"
       appElement = renderActivityIconGallery(openMorningBriefing);
     } else {
       const state = parseAndMapAthleteDashboardToMorningBriefing(rawData, previewMappingContext);
-      appElement = createApp(state, retry, openRecovery, openTraining, openProgress);
+      appElement = createApp(state, retry, openRecovery, openTraining, openProgress, openMorningBriefingDetail);
+
     }
 
     appElement.classList.add("view-container");
@@ -320,7 +374,8 @@ async function renderExternalSourceView(view: ApplicationView, mode: "live-file"
     else if (view === "progress") errorElement = createProgressApp({ ...failureState, header: { title: "Błąd", dateText: "", lastUpdatedText: "", freshnessLabel: null } }, openMorningBriefing, retry);
     else if (view === "nutrition") errorElement = createNutritionApp({ ...failureState, header: { title: "Błąd", dateText: "", lastUpdatedText: "", freshnessLabel: null } }, openMorningBriefing, retry);
     else if (view === "body") errorElement = createBodyCompositionApp({ ...failureState, header: { title: "Błąd", dateText: "", lastUpdatedText: "", freshnessLabel: null } }, openMorningBriefing, retry);
-    else errorElement = createApp({ ...failureState, header: { greeting: "Błąd", athleteName: "", dateText: "", timeText: "" } }, retry, openRecovery, openTraining, openProgress);
+    else errorElement = createApp({ ...failureState, header: { greeting: "Błąd", athleteName: "", dateText: "", timeText: "" } }, retry, openRecovery, openTraining, openProgress, openMorningBriefingDetail);
+
 
     errorElement.classList.add("view-container");
     root.replaceChildren(errorElement);
@@ -363,7 +418,10 @@ function openMorningBriefing(): void {
     window.history.state?.athleteView === "nutrition" ||
     window.history.state?.athleteView === "body" ||
     window.history.state?.athleteView === "biomarkers" ||
-    window.history.state?.athleteView === "history"
+    window.history.state?.athleteView === "history" ||
+    window.history.state?.athleteView === "morning-briefing-detail" ||
+    window.history.state?.athleteView === "performance-lab" ||
+    window.history.state?.athleteView === "performance-lab-detail"
   ) {
     window.history.back();
     return;
@@ -376,9 +434,31 @@ function openMorningBriefing(): void {
   restoreScrollPosition("morning-briefing");
 }
 
+function openMorningBriefingDetail(): void {
+  saveScrollPosition();
+  const url = new URL(window.location.href);
+  url.search = searchForView(url.search, "morning-briefing-detail");
+  window.history.pushState({ athleteView: "morning-briefing-detail" }, "", url);
+  renderPreview(true);
+}
+
 function openBiomarkers(): void {
   navigateTo("biomarkers");
 }
+
+export function openPerformanceLab(): void {
+  navigateTo("performance-lab");
+}
+
+export function openPerformanceTestDetail(testId: string): void {
+  saveScrollPosition();
+  const url = new URL(window.location.href);
+  url.searchParams.set("view", "performance-lab-detail");
+  url.searchParams.set("id", testId);
+  window.history.pushState({ athleteView: "performance-lab-detail" }, "", url);
+  renderPreview(true);
+}
+
 
 function navigateTo(view: ApplicationView): void {
   saveScrollPosition();

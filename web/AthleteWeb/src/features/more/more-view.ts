@@ -33,8 +33,9 @@ export function renderMoreExperience(
     title: string;
     description: string;
     icon: IconName;
-    view: "recovery" | "nutrition" | "body" | "biomarkers" | "icons";
+    view: "recovery" | "nutrition" | "body" | "biomarkers" | "icons" | "performance-lab";
   }[] = [
+
     {
       title: "Wyniki badań (Biomarkers)",
       description: "Przegląd badań laboratoryjnych, wskaźniki i weryfikacja danych.",
@@ -60,12 +61,19 @@ export function renderMoreExperience(
       view: "body",
     },
     {
+      title: "Laboratorium Wydolności (Performance Lab)",
+      description: "Historia testów wydolnościowych, krzywe mleczanowe oraz progi LT1 i LT2.",
+      icon: "activity-cycling",
+      view: "performance-lab",
+    },
+    {
       title: "System ikon aktywności",
       description: "Lokalna biblioteka wektorowych ikon dyscyplin sportowych.",
       icon: "activity-cycling",
       view: "icons",
     },
   ];
+
 
   for (const item of items) {
     const li = document.createElement("li");

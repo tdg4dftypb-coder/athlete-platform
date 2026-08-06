@@ -8,6 +8,10 @@ import type {
   MorningBriefingShortcut,
 } from "../../models/morning-briefing-presentation";
 import type { MorningBriefingPresentationState } from "../../models/morning-briefing-presentation-state";
+import { MorningBriefingCardContainer } from "../../morning-briefing/dashboard-card/morning-briefing-card-container";
+import { MorningBriefingApiClient } from "../../morning-briefing/api/morning-briefing-api-client";
+import "../../morning-briefing/dashboard-card/morning-briefing-card.css";
+
 
 const semanticIcons: readonly IconName[] = ["heart", "moon", "gauge"];
 
@@ -17,11 +21,12 @@ export function renderMorningBriefing(
   onOpenRecovery: () => void = () => undefined,
   onOpenTraining?: () => void,
   onOpenProgress?: () => void,
+  onOpenBriefingDetail?: () => void,
 ): HTMLElement {
   const shell = document.createElement("div");
   shell.className = "app-shell";
   shell.append(
-    createStateContent(state, onRetry, onOpenRecovery, onOpenTraining),
+    createStateContent(state, onRetry, onOpenRecovery, onOpenTraining, onOpenBriefingDetail),
     createBottomNavigation({ currentView: "morning", onOpenTraining, onOpenProgress }),
   );
 
@@ -34,6 +39,7 @@ function createStateContent(
   onRetry: () => void,
   onOpenRecovery: () => void,
   onOpenTraining?: () => void,
+  onOpenBriefingDetail?: () => void,
 ): HTMLElement {
 
   const main = document.createElement("main");
@@ -41,7 +47,7 @@ function createStateContent(
 
   switch (state.kind) {
     case "ready":
-      appendAvailableBriefing(main, state.briefing, onOpenRecovery, onOpenTraining);
+      appendAvailableBriefing(main, state.briefing, onOpenRecovery, onOpenTraining, onOpenBriefingDetail);
       break;
     case "partial":
       main.append(createHeader(state.briefing));
@@ -52,7 +58,7 @@ function createStateContent(
         detailLabel: "Brakuje:",
         details: state.missingData,
       }));
-      appendBriefingBody(main, state.briefing, onOpenRecovery, onOpenTraining);
+      appendBriefingBody(main, state.briefing, onOpenRecovery, onOpenTraining, onOpenBriefingDetail);
       break;
     case "stale":
       main.append(createHeader(state.briefing));
@@ -62,7 +68,7 @@ function createStateContent(
         message: state.message,
         details: [state.lastUpdatedText],
       }));
-      appendBriefingBody(main, state.briefing, onOpenRecovery, onOpenTraining);
+      appendBriefingBody(main, state.briefing, onOpenRecovery, onOpenTraining, onOpenBriefingDetail);
       break;
     case "unavailable":
       main.classList.add("briefing--message");
@@ -102,9 +108,10 @@ function appendAvailableBriefing(
   model: MorningBriefingPresentation,
   onOpenRecovery: () => void,
   onOpenTraining?: () => void,
+  onOpenBriefingDetail?: () => void,
 ): void {
   main.append(createHeader(model));
-  appendBriefingBody(main, model, onOpenRecovery, onOpenTraining);
+  appendBriefingBody(main, model, onOpenRecovery, onOpenTraining, onOpenBriefingDetail);
 }
 
 function appendBriefingBody(
@@ -112,13 +119,35 @@ function appendBriefingBody(
   model: MorningBriefingPresentation,
   onOpenRecovery: () => void,
   onOpenTraining?: () => void,
+  onOpenBriefingDetail?: () => void,
 ): void {
   main.append(
     createHero(model),
     createDecisionExperience(model, onOpenRecovery, onOpenTraining),
     createGoal(model),
+    createMorningBriefingLiveCard(onOpenBriefingDetail),
     createShortcuts(model, onOpenRecovery, onOpenTraining),
   );
+}
+
+function createMorningBriefingLiveCard(onOpen?: () => void): HTMLElement {
+  const wrapper = document.createElement("div");
+  wrapper.className = "morning-briefing-card-slot";
+
+  // Initialise the live card asynchronously — failure must not affect the rest of the dashboard.
+  try {
+    const client = new MorningBriefingApiClient();
+    const container = new MorningBriefingCardContainer(
+      wrapper,
+      client,
+      () => { onOpen?.(); },
+    );
+    container.init().catch(() => { /* container renders its own error state */ });
+  } catch {
+    // If setup fails, leave the wrapper empty — other cards are unaffected.
+  }
+
+  return wrapper;
 }
 
 function createHeader(model: MorningBriefingHeader): HTMLElement {

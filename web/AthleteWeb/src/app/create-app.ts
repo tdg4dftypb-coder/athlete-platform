@@ -14,8 +14,9 @@ export function createApp(
   onOpenRecovery: () => void = () => undefined,
   onOpenTraining?: () => void,
   onOpenProgress?: () => void,
+  onOpenBriefingDetail?: () => void,
 ): HTMLElement {
-  return renderMorningBriefing(state, onRetry, onOpenRecovery, onOpenTraining, onOpenProgress);
+  return renderMorningBriefing(state, onRetry, onOpenRecovery, onOpenTraining, onOpenProgress, onOpenBriefingDetail);
 }
 
 export function createRecoveryApp(
