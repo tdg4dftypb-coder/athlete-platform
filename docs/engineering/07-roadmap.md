@@ -99,144 +99,35 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 - ADR-009 ma status Accepted;
 - trwały adapter celu, Nutrition Intake i Energy Balance nie należą do ukończonego zakresu.
 
-### Stage 10 — Canonical Dashboard read model
+### Stage 10 — Athlete Dashboard Core & Multi-state Presentation
 
-- immutable, wersjonowany i datowany `AthleteDashboard` stanowi typowany read model;
-- bezstanowy `DashboardEngine` składa wszystkie wymagane sekcje z gotowych wyników bez I/O i ponownego uruchamiania silników;
-- composition root wstrzykuje świeży engine do `MorningCoachUseCase`, który buduje Dashboard dokładnie raz;
-- MorningCoach transportuje Dashboard, zachowując dotychczasowy Presenter i `MorningCoachReport`;
-- jawny `DashboardSerializer` zapewnia strict payload contract v1.0, kontrolowaną deserializację oraz snapshot/round-trip tests;
-- ADR-010 ma status Accepted;
-- persistence, transport HTTP/API, layout i UI nie należą do ukończonego zakresu Stage 10.
+- sześciowariantowe `AthleteDashboardState` reprezentuje stany `ready`, `partial`, `unavailable`, `stale`, `loading` i `failure`;
+- `DashboardSerializer` eksportuje bezstanowy kontrakt v1.0 dla interfejsów klientów;
+- `AthleteDashboardMapper` mapuje payload na typed presentation model;
+- widok AthleteWeb wspiera stany dynamiczne, Preview Mode oraz dynamiczne motywy (Light / Dark Mode).
 
-### Stage 11 — Web Product Layer & Live Dashboard Integration [COMPLETED 100%]
+### Stage 20 — Morning Briefing Subsystem
 
-- kompletna warstwa prezentacyjna Web (`web/AthleteWeb`) dla 6 ekranów produktowych: Morning Briefing, Recovery, Training, Progress, Nutrition, Body Composition oraz More Shell;
-- sześć spójnych stanów prezentacyjnych: `ready`, `partial`, `unavailable`, `stale`, `loading`, `failure`;
-- wzorzec portu `DashboardPayloadSource` oraz dwa wymienne adaptery: `StaticJsonDashboardPayloadSource` (`?source=live-file`) oraz `HttpDashboardPayloadSource` (`?source=http`);
-- bezstanowy serwer WSGI w Pythonie (`server/app.py`) udostępniający lokalny endpoint `GET /api/v1/dashboard`;
-- same-origin development proxy Vite (`/api` → `http://127.0.0.1:8000`) eliminujący CORS;
-- ścisłe zachowanie uczciwości danych (Data Honesty) — brak fabrykowania nieobecnych trendów, posiłków czy metryk składu ciała;
-- ochrona prywatności danych zdrowotnych na poziomie repozytorium (.gitignore dla duckdb, json payload i live screenshots);
-- ADR-011 ma status Accepted dla granicy transportowej.
+- deterministyczny `MorningBriefingBuilder` oraz `MorningRecommendationEngine`;
+- stabilna warstwa serializacji `MorningBriefingSerializer` i kontrakt HTTP API `GET /api/v1/morning-briefing`;
+- testowalny `MorningBriefingInputProvider` oraz bezpieczna obsługa błędów 503;
+- kompaktowa karta Dashboard Card oraz pełnoekranowy widok Morning Briefing w AthleteWeb.
 
-## Current
+### Stage 21 — Performance Lab Subsystem
 
-Wszystkie zaplanowane etapy zintegrowanej warstwy produktowej Stage 11 zostały zakończone. Obecny etap skupia się na przeglądzie architektonicznym i gotowości pod kolejne etapy rozwojowe.
-
-
-### Stage 11.2 — Web Experience Layer
-
-- `web/AthleteWeb` jest głównym środowiskiem prototypowania Experience Layer i walidacji UX;
-- framework-free klient Vite/TypeScript renderuje polski Morning Briefing z deterministycznych Preview Data;
-- jawny `MorningBriefingPresentation` oddziela przyszły payload `AthleteDashboard v1.0` od struktury UI;
-- interfejs realizuje Decision First, mobile-first responsiveness, Dark Mode i podstawy PWA bez Service Workera;
-- backend, kontrakt payloadu v1.0 i zachowany klient SwiftUI pozostają bez zmian;
-- API, trwały stan i ciężki router nie należą do bieżącego zakresu; aktywne przejście Morning Briefing → Recovery korzysta z query string i History API.
-
-#### Sprint 2 — Morning Briefing Polish
-
-- uproszczono Hero Card i hierarchię nagłówka bez zmiany treści odprawy;
-- zwiększono typografię, whitespace oraz rytm sekcji;
-- decyzja używa jednej spokojnej linii szczegółów zamiast badge'y;
-- pasek celu i lista skrótów zostały dopracowane zgodnie z wzorcami HIG;
-- zakres funkcjonalny, Preview Data flow i granice backendu pozostają bez zmian.
-
-#### Sprint 2.1 — Mobile Shell and Bottom Navigation Fix
-
-- shell korzysta z elastycznej kolumny i pełnej dostępnej wysokości `100dvh` z fallbackiem `100vh`;
-- główna zawartość wypełnia wolne miejsce bez wymuszania wysokości większej od treści;
-- sticky bottom navigation pozostaje ostatnim elementem shella, respektuje safe area i nie traci sticky containment na desktopie;
-- treść, modele prezentacyjne, Preview Data oraz kontrakty backendu pozostają bez zmian.
-
-#### Sprint 3 — Morning Briefing Presentation States
-
-- jawny discriminated union reprezentuje dokładnie stany `ready`, `partial`, `unavailable`, `stale`, `loading` i `failure`;
-- warianty współdzielą shell, komponenty i tokeny, a jednocześnie transportują wyłącznie wymagane dane;
-- `partial` nie formułuje twierdzeń z brakujących źródeł, `unavailable` nie pokazuje decyzji, a `stale` jawnie oznacza czas aktualizacji;
-- spokojny skeleton, live regions i retry zapewniają kontrolowane zachowanie stanów przejściowych oraz błędu;
-- query string umożliwia deterministyczne Preview bez panelu widocznego w produkcie;
-- integracja payloadu, sieć i logika domenowa pozostają poza zakresem.
-
-#### Sprint 3 — Visual System Alignment
-
-- Light Mode jest głównym stylem produktu, a Dark Mode pozostaje pełnoprawnym wariantem systemowym;
-- wspólne tokeny Theme rozdzielają powierzchnie neutralne od akcentów Recovery, Training, Sleep i Attention;
-- hero używa lekkiego gradientu fioletowo-brzoskwiniowego, a pozostałe kolory wspierają skanowanie bez dominowania nad treścią;
-- stany `partial`, `unavailable`, `stale` i `failure` otrzymują odrębne tokeny informacyjne, neutralne, ostrzegawcze i błędu bez zmiany komunikatów ani semantyki;
-- struktura informacji, dane, modele prezentacyjne, nawigacja i kontrakty pozostają bez zmian.
-
-#### Sprint 4.1 — Morning Briefing Reference Fidelity
-
-- kanoniczna makieta v1 jest źródłem prawdy dla prezentacji kompletnego stanu `ready`;
-- poziomy nagłówek, rozbudowany hero, połączona powierzchnia decyzji, metryki, plan, cel, kafle i ikonowa nawigacja odwzorowują jej hierarchię oraz proporcje;
-- wspólny lokalny zestaw SVG zastępuje umowne markery bez zależności od biblioteki UI;
-- klasyczne Preview zachowuje dane demonstracyjne, natomiast `source=payload` nadal nie fabrykuje postępu celu ani porównania z wczoraj;
-- pozostałe stany współdzielą odświeżony shell i system wizualny bez zmiany semantyki, parsera, mappera ani kontraktu v1.0.
-
-#### Sprint 5 — AthleteDashboard Payload Mapping Boundary
-
-- ścisły typ `AthleteDashboardPayloadV1` odwzorowuje wyłącznie publiczny wynik `DashboardSerializer` bez zależności od modeli domenowych;
-- lekki runtime parser waliduje pełną strukturę, enumy, daty, timestampy, nullability i wersję kontraktu bez wyjątków jako mechanizmu przepływu;
-- deterministyczny mapper rozdziela `failure` kontraktu od produktowego `unavailable` oraz mapuje kompletność i świeżość do sześciostanowej warstwy prezentacyjnej;
-- `MappingContext` jawnie dostarcza czas, locale, strefę, identity i konfigurowalny próg świeżości;
-- fixtures oraz `?source=payload` uruchamiają cały przepływ bez HTTP, cache i zmian backendu.
-
-#### Sprint 5.1 — Temporal and Presentation Contract Policy
-
-- polityka ma status Accepted i formalizuje aware timestamps jako format nowej emisji przy zachowaniu kompatybilności legacy naive w v1.0;
-- `valid_for_date` ma pierwszeństwo, a jawny `MORNING_BRIEFING_MAX_AGE_MS` wynosi startowo sześć godzin;
-- ownership matrix oddziela payload, client context, Preview-only data oraz kandydatów kontraktu v1.1;
-- payload Preview nie przedstawia completeness jako goal achievement i nie generuje porównania bez danych;
-- transport pozostaje zablokowany do czasu potwierdzenia aware emisji przez źródło produkcyjne.
-
-#### Sprint 6 — Recovery Experience
-
-- pierwszy pełny ekran szczegółowy odpowiada najpierw na pytanie o stan regeneracji, następnie pokazuje czynniki i dopiero później dane;
-- `RecoveryPresentation` oraz sześciowariantowe `RecoveryPresentationState` utrzymują typed presentation boundary bez modeli backendowych i luźnych flag;
-- kafel Recovery oraz uzasadnienie planu otwierają widok `?view=recovery`, a dostępny przycisk powrotu przywraca Morning Briefing;
-- parser payloadu v1.0 i osobny mapper Recovery nie obliczają score, nie ustalają progów i nie generują brakujących trendów;
-- Preview Data jawnie oddzielają demonstracyjne statusy i porównania od `source=payload`;
-- ekran współdzieli shell, Theme Tokens, ikony, status notices i dolną nawigację bez dodawania nowej zakładki;
-- backend, DashboardSerializer, payload v1.0, SwiftUI, API i HealthKit pozostają bez zmian.
-
-### Stage 11.2 — Experience Architecture, Sprint 1
-
-- natywny projekt `AthleteApp` dla iOS 18+ jest przygotowany w SwiftUI bez UIKit i z granicą MVVM;
-- pierwszy ekran Morning Briefing korzysta wyłącznie z deterministycznych Preview Data;
-- osobny model prezentacyjny chroni UI przed bezpośrednim sprzężeniem z kontraktem `AthleteDashboard`;
-- współdzielone komponenty i tokeny Theme przygotowują klienta pod kolejne feature slices;
-- backend, API, Apple Health i logika biznesowa pozostają poza zakresem Sprintu 1;
-- build oraz uruchomienie SwiftUI Preview wymagają końcowej walidacji w pełnym Xcode 17+ z SDK iOS 18; bieżące środowisko udostępnia tylko Command Line Tools.
-
-### Stage 11.2 — Experience Architecture, Sprint 2
-
-- Morning Briefing ma dopracowaną hierarchię typograficzną, spokojniejszy Hero Card i większy rytm przestrzeni;
-- semantyczne powierzchnie i adaptacyjne kolory zapewniają obsługę Light oraz Dark Mode;
-- Dynamic Type, VoiceOver, minimalne cele dotykowe i Reduce Motion są uwzględnione w implementacji;
-- subtelne animacje wejścia i postępu nie zmieniają funkcji ani danych ekranu;
-- warianty Preview pokrywają wygląd domyślny, Dark Mode oraz rozmiar tekstu accessibility;
-- build oraz renderowanie Preview nadal wymagają końcowej walidacji w pełnym Xcode 17+ z SDK iOS 18.
-
-### Engineering Handbook v1.0
-
-- ujednolicenie referencji architektonicznej, ADR-ów, standardów i strategii testowej;
-- zdefiniowanie workflow pracy User–ChatGPT–Codex–Antigravity;
-- przygotowanie niezależnej checklisty review;
-- uporządkowanie terminologii i statusów roadmapy.
-
-### Utrzymanie kanonicznych granic
-
-- ochrona jedynego pipeline'u Decision → Recommendation → Explainability;
-- ochrona composition root przed rozproszeniem konfiguracji;
-- testy regresyjne dla MorningCoach, Source Identity i deterministyczności;
-- identyfikowanie, bez niejawnego usuwania, pozostałych ścieżek compatibility/legacy.
+- **Domain Foundation (21.1):** czyste, zamrożone modele `PerformanceStage`, `PerformanceTestSession`, `PerformanceThreshold`, `PerformanceAssessment` oraz typowane Enumy (`PerformanceTestType`, `PerformanceTestStatus`, `ExerciseModality`, `StageCompletionStatus`) z walidacją inwariantów;
+- **Session & Stage Builder (21.2):** bezstanowy `PerformanceTestSessionBuilder` oraz zamrożone modele wejściowe (`PerformanceStageInput`, `PerformanceTestSessionInput`) bez niejawnych konwersji i z zachowaniem kolejności;
+- **Lactate Curve Engine (21.3):** bezstanowy `LactateCurveBuilder` budujący `LactateCurve` wyłącznie z ukończonych etapów posiadających stężenie mleczanów, wraz z wyliczaniem zmian bezwzględnych i względnych bez interpolacji;
+- **Threshold Analysis LT1 / LT2 (21.4):** deterministyczny `LactateThresholdAnalyzer` realizujący metodę stałego stężenia mleczanu (`fixed_2_mmol` dla LT1, `fixed_4_mmol` dla LT2) ze zdefiniowanymi statusami `DETECTED`, `NOT_REACHED`, `INSUFFICIENT_DATA`;
+- **Test History Read Model (21.5):** bezstanowy `PerformanceTestHistoryBuilder` deduplikujący sesje po `test_id` (wybór najnowszej), sortujący chronologicznie `oldest -> newest` oraz ograniczający analizę mleczanową wyłącznie do `LACTATE_STEP_TEST`;
+- **Serialization & HTTP API (21.6 / 21.6A):** `PerformanceTestHistorySerializer`, provider boundary `PerformanceTestSessionProvider` i endpoint `GET /api/v1/performance-lab/history` z utwardzonym kontraktem JSON-safe i bezpieczną obsługą 503;
+- **AthleteWeb Performance Experience (21.7 / 21.7A):** typowany `PerformanceLabApiClient` z pełną walidacją runtime, responsywne widoki historii i szczegółów testu, lekki wykres SVG krzywej mleczanowej bez interpolacji oraz bezprzeładowaniowy routing.
 
 ## Planned
 
 Poniższe obszary są udokumentowanym kierunkiem, ale nie są obecnie zaimplementowanymi modułami:
 
-### Kontrakty historii i replay
+### Kontraktor historii i replay
 
 - jawne `analysis_version` dla derived analysis `WORKOUT_COMPLETED`;
 - polityka replay/re-analysis zależna od zachowania źródłowych danych;
@@ -248,28 +139,6 @@ Poniższe obszary są udokumentowanym kierunkiem, ale nie są obecnie zaimplemen
 - osobna decyzja o Athlete Knowledge Store;
 - zachowanie rozdziału między eventem, snapshotem, insightem i trwałą wiedzą.
 
-Nazwy te pochodzą z ADR-002/003 jako obszary przyszłe. Nie istnieją jeszcze ich runtime components ani persistence.
-
-### Kontrolowana migracja legacy
-
-- decyzja o deprecacji lub późniejszym usunięciu `MorningCoachBuilder` i `ExplanationBuilder`;
-- redukcja bezpośredniego sprzężenia `PerformanceEngine` z `WorkoutHistoryBuilder`;
-- uporządkowanie równoległych przestrzeni `planning/` i `planner/` bez zmiany publicznego API „przy okazji”.
-
-### Stage 7.7 — dalszy zakres Nutrition
-
-### Stage 12+ Future Candidates (Nie włączone do zakończonego Stage 11)
-
-- **Athlete Icon System v2**: Dalszy rozwój zestawu ikon SVG dla rozbudowanych typów aktywności i dyscyplin.
-- **SwiftUI Port**: Dalszy rozwój natywnej aplikacji iOS `AthleteApp` i jej synchronizacji z backendem.
-- **Production HTTP Runtime**: Wybór i wdrożenie produkcyjnego frameworka (FastAPI/ASGI/Uvicorn), CORS i serwera API.
-- **Authentication & User Management**: Tożsamość użytkowników, sesje, autoryzacja OAuth / JWT.
-- **Cloud Deployment**: Infrastruktura chmurowa, konteneryzacja, CI/CD pipeline.
-- **Apple Health Integration**: Natywna synchronizacja danych z Apple Health.
-- **Zwift Integration**: Automatyczny import sesji treningowych z platformy Zwift.
-- **Weather Context**: Integracja prognozy pogody do oceny warunków treningowych.
-- **Regional Body Change Map**: Rozbudowana wizualizacja zmian składu ciała.
-
 ## Ideas
 
 Idee wymagają osobnej analizy i nie mają statusu planu:
@@ -280,8 +149,6 @@ Idee wymagają osobnej analizy i nie mają statusu planu:
 - automatyczne testy granic importów między warstwami;
 - formalny próg coverage oraz macierz wspieranych wersji Pythona;
 - dedykowany workflow CI.
-
-Nowa idea nie może zostać opisana jako funkcja produktu przed zaakceptowaniem zakresu, kontraktu i ADR-u.
 
 ## Ryzyka i zależności
 

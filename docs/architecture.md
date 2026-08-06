@@ -213,7 +213,7 @@ itself remove, rename, or deprecate any public API.
 |---|---|
 | `TrendEngine` | Training analytics in `athlete/memory/`; health trend metrics in `engines/`; unused trend-context builder in `core/trend/`. |
 | `SelectionEngine` | Prescription-to-plan selection in `decision/`; recipe selection in `planner/`. |
-| `MorningBriefing` | Distinct models in `briefing.models` and `core.results`. |
+| `MorningBriefing` | Distinct legacy models in `briefing.models` and `core.results` (LEGACY). The canonical domain model is `morning_briefing.domain.MorningBriefing` (Stage 20). Frontend wire-format is `MorningBriefingWire` in `morning-briefing-api-types.ts`. |
 | Planning / Planner | Static weekly planning in `planning/`; recipe and DSL-based workout construction in `planner/`. |
 | `workout/export` / `workout/exporters` | Active older ZWO exporter path and a separate currently unpopulated exporter namespace. |
 
@@ -245,3 +245,165 @@ Earlier documentation described a SQLite-centered four-layer flow ending in a
 Morning Briefing. That description is retained only as historical context: the
 current repository uses DuckDB and now contains separate execution, feedback,
 Athlete Memory, analytics, and review workflows.
+
+## Registry Consistency Quality Gate
+
+In order to keep the system aligned, the CI validation pipeline enforces strict consistency between the `Biomarker Registry` (definitions of available markers) and the `Medical Rule Registry` (rules interpreting trends).
+
+* **RegistryConsistencyError (Errors):** Automatically blocks the build/CI. This happens when a specialist rule is registered for a code that has no corresponding active biomarker definition in the registry.
+* **Warnings:** Informational only. They highlight active biomarkers in the registry that lack dedicated specialist rules (falling back to generic rules). These do not block CI.
+
+### Running Validation Locally
+
+To run the consistency checks locally, run the CLI utility:
+```bash
+python -m scripts.validate_biomarker_registry_consistency
+```
+
+## Morning Briefing HTTP API
+
+### Endpoint
+
+```
+GET /api/v1/morning-briefing
+```
+
+Returns a Morning Briefing aggregate for the current day.
+The response is always HTTP 200 unless the data source is explicitly unavailable (HTTP 503).
+A missing or empty briefing is not an error — it returns `status: unavailable` with an empty `sections` array.
+
+### Pipeline
+
+```
+MorningBriefingInputProvider
+        ↓
+MorningBriefingBuilder       (domain assembly, section mapping)
+        ↓
+MorningRecommendationEngine  (deterministic rules, no LLM)
+        ↓
+MorningBriefingSerializer    (JSON-safe dict, ISO 8601, lowercase enums)
+        ↓
+HTTP JSON response
+```
+
+### Status semantics
+
+| Status | Meaning |
+|---|---|
+| `ready` | All three sections (Recovery, Training, Biomarkers) are available and no section is stale. |
+| `partial` | At least one section is available, but at least one is missing (e.g. training not planned or unavailable). |
+| `stale` | Data exists, but `recovery.is_stale` or `biomarkers.is_stale` is `true`. Takes precedence over `ready`/`partial`. |
+| `unavailable` | No sections were produced (all input fields are `None`). |
+
+### Dependency injection
+
+The endpoint receives its data via a `MorningBriefingInputProvider` injected into
+`create_dashboard_wsgi_app(morning_briefing_provider=...)`. When no provider is given,
+`EmptyMorningBriefingInputProvider` is used as a safe default (returns `unavailable`).
+Production providers are injected at composition time without modifying domain logic.
+
+### Error handling
+
+| Condition | HTTP |
+|---|---|
+| Provider raises `MorningBriefingInputError` | `503 Service Unavailable` — safe error message, no technical details exposed. |
+| Unexpected exception | `500 Internal Server Error` — consistent with other endpoints. |
+
+## Morning Briefing Frontend (Stage 20)
+
+### Module structure
+
+```
+web/AthleteWeb/src/morning-briefing/
+  api/
+    morning-briefing-api-types.ts      ← wire-format + validated types
+    morning-briefing-api-client.ts     ← MorningBriefingApiClient, validateMorningBriefingPayload
+  dashboard-card/
+    morning-briefing-card-types.ts     ← CardState, pickTopRecommendation, statusLabel, formatGeneratedAt
+    morning-briefing-card-presentation.ts  ← pure DOM factory, no fetch
+    morning-briefing-card-container.ts ← orchestrator: fetch → CardState → render
+    morning-briefing-card.css
+  full-screen/
+    morning-briefing-full-screen-presentation.ts  ← pure DOM factory, no fetch
+    morning-briefing-full-screen-container.ts     ← orchestrator: fetch → FullScreenState → render
+    morning-briefing-full-screen.css
+```
+
+### Architecture contract
+
+```
+GET /api/v1/morning-briefing
+        ↓
+MorningBriefingApiClient       (fetch, timeout, runtime validation)
+        ↓
+MbApiResult                    (success | failure, typed error type)
+        ↓
+Container (Card or FullScreen) (state machine, retry, onBack/onOpen callbacks)
+        ↓
+Presentation                   (pure DOM factory, no HTTP, no domain logic)
+```
+
+### Routing
+
+| URL param | ApplicationView | Handler |
+|---|---|---|
+| (none) | `"morning-briefing"` | legacy Dashboard (DuckDB/JSON preview) |
+| `?view=morning-briefing-detail` | `"morning-briefing-detail"` | `MorningBriefingFullScreenContainer` |
+
+Navigation flow: Dashboard Card `onOpen` → `openMorningBriefingDetail()` in `main.ts` → `pushState` → `renderPreview()` → Full Screen. Back button → `openMorningBriefing()` → `window.history.back()`.
+
+### Rules
+
+- Presentation layer must not execute fetch or know HTTP status codes.
+- Containers must not render unvalidated payload sections.
+- `validateMorningBriefingPayload` is the single validation boundary — not duplicated.
+- `statusLabel` and `formatGeneratedAt` helpers are defined once in `morning-briefing-card-types.ts` and reused by both Card and Full Screen.
+- No global cache. Each container fetches independently on mount.
+
+## Performance Lab HTTP API (Stage 21)
+
+### Endpoint
+
+```
+GET /api/v1/performance-lab/history
+```
+
+Returns the performance test history read model for the athlete.
+
+### Pipeline
+
+```
+PerformanceTestSessionProvider
+        ↓
+PerformanceTestHistoryBuilder     (deduplication, chronological sorting oldest → newest)
+        ↓
+LactateCurveBuilder               (optional: strictly for LACTATE_STEP_TEST)
+        ↓
+LactateThresholdAnalyzer          (optional: fixed 2.0 / 4.0 mmol/L threshold detection)
+        ↓
+PerformanceTestHistorySerializer  (JSON-safe dict, ISO 8601, lowercase enums)
+        ↓
+HTTP JSON response (200 OK)
+```
+
+### Key Semantics
+
+- **Chronological Ordering:** History entries are sorted from oldest to newest by `session.performed_at` (tie-breaker: `test_id` ascending).
+- **Deduplication:** Multiple sessions with the same `test_id` are deduplicated to keep the newest `performed_at`.
+- **Lactate Analysis Boundary:** `lactate_curve` and `threshold_analysis` are generated strictly for `LACTATE_STEP_TEST`. For other test types (`FTP_TEST`, `FIELD_TEST`, `CARDIOPULMONARY_EXERCISE_TEST`), both fields are `null`.
+- **Current Threshold Method:** Threshold detection currently uses the fixed 2.0 / 4.0 mmol/L method (`fixed_2_mmol`, `fixed_4_mmol`).
+
+### Dependency Injection
+
+The endpoint receives sessions via `PerformanceTestSessionProvider` injected into
+`create_dashboard_wsgi_app(performance_lab_provider=...)`. Default is `EmptyPerformanceTestSessionProvider` (returns `{"entries": []}`).
+
+### Error Handling
+
+| Condition | HTTP Status | Response |
+|---|---|---|
+| Success | `200 OK` | `{"entries": [...]}` |
+| Empty provider | `200 OK` | `{"entries": []}` |
+| Provider raises `PerformanceTestSessionProviderError` | `503 Service Unavailable` | `{"error": "Performance Lab data source is temporarily unavailable."}` |
+| Unexpected exception | `500 Internal Server Error` | `{"error": "Internal server error fetching Performance Lab history."}` |
+
