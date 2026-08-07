@@ -20,6 +20,7 @@ from morning_briefing.provider import (
     MorningBriefingInputError,
     EmptyMorningBriefingInputProvider,
 )
+from morning_briefing.production_provider import ProductionMorningBriefingInputProvider
 
 __all__ = [
     "MorningBriefing",
@@ -38,5 +39,6 @@ __all__ = [
     "MorningBriefingInputProvider",
     "MorningBriefingInputError",
     "EmptyMorningBriefingInputProvider",
+    "ProductionMorningBriefingInputProvider",
 ]
 
