@@ -43,6 +43,12 @@ import { resolvePerformanceTestId } from "./app/view-routing";
 import "./morning-briefing/full-screen/morning-briefing-full-screen.css";
 import "./performance-lab/history/performance-lab-history.css";
 import "./performance-lab/detail/performance-test-detail.css";
+import { DecisionIntelligenceApiClient } from "./decision-intelligence/api/decision-intelligence-api-client";
+import { DecisionIntelligenceContainer } from "./decision-intelligence/overview/decision-intelligence-container";
+import "./decision-intelligence/overview/decision-intelligence.css";
+import "./decision-intelligence/history/decisionHistoryPresentation.css";
+
+
 
 
 
@@ -199,7 +205,18 @@ function renderPreview(focusHeading = false): void {
     });
     container.init().catch(() => { /* container handles errors */ });
     return;
-  } else {
+  } else if (view === "ai-coach") {
+    const shell = document.createElement("div");
+    shell.className = "view-container";
+    root.replaceChildren(shell);
+    const client = new DecisionIntelligenceApiClient();
+    const container = new DecisionIntelligenceContainer(shell, client, {
+      onBack: openMorningBriefing,
+    });
+    container.init().catch(() => { /* container handles errors */ });
+    return;
+  }
+ else {
     const state = resolveApplicationPreviewState(
       window.location.search,
       morningBriefingPreviewStates,

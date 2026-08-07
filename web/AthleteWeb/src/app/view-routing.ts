@@ -12,7 +12,9 @@ export type ApplicationView =
   | "biomarkers"
   | "history"
   | "performance-lab"
-  | "performance-lab-detail";
+  | "performance-lab-detail"
+  | "ai-coach";
+
 
 
 export function resolveApplicationView(search: string): ApplicationView {
@@ -30,6 +32,10 @@ export function resolveApplicationView(search: string): ApplicationView {
   if (view === "performance-lab-detail") {
     return "performance-lab-detail";
   }
+  if (view === "ai-coach" || view === "decision-intelligence") {
+    return "ai-coach";
+  }
+
   if (
     view === "recovery" ||
     view === "training" ||

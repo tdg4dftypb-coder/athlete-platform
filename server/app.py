@@ -2,7 +2,8 @@ from pathlib import Path
 import re
 import sys
 import json
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
+
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -37,6 +38,20 @@ from performance_lab.provider import (
     EmptyPerformanceTestSessionProvider,
 )
 from performance_lab.serialization import PerformanceTestHistorySerializer
+from decision.audit_provider import (
+    DecisionAuditRecordProvider,
+    DecisionAuditRecordProviderError,
+    EmptyDecisionAuditRecordProvider,
+)
+from decision.history_provider import (
+    DecisionHistoryProvider,
+    DecisionHistoryProviderError,
+    EmptyDecisionHistoryProvider,
+)
+from decision.history_serialization_v2 import DecisionHistorySerializer
+from decision.serialization_v2 import DecisionAuditRecordSerializer
+
+
 
 
 _CANONICAL_CODE_RE = re.compile(r'^[a-z0-9_\-]+$')
@@ -51,13 +66,18 @@ def create_dashboard_wsgi_app(
     biomarkers_context: Optional[BiomarkersApplicationContext] = None,
     morning_briefing_provider: Optional[MorningBriefingInputProvider] = None,
     performance_lab_provider: Optional[PerformanceTestSessionProvider] = None,
+    decision_audit_provider: Optional[DecisionAuditRecordProvider] = None,
+    decision_history_provider: Optional[DecisionHistoryProvider] = None,
 ) -> Callable[[dict, Callable], list[bytes]]:
+
     """
     Factory creating WSGI application for local development server.
     Accepts optional BiomarkersApplicationContext for dependency injection in tests.
     Accepts optional MorningBriefingInputProvider for dependency injection in tests.
     Accepts optional PerformanceTestSessionProvider for dependency injection in tests.
+    Accepts optional DecisionAuditRecordProvider for dependency injection in tests.
     """
+
     context = biomarkers_context or get_default_biomarkers_context()
     _briefing_provider: MorningBriefingInputProvider = (
         morning_briefing_provider or EmptyMorningBriefingInputProvider()
@@ -66,11 +86,25 @@ def create_dashboard_wsgi_app(
     _recommendation_engine = MorningRecommendationEngine()
     _briefing_serializer = MorningBriefingSerializer()
 
-    _performance_provider: PerformanceTestSessionProvider = (
-        performance_lab_provider or EmptyPerformanceTestSessionProvider()
+    _performance_provider = (
+        performance_lab_provider if performance_lab_provider is not None else EmptyPerformanceTestSessionProvider()
     )
     _performance_history_builder = PerformanceTestHistoryBuilder()
     _performance_history_serializer = PerformanceTestHistorySerializer()
+
+    _decision_provider = (
+        decision_audit_provider if decision_audit_provider is not None else EmptyDecisionAuditRecordProvider()
+    )
+    _decision_serializer = DecisionAuditRecordSerializer()
+
+    _decision_history_provider = (
+        decision_history_provider if decision_history_provider is not None else EmptyDecisionHistoryProvider()
+    )
+    _decision_history_serializer = DecisionHistorySerializer()
+
+
+
+
 
 
     def wsgi_app(environ: dict, start_response: Callable) -> list[bytes]:
@@ -363,6 +397,61 @@ def create_dashboard_wsgi_app(
             start_response(status, headers)
             return [response_body]
 
+        # 4.6 Route: GET /api/v1/decision-intelligence/latest
+        if path_info == "/api/v1/decision-intelligence/latest" and request_method == "GET":
+            try:
+                record = _decision_provider.get_latest_record()
+                if record is None:
+                    payload = {"decision": None}
+                else:
+                    payload = {"decision": _decision_serializer.serialize(record)}
+                status = "200 OK"
+                response_body = json.dumps(payload, indent=2, ensure_ascii=False).encode("utf-8")
+            except DecisionAuditRecordProviderError:
+                status = "503 Service Unavailable"
+                response_body = json.dumps(
+                    {"error": "Decision Intelligence data source is temporarily unavailable."}
+                ).encode("utf-8")
+            except Exception:
+                status = "500 Internal Server Error"
+                response_body = json.dumps(
+                    {"error": "Internal server error fetching Decision Intelligence record."}
+                ).encode("utf-8")
+
+            headers = [
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Content-Length", str(len(response_body))),
+            ]
+            start_response(status, headers)
+            return [response_body]
+
+        # 4.7 Route: GET /api/v1/decision-intelligence/history
+        if path_info == "/api/v1/decision-intelligence/history" and request_method == "GET":
+            try:
+                history = _decision_history_provider.get_history()
+                payload = {"history": _decision_history_serializer.serialize(history)}
+                status = "200 OK"
+                response_body = json.dumps(payload, indent=2, ensure_ascii=False).encode("utf-8")
+            except DecisionHistoryProviderError:
+                status = "503 Service Unavailable"
+                response_body = json.dumps(
+                    {"error": "Decision Intelligence history data source is temporarily unavailable."}
+                ).encode("utf-8")
+            except Exception:
+                status = "500 Internal Server Error"
+                response_body = json.dumps(
+                    {"error": "Internal server error fetching Decision Intelligence history."}
+                ).encode("utf-8")
+
+            headers = [
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Content-Length", str(len(response_body))),
+            ]
+            start_response(status, headers)
+            return [response_body]
+
+
+
 
         # 5. CORS Preflight OPTIONS
         if request_method == "OPTIONS":
@@ -387,19 +476,41 @@ def create_dashboard_wsgi_app(
     return wsgi_app
 
 
+def create_production_dashboard_wsgi_app(
+    decision_db_path: Optional[Union[str, Path]] = None,
+) -> Callable[[dict, Callable], list[bytes]]:
+    """Production composition root for WSGI app wiring DuckDB Decision Repository."""
+    from decision.persistence import DuckDbDecisionAuditRecordRepository
+    from decision.persistence.paths import get_default_decisions_db_path
+    from decision.repository_audit_provider import RepositoryDecisionAuditRecordProvider
+    from decision.repository_history_provider import RepositoryDecisionHistoryProvider
+
+    target_path = get_default_decisions_db_path(decision_db_path)
+    repo = DuckDbDecisionAuditRecordRepository(db_path=str(target_path))
+    decision_provider = RepositoryDecisionAuditRecordProvider(repository=repo)
+    history_provider = RepositoryDecisionHistoryProvider(repository=repo)
+
+    return create_dashboard_wsgi_app(
+        decision_audit_provider=decision_provider,
+        decision_history_provider=history_provider,
+    )
+
+
+
 # Default WSGI app instance for server process & default imports
 dashboard_wsgi_app = create_dashboard_wsgi_app()
 
 
 def run_server(port: int = 8000) -> None:
     from wsgiref.simple_server import make_server
+    prod_app = create_production_dashboard_wsgi_app()
     print(
         f"Starting AthletePlatform HTTP Server on "
         f"http://127.0.0.1:{port}/api/v1/dashboard "
         f"& /api/v1/biomarkers "
         f"& /api/v1/biomarkers/history/{{canonical_code}}"
     )
-    httpd = make_server("127.0.0.1", port, dashboard_wsgi_app)
+    httpd = make_server("127.0.0.1", port, prod_app)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

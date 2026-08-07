@@ -33,8 +33,14 @@ export function renderMoreExperience(
     title: string;
     description: string;
     icon: IconName;
-    view: "recovery" | "nutrition" | "body" | "biomarkers" | "icons" | "performance-lab";
+    view: "recovery" | "nutrition" | "body" | "biomarkers" | "icons" | "performance-lab" | "ai-coach";
   }[] = [
+    {
+      title: "AI Coach (Decision Intelligence)",
+      description: "Rekomendacje treningowe, analiza kontekstu i uzasadnienie decyzji silnika V2.",
+      icon: "target",
+      view: "ai-coach",
+    },
 
     {
       title: "Wyniki badań (Biomarkers)",

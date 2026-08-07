@@ -123,7 +123,29 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 - **Serialization & HTTP API (21.6 / 21.6A):** `PerformanceTestHistorySerializer`, provider boundary `PerformanceTestSessionProvider` i endpoint `GET /api/v1/performance-lab/history` z utwardzonym kontraktem JSON-safe i bezpieczną obsługą 503;
 - **AthleteWeb Performance Experience (21.7 / 21.7A):** typowany `PerformanceLabApiClient` z pełną walidacją runtime, responsywne widoki historii i szczegółów testu, lekki wykres SVG krzywej mleczanowej bez interpolacji oraz bezprzeładowaniowy routing.
 
+### Stage 22 — Decision Intelligence 2.0 Subsystem
+
+- **Athlete Decision Context (22.1 / 22.1A):** neutralny, zamrożony kontrakt `AthleteDecisionContext` zbierający snapshoty `recovery`, `training`, `biomarkers` i `performance` ze ścisłymi inwariantami i walidacją `ContextDataStatus`;
+- **Context Composition Layer (22.2):** bezstanowy `AthleteDecisionContextBuilder` składający cztery snapshoty oraz provider boundary `AthleteDecisionContextProvider`;
+- **Deterministic Decision Policy V2 (22.3):** bezstanowy ewaluator `DecisionPolicyV2` oceniający kontekst i realizujący 10 jawnych reguł w deterministycznej kolejności źródeł, rozstrzygający konflikty według hierarchii akcji (`REST` > `REVIEW` > `REPLACE_WITH_RECOVERY` > `REDUCE` > `PROCEED`) i wyznaczający pewność (`LOW` -> 0.60, `CRITICAL` -> 0.95);
+- **Recommendation Plan & Explainability (22.4):** bezstanowy `RecommendationPlanBuilder` mapujący wynik polityki na `RecommendationPlan` (z jedną rekomendacją główną oraz rekomendacjami dodatkowymi) i `DecisionExplanation` odzwierciedlający wszystkie sygnały bez utraty danych;
+- **Decision History & Audit (22.5 / 22.5A):** immutable `DecisionAuditRecord` i read model `DecisionHistory` z bezstanowymi builderami sortującymi chronologicznie `oldest -> newest` i deduplikującymi po `decision_id` z rozstrzyganiem remisów po `recorded_at`;
+- **Serialization & HTTP API (22.6 / 22.6A):** `DecisionAuditRecordSerializer`, provider boundary `DecisionAuditRecordProvider` oraz endpoint `GET /api/v1/decision-intelligence/latest` serwujący gotowy rekord (z obsługą `decision: null` i bezpiecznym błędem 503);
+- **AthleteWeb AI Coach Experience (22.7 / 22.7A):** typowany `DecisionIntelligenceApiClient` z pełną walidacją runtime, responsywny widok AI Coach prezentujący kartę Hero, rekomendacje, wyjaśnienia oraz 4 źródła kontekstu z bezprzeładowaniowym routingiem.
+
+### Stage 23 — Decision Runtime & Persistence
+
+- **Decision Execution Orchestrator (23.1):** bezstanowy `DecisionExecutionService` wywołujący kompletny pipeline Decision Intelligence 2.0;
+- **Real Decision Context Adapters (23.2 / 23.2A):** neutralne adaptery `Recovery`, `Training`, `Biomarkers`, `Performance` oraz composite provider `RuntimeAthleteDecisionContextProvider` z gwarancją pojedynczego pobrania `MorningBriefingInput`;
+- **Runtime Workflow & Composition (23.3):** czysty workflow `DecisionRuntimeWorkflow` ze wstrzykiwalnym zegarem `SystemUtcDecisionClock` i generatorem ID `UuidDecisionIdGenerator`;
+- **DuckDB Decision Repository (23.4 / 23.4A):** trwałe, wątkowo bezpieczne repozytorium `DuckDbDecisionAuditRecordRepository` z obsługą unikalnych transakcji append-only oraz weryfikacją spójności metadanych;
+- **Persisted Runtime Workflow & Latest Provider (23.5 / 23.5A):** dekorator `PersistedDecisionRuntimeWorkflow`, `RepositoryDecisionAuditRecordProvider`, produktywny WSGI composition root w `server/app.py` oraz CLI runner `scripts/run_decision_runtime.py`;
+- **Decision History HTTP API (23.6):** `RepositoryDecisionHistoryProvider`, bezstanowy `DecisionHistorySerializer` oraz endpoint `GET /api/v1/decision-intelligence/history` zwracający rekordy chronologicznie (*oldest $\rightarrow$ newest*);
+- **AthleteWeb Decision History Experience (23.7 / 23.7A):** niezależny interfejs historii `DecisionHistoryContainer` z odwróconą prezentacją (*newest $\rightarrow$ oldest*), dostępnymi szczegółami kart, polską lokalizacją etykiet oraz w pełni izolowanym cyklem życia zapytań HTTP.
+
+
 ## Planned
+
 
 Poniższe obszary są udokumentowanym kierunkiem, ale nie są obecnie zaimplementowanymi modułami:
 
