@@ -523,6 +523,30 @@ Automatyczne dzienne wykonywanie cyklu Decision Intelligence wymaga schedulera s
 - Wielokrotne wywołanie agenta tego samego dnia jest w 100% bezpieczne (idempotentne);
 - Ręczna diagnostyka CLI nie narusza ciągłości harmonogramu automatycznego.
 
+## ADR-015 — Dedykowana trwałość i odczytowe API planu treningowego (Training Plan Persistence Boundary)
+
+### Status
+
+**Accepted**
+
+### Context
+
+Plan treningowy (`TrainingPlan`) oraz dzienne uzgodnione preskrypcje (`FinalSessionPrescription`) reprezentują osobny bounded context wymagający audytowalnego zapisu append-only bez mieszania tabel z decyzjami silnika `Decision Intelligence`.
+
+### Decision
+
+- Wprowadzono dedykowany plik bazy danych `data/database/training_plan.duckdb`;
+- Zapis zachodzi w trybie append-only (semantyka no-op przy identycznym payloadzie JSON, `TrainingPlanConflictError` przy próbie modyfikacji istniejącego ID);
+- Brak kluczy obcych i relacji na poziomie SQL do bazy decyzji – `decision_id` pozostaje stabilnym odnośnikiem zewnętrznym;
+- Preskrypcja przechowuje w 100% kompletny snapshot zaplanowanej sesji źródłowej (`source_session`);
+- Punkty końcowe HTTP (`GET /api/v1/training-plan/...`) są wyłącznie odczytowe, nie generują planów i nie przeliczają decyzji w trakcie zapytania.
+
+### Consequences
+
+- Obiekty planu treningowego są w 100% reprodukowalne i niezależne od późniejszych modyfikacji konfiguracji;
+- Brak wywołań silników fizjologicznych lub decyzyjnych przy odczycie z API;
+- Pełna separacja fizyczna pliku bazy danych od `decisions.duckdb`.
+
 ## Rejestr ADR
 
 | ADR | Tytuł | Status | Główne źródło |
@@ -541,6 +565,7 @@ Automatyczne dzienne wykonywanie cyklu Decision Intelligence wymaga schedulera s
 | ADR-012 | Biomarker Ingestion, Alias Registry, and Unit Normalization Boundary | Accepted | `docs/engineering/biomarkers-architecture.md` |
 | ADR-013 | Granica źródeł produkcyjnych Decision Intelligence 2.0 | Accepted | `decision/production_composition.py`, `morning_briefing/production_provider.py` |
 | ADR-014 | Granica automatyzacji i schedulera systemowego macOS | Accepted | `decision/daily_coordinator.py`, `ops/macos/` |
+| ADR-015 | Dedykowana trwałość i odczytowe API planu treningowego | Accepted | `training_plan/persistence/`, `server/app.py` |
 
 ## Powiązane dokumenty
 

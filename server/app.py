@@ -51,8 +51,20 @@ from decision.history_provider import (
 )
 from decision.history_serialization_v2 import DecisionHistorySerializer
 from decision.serialization_v2 import DecisionAuditRecordSerializer
-
-
+from training_plan.history import (
+    PrescriptionHistoryProvider,
+    PrescriptionHistoryProviderError,
+    RepositoryPrescriptionHistoryProvider,
+    RepositoryTrainingPlanHistoryProvider,
+    TrainingPlanHistoryProvider,
+    TrainingPlanHistoryProviderError,
+)
+from training_plan.serializers import (
+    FinalSessionPrescriptionHistorySerializer,
+    FinalSessionPrescriptionSerializer,
+    TrainingPlanHistorySerializer,
+    TrainingPlanSerializer,
+)
 
 
 _CANONICAL_CODE_RE = re.compile(r'^[a-z0-9_\-]+$')
@@ -61,6 +73,20 @@ _TRENDS_PREFIX = "/api/v1/biomarkers/trends/"
 _INSIGHTS_PREFIX = "/api/v1/biomarkers/insights/"
 
 
+class EmptyTrainingPlanHistoryProvider(TrainingPlanHistoryProvider):
+    def get_latest_plan(self):
+        return None
+    def get_plan_history(self):
+        from training_plan.history import TrainingPlanHistory
+        return TrainingPlanHistory(records=())
+
+
+class EmptyPrescriptionHistoryProvider(PrescriptionHistoryProvider):
+    def get_latest_prescription(self):
+        return None
+    def get_prescription_history(self):
+        from training_plan.history import FinalSessionPrescriptionHistory
+        return FinalSessionPrescriptionHistory(records=())
 
 
 def create_dashboard_wsgi_app(
@@ -69,6 +95,8 @@ def create_dashboard_wsgi_app(
     performance_lab_provider: Optional[PerformanceTestSessionProvider] = None,
     decision_audit_provider: Optional[DecisionAuditRecordProvider] = None,
     decision_history_provider: Optional[DecisionHistoryProvider] = None,
+    training_plan_history_provider: Optional[TrainingPlanHistoryProvider] = None,
+    prescription_history_provider: Optional[PrescriptionHistoryProvider] = None,
 ) -> Callable[[dict, Callable], list[bytes]]:
 
     """
@@ -102,6 +130,18 @@ def create_dashboard_wsgi_app(
         decision_history_provider if decision_history_provider is not None else EmptyDecisionHistoryProvider()
     )
     _decision_history_serializer = DecisionHistorySerializer()
+
+    _tp_history_provider = (
+        training_plan_history_provider if training_plan_history_provider is not None else EmptyTrainingPlanHistoryProvider()
+    )
+    _tp_serializer = TrainingPlanSerializer()
+    _tp_history_serializer = TrainingPlanHistorySerializer()
+
+    _rx_history_provider = (
+        prescription_history_provider if prescription_history_provider is not None else EmptyPrescriptionHistoryProvider()
+    )
+    _rx_serializer = FinalSessionPrescriptionSerializer()
+    _rx_history_serializer = FinalSessionPrescriptionHistorySerializer()
 
 
 
@@ -426,6 +466,106 @@ def create_dashboard_wsgi_app(
             start_response(status, headers)
             return [response_body]
 
+        # 4.8 Route: GET /api/v1/training-plan/latest
+        if path_info == "/api/v1/training-plan/latest" and request_method == "GET":
+            try:
+                plan = _tp_history_provider.get_latest_plan()
+                payload = {"plan": _tp_serializer.serialize(plan) if plan else None}
+                status = "200 OK"
+                response_body = json.dumps(payload, indent=2, ensure_ascii=False).encode("utf-8")
+            except TrainingPlanHistoryProviderError:
+                status = "503 Service Unavailable"
+                response_body = json.dumps(
+                    {"error": "Training Plan data source is temporarily unavailable."}
+                ).encode("utf-8")
+            except Exception:
+                status = "500 Internal Server Error"
+                response_body = json.dumps(
+                    {"error": "Internal server error fetching Training Plan record."}
+                ).encode("utf-8")
+
+            headers = [
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Content-Length", str(len(response_body))),
+            ]
+            start_response(status, headers)
+            return [response_body]
+
+        # 4.9 Route: GET /api/v1/training-plan/history
+        if path_info == "/api/v1/training-plan/history" and request_method == "GET":
+            try:
+                history = _tp_history_provider.get_plan_history()
+                payload = {"history": _tp_history_serializer.serialize(history)}
+                status = "200 OK"
+                response_body = json.dumps(payload, indent=2, ensure_ascii=False).encode("utf-8")
+            except TrainingPlanHistoryProviderError:
+                status = "503 Service Unavailable"
+                response_body = json.dumps(
+                    {"error": "Training Plan history data source is temporarily unavailable."}
+                ).encode("utf-8")
+            except Exception:
+                status = "500 Internal Server Error"
+                response_body = json.dumps(
+                    {"error": "Internal server error fetching Training Plan history."}
+                ).encode("utf-8")
+
+            headers = [
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Content-Length", str(len(response_body))),
+            ]
+            start_response(status, headers)
+            return [response_body]
+
+        # 4.10 Route: GET /api/v1/training-plan/prescriptions/latest
+        if path_info == "/api/v1/training-plan/prescriptions/latest" and request_method == "GET":
+            try:
+                rx = _rx_history_provider.get_latest_prescription()
+                payload = {"prescription": _rx_serializer.serialize(rx) if rx else None}
+                status = "200 OK"
+                response_body = json.dumps(payload, indent=2, ensure_ascii=False).encode("utf-8")
+            except PrescriptionHistoryProviderError:
+                status = "503 Service Unavailable"
+                response_body = json.dumps(
+                    {"error": "Prescription data source is temporarily unavailable."}
+                ).encode("utf-8")
+            except Exception:
+                status = "500 Internal Server Error"
+                response_body = json.dumps(
+                    {"error": "Internal server error fetching Prescription record."}
+                ).encode("utf-8")
+
+            headers = [
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Content-Length", str(len(response_body))),
+            ]
+            start_response(status, headers)
+            return [response_body]
+
+        # 4.11 Route: GET /api/v1/training-plan/prescriptions/history
+        if path_info == "/api/v1/training-plan/prescriptions/history" and request_method == "GET":
+            try:
+                history = _rx_history_provider.get_prescription_history()
+                payload = {"history": _rx_history_serializer.serialize(history)}
+                status = "200 OK"
+                response_body = json.dumps(payload, indent=2, ensure_ascii=False).encode("utf-8")
+            except PrescriptionHistoryProviderError:
+                status = "503 Service Unavailable"
+                response_body = json.dumps(
+                    {"error": "Prescription history data source is temporarily unavailable."}
+                ).encode("utf-8")
+            except Exception:
+                status = "500 Internal Server Error"
+                response_body = json.dumps(
+                    {"error": "Internal server error fetching Prescription history."}
+                ).encode("utf-8")
+
+            headers = [
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Content-Length", str(len(response_body))),
+            ]
+            start_response(status, headers)
+            return [response_body]
+
         # 4.7 Route: GET /api/v1/decision-intelligence/history
         if path_info == "/api/v1/decision-intelligence/history" and request_method == "GET":
             try:
@@ -481,14 +621,24 @@ def create_production_dashboard_wsgi_app(
     decision_db_path: Optional[Union[str, Path]] = None,
     biomarkers_db_path: Optional[Union[str, Path]] = None,
     health_db_path: Optional[Union[str, Path]] = None,
+    training_plan_db_path: Optional[Union[str, Path]] = None,
 ) -> Callable[[dict, Callable], list[bytes]]:
-    """Production composition root for WSGI app wiring real Athlete Platform sources and DuckDB Decision Repository."""
+    """Production composition root for WSGI app wiring real Athlete Platform sources, DuckDB Decision Repository, and Training Plan Repository."""
     from decision.persistence import DuckDbDecisionAuditRecordRepository
     from decision.persistence.paths import get_default_decisions_db_path
     from decision.repository_audit_provider import RepositoryDecisionAuditRecordProvider
     from decision.repository_history_provider import RepositoryDecisionHistoryProvider
     from morning_briefing.production_provider import ProductionMorningBriefingInputProvider
     from repositories.health_repository import HealthRepository
+    from training_plan.history import (
+        RepositoryPrescriptionHistoryProvider,
+        RepositoryTrainingPlanHistoryProvider,
+    )
+    from training_plan.persistence.duckdb_repository import (
+        DuckDbFinalSessionPrescriptionRepository,
+        DuckDbTrainingPlanRepository,
+    )
+    from training_plan.persistence.paths import get_default_training_plan_db_path
 
     # 1. Health DB & Morning Coach UseCase
     target_health_path = str(health_db_path) if health_db_path is not None else "data/database/health.duckdb"
@@ -517,11 +667,20 @@ def create_production_dashboard_wsgi_app(
     decision_provider = RepositoryDecisionAuditRecordProvider(repository=repo)
     history_provider = RepositoryDecisionHistoryProvider(repository=repo)
 
+    # 5. Training Plan Repository
+    target_tp_path = get_default_training_plan_db_path(training_plan_db_path)
+    tp_repo = DuckDbTrainingPlanRepository(db_path=str(target_tp_path))
+    rx_repo = DuckDbFinalSessionPrescriptionRepository(db_path=str(target_tp_path))
+    tp_history_provider = RepositoryTrainingPlanHistoryProvider(repository=tp_repo)
+    rx_history_provider = RepositoryPrescriptionHistoryProvider(repository=rx_repo)
+
     return create_dashboard_wsgi_app(
         biomarkers_context=bio_context,
         morning_briefing_provider=mb_provider,
         decision_audit_provider=decision_provider,
         decision_history_provider=history_provider,
+        training_plan_history_provider=tp_history_provider,
+        prescription_history_provider=rx_history_provider,
     )
 
 

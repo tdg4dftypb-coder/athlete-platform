@@ -148,6 +148,8 @@ Smoke test daje szybką odpowiedź, czy aplikacja może się uruchomić:
 - import kontrolowanego, testowego FIT bez zapisu do danych produkcyjnych;
 - testy jednostkowe i integracyjne ledgera dziennego (`DailyExecutionLedgerState`), zapytań CAS/concurrency oraz przejmowania wygasłych dzierżaw;
 - testy mechaniki CLI (`scripts/run_daily_decision_runtime.py`) oraz walidacji szablonów macOS LaunchAgent (`ops/macos/`);
+- testy jednostkowe i integracyjne repozytorium planu treningowego (`DuckDbTrainingPlanRepository`, `DuckDbFinalSessionPrescriptionRepository`) na wyizolowanych plikach bazy danych lub bazie w pamięci (`:memory:`);
+- testy integracyjne punktów odczytowych HTTP API (`/api/v1/training-plan/...`) weryfikujące brak zapisu/generowania planów w trakcie zapytania odczytowego oraz poprawność kodów statusu (`200`, `503`);
 - testy jednostkowe nie wywołują poleceń `launchctl` na rzeczywistych usługach użytkownika ani nie modyfikują produkcyjnych baz danych DuckDB.
 
 Jeżeli CLI nie ma bezpiecznego `--help`, użyj istniejącego testu CLI zamiast uruchamiać operację na realnej bazie.
