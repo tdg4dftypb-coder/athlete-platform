@@ -1,4 +1,5 @@
 import { createIcon, type ActivityIconName } from "../../components/icon";
+import { createBottomNavigation } from "../../components/bottom-navigation";
 
 export interface ActivityIconGalleryItem {
   readonly id: ActivityIconName;
@@ -110,6 +111,10 @@ export function renderActivityIconGallery(onBack?: () => void): HTMLElement {
     main.append(card);
   }
 
-  container.append(header, main);
+  container.append(
+    header,
+    main,
+    createBottomNavigation({ currentView: "icons" }),
+  );
   return container;
 }

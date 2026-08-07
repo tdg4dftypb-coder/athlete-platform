@@ -7,6 +7,7 @@ import {
 } from "../src/components/icon";
 import { renderMorningBriefing } from "../src/features/morning-briefing/morning-briefing-view";
 import type { MorningBriefingPresentationState } from "../src/models/morning-briefing-presentation-state";
+import { renderActivityIconGallery } from "../src/features/activity-icons/activity-icon-gallery-view";
 
 describe("Activity Icon System", () => {
   const activityIcons: readonly ActivityIconName[] = [
@@ -88,6 +89,17 @@ describe("Activity Icon System", () => {
       expect(mapActivityToIcon(null)).toBe("activity-cycling");
       expect(mapActivityToIcon("")).toBe("activity-cycling");
     });
+  });
+
+  it("renders bottom navigation with Więcej active", () => {
+    const element = renderActivityIconGallery();
+
+    const nav = element.querySelector(".bottom-navigation");
+    expect(nav).not.toBeNull();
+
+    const buttons = nav!.querySelectorAll<HTMLButtonElement>("button");
+    expect(buttons.length).toBe(4);
+    expect(buttons[3]?.classList.contains("is-active")).toBe(true);
   });
 
   describe("UI Integration", () => {

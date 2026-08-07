@@ -871,3 +871,20 @@ h2 { font-family: var(--font-display); font-size: 1.06rem; font-weight: 650; let
   outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
 }
+
+/* Shared shell for API-backed full-screen experiences */
+.special-view-host {
+  flex: 1 0 auto;
+  min-width: 0;
+}
+
+
+/* Activity Icon System full-width header */
+.icon-gallery-shell .briefing-header {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.icon-gallery-shell .header-copy {
+  grid-column: 1 / -1;
+  width: 100%;
+}

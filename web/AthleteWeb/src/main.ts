@@ -43,6 +43,7 @@ import { resolvePerformanceTestId } from "./app/view-routing";
 import "./morning-briefing/full-screen/morning-briefing-full-screen.css";
 import "./performance-lab/history/performance-lab-history.css";
 import "./performance-lab/detail/performance-test-detail.css";
+import { createBottomNavigation } from "./components/bottom-navigation";
 import { DecisionIntelligenceApiClient } from "./decision-intelligence/api/decision-intelligence-api-client";
 import { DecisionIntelligenceContainer } from "./decision-intelligence/overview/decision-intelligence-container";
 import "./decision-intelligence/overview/decision-intelligence.css";
@@ -65,6 +66,22 @@ function requireRoot(): HTMLDivElement {
   const element = document.querySelector<HTMLDivElement>("#app");
   if (!element) throw new Error("Missing application root");
   return element;
+}
+
+function createSpecialViewShell(view: ApplicationView): HTMLElement {
+  const appShell = document.createElement("div");
+  appShell.className = "app-shell";
+
+  const contentHost = document.createElement("div");
+  contentHost.className = "view-container special-view-host";
+
+  appShell.append(
+    contentHost,
+    createBottomNavigation({ currentView: view }),
+  );
+
+  root.replaceChildren(appShell);
+  return contentHost;
 }
 
 import { renderMoreExperience } from "./features/more/more-view";
@@ -177,17 +194,13 @@ function renderPreview(focusHeading = false): void {
     appElement = renderActivityIconGallery(openMorningBriefing);
   } else if (view === "morning-briefing-detail") {
     // Full-screen Morning Briefing API view — render an async container
-    const shell = document.createElement("div");
-    shell.className = "view-container";
-    root.replaceChildren(shell);
+    const shell = createSpecialViewShell(view);
     const client = new MorningBriefingApiClient();
     const container = new MorningBriefingFullScreenContainer(shell, client, openMorningBriefing);
     container.init().catch(() => { /* container renders its own error state */ });
     return;
   } else if (view === "performance-lab") {
-    const shell = document.createElement("div");
-    shell.className = "view-container";
-    root.replaceChildren(shell);
+    const shell = createSpecialViewShell(view);
     const client = new PerformanceLabApiClient();
     const container = new PerformanceLabHistoryContainer(shell, client, {
       onSelectSession: openPerformanceTestDetail,
@@ -196,9 +209,7 @@ function renderPreview(focusHeading = false): void {
     return;
   } else if (view === "performance-lab-detail") {
     const testId = resolvePerformanceTestId(window.location.search);
-    const shell = document.createElement("div");
-    shell.className = "view-container";
-    root.replaceChildren(shell);
+    const shell = createSpecialViewShell(view);
     const client = new PerformanceLabApiClient();
     const container = new PerformanceTestDetailContainer(shell, client, testId, {
       onBack: openPerformanceLab,
@@ -206,9 +217,7 @@ function renderPreview(focusHeading = false): void {
     container.init().catch(() => { /* container handles errors */ });
     return;
   } else if (view === "ai-coach") {
-    const shell = document.createElement("div");
-    shell.className = "view-container";
-    root.replaceChildren(shell);
+    const shell = createSpecialViewShell(view);
     const client = new DecisionIntelligenceApiClient();
     const container = new DecisionIntelligenceContainer(shell, client, {
       onBack: openMorningBriefing,
@@ -304,9 +313,7 @@ async function renderExternalSourceView(view: ApplicationView, mode: "live-file"
   else if (view === "biomarkers") loadingElement = createBiomarkersExperienceApp({ kind: "loading", message: "Wczytywanie biomarkerów..." }, openMorningBriefing, retry);
   else if (view === "morning-briefing-detail") {
     // Morning Briefing detail is handled fully async with its own container
-    const shell = document.createElement("div");
-    shell.className = "view-container";
-    root.replaceChildren(shell);
+    const shell = createSpecialViewShell(view);
     const client = new MorningBriefingApiClient();
     const container = new MorningBriefingFullScreenContainer(shell, client, openMorningBriefing);
     container.init().catch(() => { /* container renders its own error state */ });

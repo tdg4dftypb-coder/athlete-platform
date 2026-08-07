@@ -50,10 +50,25 @@ export function createBottomNavigation(
     button.type = "button";
 
     const isActive =
-      (item.id === "morning" && (activeView === "morning" || activeView === "morning-briefing")) ||
+      (item.id === "morning" && (
+        activeView === "morning" ||
+        activeView === "morning-briefing" ||
+        activeView === "morning-briefing-detail"
+      )) ||
       (item.id === "training" && activeView === "training") ||
       (item.id === "progress" && activeView === "progress") ||
-      (item.id === "more" && (activeView === "more" || activeView === "recovery" || activeView === "nutrition" || activeView === "body" || activeView === "biomarkers"));
+      (item.id === "more" && (
+        activeView === "more" ||
+        activeView === "recovery" ||
+        activeView === "nutrition" ||
+        activeView === "body" ||
+        activeView === "biomarkers" ||
+        activeView === "history" ||
+        activeView === "performance-lab" ||
+        activeView === "performance-lab-detail" ||
+        activeView === "ai-coach" ||
+        activeView === "icons"
+      ));
 
     button.className = isActive ? "is-active" : "";
     button.disabled = false;

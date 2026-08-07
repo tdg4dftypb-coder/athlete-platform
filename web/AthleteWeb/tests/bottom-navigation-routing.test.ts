@@ -54,6 +54,31 @@ describe("Bottom Navigation Routing", () => {
     }
   });
 
+  it("marks 'Dzisiaj' as active for Morning Briefing detail", () => {
+    const nav = createBottomNavigation({ currentView: "morning-briefing-detail" });
+    const buttons = nav.querySelectorAll<HTMLButtonElement>("button");
+
+    expect(buttons[0]?.classList.contains("is-active")).toBe(true);
+    expect(buttons[0]?.getAttribute("aria-current")).toBe("page");
+  });
+
+  it("marks 'Więcej' as active for nested More experiences", () => {
+    for (const view of [
+      "biomarkers",
+      "history",
+      "performance-lab",
+      "performance-lab-detail",
+      "ai-coach",
+      "icons",
+    ] as const) {
+      const nav = createBottomNavigation({ currentView: view });
+      const buttons = nav.querySelectorAll<HTMLButtonElement>("button");
+
+      expect(buttons[3]?.classList.contains("is-active")).toBe(true);
+      expect(buttons[3]?.getAttribute("aria-current")).toBe("page");
+    }
+  });
+
   it("triggers navigate callbacks for tabs", () => {
     const onNavigate = vi.fn();
     const nav = createBottomNavigation({ currentView: "morning", onNavigate });
