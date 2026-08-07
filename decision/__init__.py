@@ -101,6 +101,10 @@ from .production_composition import (
     ProductionDecisionRuntimeContainer,
     create_production_decision_runtime_application,
 )
+from .daily_production_composition import (
+    ProductionDailyDecisionRuntimeContainer,
+    create_production_daily_decision_runtime,
+)
 from .runtime_workflow import (
     DecisionClock,
     DecisionIdGenerator,
@@ -172,6 +176,8 @@ __all__ = [
     "create_persisted_decision_runtime_application",
     "ProductionDecisionRuntimeContainer",
     "create_production_decision_runtime_application",
+    "ProductionDailyDecisionRuntimeContainer",
+    "create_production_daily_decision_runtime",
     "DecisionHistoryProvider",
     "DecisionHistoryProviderError",
     "EmptyDecisionHistoryProvider",
