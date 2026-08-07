@@ -7,6 +7,7 @@ if TYPE_CHECKING:
 
 from morning_briefing.input_models import (
     BiomarkerBriefingInput,
+    BiomarkerBriefingSignalInput,
     MorningBriefingInput,
     RecoveryBriefingInput,
     TrainingBriefingInput,
@@ -79,9 +80,48 @@ class ProductionMorningBriefingInputProvider(MorningBriefingInputProvider):
             available_count = sum(len(getattr(cat, "biomarkers", ()) or ()) for cat in categories)
             attention_count = sum(getattr(cat, "attention_count", 0) or 0 for cat in categories)
 
+            # Collect all BiomarkerSummary instances across categories
+            all_biomarkers = []
+            for cat in categories:
+                all_biomarkers.extend(getattr(cat, "biomarkers", ()) or ())
+
+            # critical_count: STRICTLY count biomarkers with non-empty laboratory_provided_critical_flag
+            critical_count = sum(
+                1 for bio in all_biomarkers
+                if getattr(bio, "laboratory_provided_critical_flag", None)
+            )
+
+            # Build signals for biomarkers requiring attention (has laboratory_provided_critical_flag OR laboratory_flag)
+            raw_signals = []
+            for bio in all_biomarkers:
+                crit_flag = getattr(bio, "laboratory_provided_critical_flag", None)
+                lab_flag = getattr(bio, "laboratory_flag", None)
+
+                if crit_flag or lab_flag:
+                    interpretation = crit_flag if crit_flag else lab_flag
+                    raw_signals.append(
+                        BiomarkerBriefingSignalInput(
+                            canonical_code=str(getattr(bio, "canonical_code", "")),
+                            interpretation=str(interpretation),
+                            data_quality=str(getattr(bio, "data_quality", "")),
+                            summary=None,
+                        )
+                    )
+
+            # Sort signals deterministically strictly by canonical_code
+            sorted_signals = tuple(sorted(raw_signals, key=lambda s: s.canonical_code))
+
+            # Extract data_status from metadata.status if present
+            meta = getattr(dashboard, "metadata", None)
+            dash_status_enum = getattr(meta, "status", None) if meta else None
+            data_status = dash_status_enum.value if hasattr(dash_status_enum, "value") else (str(dash_status_enum) if dash_status_enum is not None else None)
+
             biomarker_input = BiomarkerBriefingInput(
                 available_count=available_count,
                 attention_count=attention_count,
+                critical_count=critical_count,
+                signals=sorted_signals,
+                data_status=data_status,
                 summary=f"Większość parametrów w normie ({available_count} zweryfikowanych)"
                 if attention_count == 0
                 else f"Wymaga uwagi: {attention_count} marker(ów)",

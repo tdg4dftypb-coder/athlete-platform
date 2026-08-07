@@ -46,26 +46,35 @@ class DefaultBiomarkerDecisionContextAdapter:
 
         bio: BiomarkerBriefingInput = briefing_input.biomarkers
 
-        status = ContextDataStatus.STALE if bio.is_stale else ContextDataStatus.AVAILABLE
+        # Map data_status to ContextDataStatus
+        if bio.data_status == "unavailable":
+            status = ContextDataStatus.UNAVAILABLE
+        elif bio.is_stale:
+            status = ContextDataStatus.STALE
+        elif bio.data_status == "partial":
+            status = ContextDataStatus.PARTIAL
+        else:
+            status = ContextDataStatus.AVAILABLE
 
-        # Construct signals if summary/attention present, ensuring deterministic order
-        signals_list: list[BiomarkerDecisionSignal] = []
-        if bio.attention_count > 0 and bio.summary:
-            signals_list.append(
+        # Map BiomarkerBriefingSignalInput instances to BiomarkerDecisionSignal
+        mapped_signals: list[BiomarkerDecisionSignal] = []
+        for sig in getattr(bio, "signals", ()) or ():
+            mapped_signals.append(
                 BiomarkerDecisionSignal(
-                    canonical_code="LAB_SUMMARY",
-                    interpretation="ATTENTION",
-                    confidence="HIGH",
-                    summary=bio.summary,
+                    canonical_code=sig.canonical_code,
+                    interpretation=sig.interpretation,
+                    confidence=sig.data_quality,
+                    summary=sig.summary,
                 )
             )
 
-        signals_sorted = tuple(sorted(signals_list, key=lambda s: s.canonical_code))
+        # Sort mapped signals deterministically strictly by canonical_code
+        signals_sorted = tuple(sorted(mapped_signals, key=lambda s: s.canonical_code))
 
         return BiomarkerDecisionContext(
             status=status,
             attention_count=bio.attention_count,
-            critical_count=0,
+            critical_count=bio.critical_count,
             signals=signals_sorted,
             generated_at=briefing_input.generated_at,
         )

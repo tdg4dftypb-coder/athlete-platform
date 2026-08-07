@@ -27,11 +27,22 @@ class TrainingBriefingInput:
 
 
 @dataclass(frozen=True)
+class BiomarkerBriefingSignalInput:
+    canonical_code: str
+    interpretation: str
+    data_quality: str
+    summary: Optional[str] = None
+
+
+@dataclass(frozen=True)
 class BiomarkerBriefingInput:
     available_count: int
     attention_count: int
     summary: Optional[str]
     is_stale: bool
+    critical_count: int = 0
+    signals: tuple[BiomarkerBriefingSignalInput, ...] = ()
+    data_status: Optional[str] = None
 
 
 @dataclass(frozen=True)

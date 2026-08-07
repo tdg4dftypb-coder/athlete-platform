@@ -210,3 +210,64 @@ def test_training_enrichment_mapped_to_input():
     assert inp.training.intensity == "moderate"
     assert inp.training.recent_training_load == 450.0
     assert inp.training.fatigue_status == "high"
+
+
+def test_biomarker_enrichment_attention_vs_critical_and_signals():
+    mock_use_case = MagicMock()
+
+    # Biomarker A: Ferritin (flag L, no critical flag) -> attention=1, critical=0
+    bio_a = MagicMock()
+    bio_a.canonical_code = "ferritin"
+    bio_a.laboratory_flag = "L"
+    bio_a.laboratory_provided_critical_flag = None
+    bio_a.data_quality = "high"
+
+    # Biomarker B: CRP (flag H, critical flag CRITICAL) -> attention=1, critical=1
+    bio_b = MagicMock()
+    bio_b.canonical_code = "crp"
+    bio_b.laboratory_flag = "H"
+    bio_b.laboratory_provided_critical_flag = "CRITICAL"
+    bio_b.data_quality = "medium"
+
+    # Biomarker C: Vitamin D (no flags) -> attention=0, critical=0
+    bio_c = MagicMock()
+    bio_c.canonical_code = "vitamin_d"
+    bio_c.laboratory_flag = None
+    bio_c.laboratory_provided_critical_flag = None
+    bio_c.data_quality = "high"
+
+    cat = MagicMock()
+    cat.biomarkers = (bio_a, bio_b, bio_c)
+    cat.attention_count = 2
+
+    mock_dash = MagicMock()
+    mock_dash.categories = (cat,)
+    mock_dash.metadata.status.value = "ready"
+
+    mock_bio_builder = MagicMock()
+    mock_bio_builder.build.return_value = mock_dash
+
+    provider = ProductionMorningBriefingInputProvider(
+        morning_coach_use_case=mock_use_case,
+        biomarkers_dashboard_builder=mock_bio_builder,
+    )
+
+    inp = provider.get_input()
+
+    assert inp.biomarkers is not None
+    assert inp.biomarkers.available_count == 3
+    assert inp.biomarkers.attention_count == 2
+    assert inp.biomarkers.critical_count == 1  # ONLY CRP had critical flag
+    assert inp.biomarkers.data_status == "ready"
+
+    # Signals must contain ferritin and crp, sorted strictly by canonical_code ("crp", "ferritin")
+    signals = inp.biomarkers.signals
+    assert len(signals) == 2
+
+    assert signals[0].canonical_code == "crp"
+    assert signals[0].interpretation == "CRITICAL"
+    assert signals[0].data_quality == "medium"
+
+    assert signals[1].canonical_code == "ferritin"
+    assert signals[1].interpretation == "L"
+    assert signals[1].data_quality == "high"

@@ -14,6 +14,7 @@ from decision import (
 )
 from morning_briefing.input_models import (
     BiomarkerBriefingInput,
+    BiomarkerBriefingSignalInput,
     MorningBriefingInput,
     RecoveryBriefingInput,
     TrainingBriefingInput,
@@ -146,7 +147,18 @@ def test_training_adapter():
 
 def test_biomarkers_adapter():
     gen_at = datetime.now(timezone.utc)
-    bio_input = BiomarkerBriefingInput(available_count=10, attention_count=2, summary="Ferritin low", is_stale=False)
+    sig1 = BiomarkerBriefingSignalInput(canonical_code="crp", interpretation="CRITICAL", data_quality="medium")
+    sig2 = BiomarkerBriefingSignalInput(canonical_code="ferritin", interpretation="L", data_quality="high")
+
+    bio_input = BiomarkerBriefingInput(
+        available_count=10,
+        attention_count=2,
+        critical_count=1,
+        signals=(sig1, sig2),
+        data_status="ready",
+        summary="Ferritin low",
+        is_stale=False,
+    )
     briefing = MorningBriefingInput(generated_at=gen_at, recovery=None, training=None, biomarkers=bio_input)
 
     provider = StubMorningBriefingProvider(briefing)
@@ -155,15 +167,25 @@ def test_biomarkers_adapter():
 
     assert ctx.status == ContextDataStatus.AVAILABLE
     assert ctx.attention_count == 2
-    assert len(ctx.signals) == 1
-    assert ctx.signals[0].canonical_code == "LAB_SUMMARY"
+    assert ctx.critical_count == 1
+    assert len(ctx.signals) == 2
+    # Verify exact mapping (data_quality -> confidence, no LAB_SUMMARY)
+    assert ctx.signals[0].canonical_code == "crp"
+    assert ctx.signals[0].interpretation == "CRITICAL"
+    assert ctx.signals[0].confidence == "medium"
 
-    # Zero attention -> AVAILABLE with empty signals
-    bio_clean = BiomarkerBriefingInput(available_count=10, attention_count=0, summary=None, is_stale=False)
-    adapter_clean = DefaultBiomarkerDecisionContextAdapter(StubMorningBriefingProvider(MorningBriefingInput(gen_at, None, None, bio_clean)))
-    ctx_clean = adapter_clean.get_context(gen_at)
-    assert ctx_clean.status == ContextDataStatus.AVAILABLE
-    assert len(ctx_clean.signals) == 0
+    assert ctx.signals[1].canonical_code == "ferritin"
+    assert ctx.signals[1].interpretation == "L"
+    assert ctx.signals[1].confidence == "high"
+
+    # Test data_status mapping: partial -> PARTIAL, unavailable -> UNAVAILABLE
+    bio_partial = BiomarkerBriefingInput(available_count=5, attention_count=0, data_status="partial", is_stale=False, summary=None)
+    adapter_p = DefaultBiomarkerDecisionContextAdapter(StubMorningBriefingProvider(MorningBriefingInput(gen_at, None, None, bio_partial)))
+    assert adapter_p.get_context(gen_at).status == ContextDataStatus.PARTIAL
+
+    bio_unavail = BiomarkerBriefingInput(available_count=0, attention_count=0, data_status="unavailable", is_stale=False, summary=None)
+    adapter_u = DefaultBiomarkerDecisionContextAdapter(StubMorningBriefingProvider(MorningBriefingInput(gen_at, None, None, bio_unavail)))
+    assert adapter_u.get_context(gen_at).status == ContextDataStatus.UNAVAILABLE
 
 
 from performance_lab.provider import (
