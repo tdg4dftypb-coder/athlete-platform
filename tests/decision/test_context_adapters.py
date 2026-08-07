@@ -62,7 +62,15 @@ class StubPerformanceProvider:
 
 def test_recovery_adapter():
     gen_at = datetime.now(timezone.utc)
-    rec_input = RecoveryBriefingInput(score=85, status="ready", summary="Good recovery", is_stale=False)
+    rec_input = RecoveryBriefingInput(
+        score=85,
+        status="ready",
+        summary="Good recovery",
+        is_stale=False,
+        hrv_status="supportive",
+        resting_heart_rate_status="neutral",
+        sleep_status="caution",
+    )
     briefing = MorningBriefingInput(generated_at=gen_at, recovery=rec_input, training=None, biomarkers=None)
 
     provider = StubMorningBriefingProvider(briefing)
@@ -73,12 +81,25 @@ def test_recovery_adapter():
     assert ctx.status == ContextDataStatus.AVAILABLE
     assert ctx.recovery_score == 85.0
     assert ctx.recovery_status == "ready"
+    assert ctx.hrv_status == "supportive"
+    assert ctx.resting_heart_rate_status == "neutral"
+    assert ctx.sleep_status == "caution"
     assert ctx.generated_at == gen_at
 
-    # Partial score
-    rec_partial = RecoveryBriefingInput(score=None, status="ready", summary=None, is_stale=False)
+    # Partial score with metric statuses
+    rec_partial = RecoveryBriefingInput(
+        score=None,
+        status="ready",
+        summary=None,
+        is_stale=False,
+        hrv_status=None,
+        resting_heart_rate_status=None,
+        sleep_status=None,
+    )
     adapter_p = DefaultRecoveryDecisionContextAdapter(StubMorningBriefingProvider(MorningBriefingInput(gen_at, rec_partial, None, None)))
-    assert adapter_p.get_context(gen_at).status == ContextDataStatus.PARTIAL
+    ctx_p = adapter_p.get_context(gen_at)
+    assert ctx_p.status == ContextDataStatus.PARTIAL
+    assert ctx_p.hrv_status is None
 
     # Stale score
     rec_stale = RecoveryBriefingInput(score=80, status="ready", summary=None, is_stale=True)

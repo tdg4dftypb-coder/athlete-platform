@@ -132,9 +132,43 @@ def test_missing_optional_data_handles_partial_input():
     mock_use_case.run.return_value = mock_coach_result
 
     provider = ProductionMorningBriefingInputProvider(morning_coach_use_case=mock_use_case)
-
     inp = provider.get_input()
 
     assert inp.recovery is None
     assert inp.training.is_available is False
     assert inp.biomarkers is None
+
+
+def test_recovery_metric_statuses_mapped_to_input():
+    mock_use_case = MagicMock()
+    mock_coach_result = MagicMock()
+    mock_coach_result.athlete_state.context.today.date = date(2026, 8, 7)
+    mock_coach_result.athlete_state.recovery.score = 90
+    mock_coach_result.athlete_state.recovery.status = "🟢 DOBRA"
+    mock_coach_result.athlete_state.recovery.reasons = []
+
+    mock_hrv = MagicMock()
+    mock_hrv.status.value = "supportive"
+    mock_rhr = MagicMock()
+    mock_rhr.status.value = "neutral"
+    mock_sleep = MagicMock()
+    mock_sleep.status.value = "caution"
+
+    mock_coach_result.athlete_state.recovery.hrv = mock_hrv
+    mock_coach_result.athlete_state.recovery.resting_hr = mock_rhr
+    mock_coach_result.athlete_state.recovery.sleep = mock_sleep
+
+    mock_use_case.run.return_value = mock_coach_result
+
+    fixed_time = datetime(2026, 8, 7, 10, 0, 0, tzinfo=timezone.utc)
+    provider = ProductionMorningBriefingInputProvider(
+        morning_coach_use_case=mock_use_case,
+        clock=lambda: fixed_time,
+    )
+
+    inp = provider.get_input()
+
+    assert inp.recovery is not None
+    assert inp.recovery.hrv_status == "supportive"
+    assert inp.recovery.resting_heart_rate_status == "neutral"
+    assert inp.recovery.sleep_status == "caution"

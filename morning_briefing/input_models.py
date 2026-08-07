@@ -9,6 +9,9 @@ class RecoveryBriefingInput:
     status: Optional[str]
     summary: Optional[str]
     is_stale: bool
+    hrv_status: Optional[str] = None
+    resting_heart_rate_status: Optional[str] = None
+    sleep_status: Optional[str] = None
 
 
 @dataclass(frozen=True)

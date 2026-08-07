@@ -46,8 +46,8 @@ class DefaultRecoveryDecisionContextAdapter:
             status=status,
             recovery_score=score_val,
             recovery_status=rec.status,
-            hrv_status=None,
-            resting_heart_rate_status=None,
-            sleep_status=None,
+            hrv_status=rec.hrv_status,
+            resting_heart_rate_status=rec.resting_heart_rate_status,
+            sleep_status=rec.sleep_status,
             generated_at=briefing_input.generated_at,
         )

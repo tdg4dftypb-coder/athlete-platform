@@ -1,5 +1,14 @@
 from dataclasses import dataclass
+from enum import Enum
 from typing import Optional
+
+
+class RecoveryMetricStatus(str, Enum):
+    SUPPORTIVE = "supportive"
+    NEUTRAL = "neutral"
+    CAUTION = "caution"
+    LIMITING = "limiting"
+    UNAVAILABLE = "unavailable"
 
 
 @dataclass
@@ -14,6 +23,8 @@ class RecoveryMetric:
     delta_percent: Optional[float]
 
     score: int
+
+    status: RecoveryMetricStatus = RecoveryMetricStatus.UNAVAILABLE
 
 
 @dataclass

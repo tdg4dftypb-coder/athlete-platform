@@ -1,5 +1,6 @@
 from recovery.models import (
     RecoveryMetric,
+    RecoveryMetricStatus,
     RecoveryResult,
 )
 
@@ -17,6 +18,7 @@ class RecoveryEngine:
         #
 
         hrv_score = 100
+        hrv_status = RecoveryMetricStatus.UNAVAILABLE
 
         if context.hrv.delta_percent is not None:
 
@@ -24,6 +26,7 @@ class RecoveryEngine:
 
                 hrv_score -= 25
                 score -= 25
+                hrv_status = RecoveryMetricStatus.LIMITING
 
                 reasons.append(
                     f"HRV {context.hrv.delta_percent:.1f}%"
@@ -33,6 +36,7 @@ class RecoveryEngine:
 
                 hrv_score -= 10
                 score -= 10
+                hrv_status = RecoveryMetricStatus.CAUTION
 
                 reasons.append(
                     f"HRV {context.hrv.delta_percent:.1f}%"
@@ -42,10 +46,14 @@ class RecoveryEngine:
 
                 hrv_score += 5
                 score += 5
+                hrv_status = RecoveryMetricStatus.SUPPORTIVE
 
                 reasons.append(
                     f"HRV +{context.hrv.delta_percent:.1f}%"
                 )
+
+            else:
+                hrv_status = RecoveryMetricStatus.NEUTRAL
 
         hrv_score = max(0, min(100, hrv_score))
 
@@ -61,6 +69,8 @@ class RecoveryEngine:
 
             score=hrv_score,
 
+            status=hrv_status,
+
         )
 
         #
@@ -68,6 +78,7 @@ class RecoveryEngine:
         #
 
         rhr_score = 100
+        rhr_status = RecoveryMetricStatus.UNAVAILABLE
 
         if context.resting_hr.delta is not None:
 
@@ -75,6 +86,7 @@ class RecoveryEngine:
 
                 rhr_score -= 20
                 score -= 20
+                rhr_status = RecoveryMetricStatus.LIMITING
 
                 reasons.append(
                     f"RHR +{context.resting_hr.delta:.0f} bpm"
@@ -84,6 +96,7 @@ class RecoveryEngine:
 
                 rhr_score -= 10
                 score -= 10
+                rhr_status = RecoveryMetricStatus.CAUTION
 
                 reasons.append(
                     f"RHR +{context.resting_hr.delta:.0f} bpm"
@@ -93,10 +106,14 @@ class RecoveryEngine:
 
                 rhr_score += 5
                 score += 5
+                rhr_status = RecoveryMetricStatus.SUPPORTIVE
 
                 reasons.append(
                     f"RHR {context.resting_hr.delta:.0f} bpm"
                 )
+
+            else:
+                rhr_status = RecoveryMetricStatus.NEUTRAL
 
         rhr_score = max(0, min(100, rhr_score))
 
@@ -112,6 +129,8 @@ class RecoveryEngine:
 
             score=rhr_score,
 
+            status=rhr_status,
+
         )
 
         #
@@ -121,6 +140,7 @@ class RecoveryEngine:
         sleep_score = 100
 
         hours = None
+        sleep_status = RecoveryMetricStatus.UNAVAILABLE
 
         if context.today.sleep_duration is not None:
 
@@ -130,6 +150,7 @@ class RecoveryEngine:
 
                 sleep_score -= 20
                 score -= 20
+                sleep_status = RecoveryMetricStatus.LIMITING
 
                 reasons.append(
                     f"Sen {hours:.1f} h"
@@ -139,6 +160,7 @@ class RecoveryEngine:
 
                 sleep_score -= 10
                 score -= 10
+                sleep_status = RecoveryMetricStatus.CAUTION
 
                 reasons.append(
                     f"Sen {hours:.1f} h"
@@ -148,10 +170,14 @@ class RecoveryEngine:
 
                 sleep_score += 5
                 score += 5
+                sleep_status = RecoveryMetricStatus.SUPPORTIVE
 
                 reasons.append(
                     f"Sen {hours:.1f} h"
                 )
+
+            else:
+                sleep_status = RecoveryMetricStatus.NEUTRAL
 
         sleep_score = max(0, min(100, sleep_score))
 
@@ -166,6 +192,8 @@ class RecoveryEngine:
             delta_percent=context.sleep.delta_percent,
 
             score=sleep_score,
+
+            status=sleep_status,
 
         )
 

@@ -108,11 +108,23 @@ class ProductionMorningBriefingInputProvider(MorningBriefingInputProvider):
                 # Compare source date with timezone-aware generated_at date
                 is_stale = (source_date != generated_at.date())
 
+            # Helper to extract status value if present
+            def _extract_status(metric_obj):
+                status_val = getattr(metric_obj, "status", None) if metric_obj else None
+                return status_val.value if hasattr(status_val, "value") else (str(status_val) if status_val is not None else None)
+
+            hrv_status = _extract_status(getattr(rec, "hrv", None))
+            rhr_status = _extract_status(getattr(rec, "resting_hr", None))
+            sleep_status = _extract_status(getattr(rec, "sleep", None))
+
             recovery_input = RecoveryBriefingInput(
                 score=getattr(rec, "score", None),
                 status=getattr(rec, "status", None),
                 summary=reasons_summary,
                 is_stale=is_stale,
+                hrv_status=hrv_status,
+                resting_heart_rate_status=rhr_status,
+                sleep_status=sleep_status,
             )
 
         # 5. Training Mapping
