@@ -61,7 +61,7 @@ class ProductionMorningBriefingInputProvider(MorningBriefingInputProvider):
                     builder = self._biomarkers_dashboard_builder()
                 else:
                     builder = self._biomarkers_dashboard_builder
-                
+
                 dashboard = builder.build()
             except Exception as err:
                 raise MorningBriefingInputError("Failed to load Biomarkers data source") from err

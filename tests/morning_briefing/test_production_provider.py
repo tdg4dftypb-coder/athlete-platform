@@ -30,13 +30,13 @@ def test_biomarker_available_count_semantics():
     mock_dashboard = MagicMock()
     # 10 raw historical observations, but only 1 canonical biomarker summary in 1 category
     mock_dashboard.verified_observations = 10
-    
+
     mock_bio_summary = MagicMock()
     mock_category = MagicMock()
     mock_category.biomarkers = (mock_bio_summary,)
     mock_category.attention_count = 0
     mock_dashboard.categories = (mock_category,)
-    
+
     mock_bio_builder.build.return_value = mock_dashboard
 
     fixed_time = datetime(2026, 8, 7, 10, 0, 0, tzinfo=timezone.utc)
