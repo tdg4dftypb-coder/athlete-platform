@@ -10,9 +10,9 @@ from sleep.sleep_repository import SleepRepository
 
 class HealthRepository:
 
-    def __init__(self):
+    def __init__(self, database=None):
 
-        self.db = Database()
+        self.db = database if database is not None else Database()
 
         sessions = SleepBuilder().build_sessions(
             SleepRepository().load_records()

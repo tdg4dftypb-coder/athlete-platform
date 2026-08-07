@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from typing import Union
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def get_default_decisions_db_path(override_path: Union[str, Path, None] = None) -> Path:

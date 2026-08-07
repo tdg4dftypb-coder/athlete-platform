@@ -80,6 +80,10 @@ from .runtime_persistence_composition import (
     DecisionRuntimeApplication,
     create_persisted_decision_runtime_application,
 )
+from .production_composition import (
+    ProductionDecisionRuntimeContainer,
+    create_production_decision_runtime_application,
+)
 from .runtime_workflow import (
     DecisionClock,
     DecisionIdGenerator,
@@ -149,6 +153,8 @@ __all__ = [
     "RepositoryDecisionAuditRecordProvider",
     "DecisionRuntimeApplication",
     "create_persisted_decision_runtime_application",
+    "ProductionDecisionRuntimeContainer",
+    "create_production_decision_runtime_application",
     "DecisionHistoryProvider",
     "DecisionHistoryProviderError",
     "EmptyDecisionHistoryProvider",

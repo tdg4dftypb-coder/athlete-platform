@@ -15,6 +15,7 @@ from biomarkers.composition import (
     build_biomarkers_dashboard_use_case,
     get_default_biomarkers_context,
 )
+from biomarkers.dashboard import BiomarkersDashboardBuilder
 from biomarkers.history import BiomarkerHistoryBuilder
 from biomarkers.history_serialization import BiomarkerHistorySerializer
 from biomarkers.trends.analyzer import BiomarkerTrendAnalyzer
@@ -478,19 +479,47 @@ def create_dashboard_wsgi_app(
 
 def create_production_dashboard_wsgi_app(
     decision_db_path: Optional[Union[str, Path]] = None,
+    biomarkers_db_path: Optional[Union[str, Path]] = None,
+    health_db_path: Optional[Union[str, Path]] = None,
 ) -> Callable[[dict, Callable], list[bytes]]:
-    """Production composition root for WSGI app wiring DuckDB Decision Repository."""
+    """Production composition root for WSGI app wiring real Athlete Platform sources and DuckDB Decision Repository."""
     from decision.persistence import DuckDbDecisionAuditRecordRepository
     from decision.persistence.paths import get_default_decisions_db_path
     from decision.repository_audit_provider import RepositoryDecisionAuditRecordProvider
     from decision.repository_history_provider import RepositoryDecisionHistoryProvider
+    from morning_briefing.production_provider import ProductionMorningBriefingInputProvider
+    from repositories.health_repository import HealthRepository
 
+    # 1. Health DB & Morning Coach UseCase
+    target_health_path = str(health_db_path) if health_db_path is not None else "data/database/health.duckdb"
+    db = Database(db_path=target_health_path)
+    health_repo = HealthRepository(database=db)
+    morning_coach_use_case = build_morning_coach_use_case(database=db, health_repository=health_repo)
+
+    # 2. Persisted Biomarkers context
+    target_bio_path = str(biomarkers_db_path) if biomarkers_db_path is not None else "data/database/biomarkers.duckdb"
+    bio_context = BiomarkersApplicationContext(db_path=target_bio_path)
+    bio_builder = BiomarkersDashboardBuilder(
+        repository=bio_context.repository,
+        biomarker_registry=bio_context.registry,
+        clock=bio_context.clock,
+    )
+
+    # 3. Production Morning Briefing Provider
+    mb_provider = ProductionMorningBriefingInputProvider(
+        morning_coach_use_case=morning_coach_use_case,
+        biomarkers_dashboard_builder=bio_builder,
+    )
+
+    # 4. Decision Repository
     target_path = get_default_decisions_db_path(decision_db_path)
     repo = DuckDbDecisionAuditRecordRepository(db_path=str(target_path))
     decision_provider = RepositoryDecisionAuditRecordProvider(repository=repo)
     history_provider = RepositoryDecisionHistoryProvider(repository=repo)
 
     return create_dashboard_wsgi_app(
+        biomarkers_context=bio_context,
+        morning_briefing_provider=mb_provider,
         decision_audit_provider=decision_provider,
         decision_history_provider=history_provider,
     )
