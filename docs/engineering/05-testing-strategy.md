@@ -145,7 +145,10 @@ Smoke test daje szybką odpowiedź, czy aplikacja może się uruchomić:
 - `python3 -m compileall -q` dla kodu projektu;
 - bezpieczny test entry pointu CLI;
 - kompilacja i parsowanie reprezentatywnego workout DSL;
-- import kontrolowanego, testowego FIT bez zapisu do danych produkcyjnych.
+- import kontrolowanego, testowego FIT bez zapisu do danych produkcyjnych;
+- testy jednostkowe i integracyjne ledgera dziennego (`DailyExecutionLedgerState`), zapytań CAS/concurrency oraz przejmowania wygasłych dzierżaw;
+- testy mechaniki CLI (`scripts/run_daily_decision_runtime.py`) oraz walidacji szablonów macOS LaunchAgent (`ops/macos/`);
+- testy jednostkowe nie wywołują poleceń `launchctl` na rzeczywistych usługach użytkownika ani nie modyfikują produkcyjnych baz danych DuckDB.
 
 Jeżeli CLI nie ma bezpiecznego `--help`, użyj istniejącego testu CLI zamiast uruchamiać operację na realnej bazie.
 

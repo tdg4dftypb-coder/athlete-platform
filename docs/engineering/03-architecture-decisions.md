@@ -496,6 +496,33 @@ Przejście z Decision Intelligence 1.0 do 2.0 oraz podłączenie produkcyjnych �
 - Wprowadzanie zmian w algorytmach regeneracji lub biomarkerów nie wymaga modyfikacji silnika decyzyjnego;
 - Historia decyzji jest w 100% reprodukowalna i bezpieczna przed przypadkową modyfikacją przy odczycie z API.
 
+## ADR-014 — Granica automatyzacji i schedulera systemowego macOS (Automated Daily Runtime)
+
+### Status
+
+**Accepted**
+
+### Context
+
+Automatyczne dzienne wykonywanie cyklu Decision Intelligence wymaga schedulera systemowego (macOS launchd). Silnik decyzyjny oraz zasady idempotencji i odzyskiwania po awarii nie mogą zależeć od zewnętrznych narzędzi systemowych.
+
+### Decision
+
+- `macOS launchd` pełni wyłącznie rolę zewnętrznego adaptera systemowego;
+- Silnik `DailyDecisionRuntimeCoordinator` jest jedynym właścicielem reguł at-most-once, rezerwacji ID i odzyskiwania po awaryjnym przerwaniu procesu;
+- Domyślna strefa lokalna dla daty kalendarzowej to `Europe/Warsaw`;
+- Agent systemowy `com.athleteplatform.daily-decision-runtime` działa w domenowym kontekście użytkownika (user LaunchAgent) bez uprawnień root/sudo;
+- Harmonogram domyślny wynosi 07:00 (`StartCalendarInterval`); pominięte wykonanie podczas uśpienia może zostać uruchomione po wybudzeniu przez semantykę `StartCalendarInterval`;
+- `RunAtLoad = true` zapewnia próbę wykonania po załadowaniu LaunchAgenta, np. po zalogowaniu użytkownika;
+- Proces wywołuje CLI `scripts/run_daily_decision_runtime` i kończy działanie bez uruchamiania daemona (`KeepAlive = false`);
+- Ręczne wywołania CLI (`run_decision_runtime`) omijają ledger dzienny i nie wpływają na automatyczną egzekucję.
+
+### Consequences
+
+- System operacyjny i launchd nie posiadają wiedzy o regułach biznesowych ani kontekście zdrowotnym zawodnika;
+- Wielokrotne wywołanie agenta tego samego dnia jest w 100% bezpieczne (idempotentne);
+- Ręczna diagnostyka CLI nie narusza ciągłości harmonogramu automatycznego.
+
 ## Rejestr ADR
 
 | ADR | Tytuł | Status | Główne źródło |
@@ -513,6 +540,7 @@ Przejście z Decision Intelligence 1.0 do 2.0 oraz podłączenie produkcyjnych �
 | ADR-011 | Web Product Layer & Transport Boundary Architecture | Accepted | `web/AthleteWeb/`, `server/app.py`, `docs/dashboard_http_transport_boundary.md` |
 | ADR-012 | Biomarker Ingestion, Alias Registry, and Unit Normalization Boundary | Accepted | `docs/engineering/biomarkers-architecture.md` |
 | ADR-013 | Granica źródeł produkcyjnych Decision Intelligence 2.0 | Accepted | `decision/production_composition.py`, `morning_briefing/production_provider.py` |
+| ADR-014 | Granica automatyzacji i schedulera systemowego macOS | Accepted | `decision/daily_coordinator.py`, `ops/macos/` |
 
 ## Powiązane dokumenty
 

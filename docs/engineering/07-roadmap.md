@@ -145,6 +145,13 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 - **Final Verification & Stage 24 Closure (24.8):** formalne zamknięcie etapu z pełnym audytem spójności architektonicznej i regresyjnej.
 
 
+### Stage 25 — Automated Daily Runtime
+
+- **Crash-Safe Daily Ledger & Coordinator (25.1):** wprowadzono model ledgeru `daily_decision_executions`, wyliczanie `calculate_local_run_date` dla strefy zawodnika (`Europe/Warsaw`) oraz koordynator `DailyDecisionRuntimeCoordinator` z gwarancją ścisłego `at-most-once` wywołania na dzień;
+- **Concurrency & CAS Hardening (25.1A):** wyeliminowano deadlock samobójczy, utwardzono atomowość zapytań SQL (`UPDATE ... RETURNING`) oraz przetestowano wyścigi wątków i odrzucanie spóźnionych próbek workerów (`stale worker CAS conflict`);
+- **Daily Production CLI & Composition (25.2):** udostępniono produkcyjny punkt wejścia CLI `scripts/run_daily_decision_runtime` z bezpiecznym loggingiem operacyjnym (bez wycieku danych zdrowotnych) i stabilnym kontraktem kodów wyjścia (0 dla sukcesów/skips, 1 dla awarii);
+- **macOS LaunchAgent & Operations Automation (25.3):** zaimplementowano repozytoryjny szablon plist, skrypty instalatora/odinstalowywacza (`ops/macos/`) ze wsparciem dla target-override w środowiskach z ograniczonymi uprawnieniami, harmonogramem `StartCalendarInterval`, `RunAtLoad` dla uruchomienia po załadowaniu agenta oraz dokumentacją operacyjną. Realny bootstrap, RunAtLoad i idempotency smoke zostały zweryfikowane; trwała instalacja w standardowym `~/Library/LaunchAgents` na bieżącym zarządzanym Macu pozostaje zablokowana przez uprawnienia środowiska.
+
 ## Planned
 
 
