@@ -38,19 +38,25 @@ def test_cli_runner_executes_and_returns_zero(tmp_path, capsys):
 def test_full_pipeline_runner_db_get_integration(tmp_path):
     db_file = tmp_path / "integration_decisions.duckdb"
 
-    # 1. Run CLI runner to generate decision with Empty providers (defaults)
+    # 1. Run CLI runner to generate decision using production composition with temporary decisions DB
     exit_code = run_decision_runtime(db_path=str(db_file))
     assert exit_code == 0
 
-    # 2. Production WSGI app opening the same test database
+    # 2. Fetch the exact persisted record from the temporary decisions repository
+    repo = DuckDbDecisionAuditRecordRepository(db_path=str(db_file))
+    persisted_record = repo.get_latest()
+    assert persisted_record is not None
+
+    # 3. Production WSGI app opening the same test database
     app = create_production_dashboard_wsgi_app(decision_db_path=str(db_file))
 
-    # 3. GET /api/v1/decision-intelligence/latest returns saved REVIEW decision
+    # 4. GET /api/v1/decision-intelligence/latest returns exact saved decision semantics
     status, headers, body = make_request(app, "GET", "/api/v1/decision-intelligence/latest")
     assert status == 200
     import json
     data = json.loads(body)
     assert data["decision"] is not None
-    assert data["decision"]["policy_result"]["action"] == "review"
-    assert data["decision"]["policy_result"]["severity"] == "high"
-    assert data["decision"]["policy_result"]["confidence"] == 0.85
+    assert data["decision"]["decision_id"] == persisted_record.decision_id
+    assert data["decision"]["policy_result"]["action"] == persisted_record.policy_result.action.value
+    assert data["decision"]["policy_result"]["severity"] == persisted_record.policy_result.severity.value
+    assert abs(data["decision"]["policy_result"]["confidence"] - persisted_record.policy_result.confidence) < 1e-6

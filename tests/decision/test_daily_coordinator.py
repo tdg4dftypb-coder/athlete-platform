@@ -58,11 +58,11 @@ def test_setup(tmp_path):
         def __exit__(self, *args):
             pass
 
-    return daily_repo, audit_repo, container_factory, dec_db
+    return daily_repo, audit_repo, container_factory, dec_db, str(dec_db)
 
 
 def test_coordinator_first_run_executes_successfully(test_setup):
-    daily_repo, audit_repo, container_factory, _ = test_setup
+    daily_repo, audit_repo, container_factory, _, _ = test_setup
     t0 = datetime(2026, 8, 7, 8, 0, 0, tzinfo=timezone.utc)
     clock = MutableTestClock(t0)
 
@@ -92,7 +92,7 @@ def test_coordinator_first_run_executes_successfully(test_setup):
 
 
 def test_coordinator_second_run_same_day_skips(test_setup):
-    daily_repo, audit_repo, container_factory, _ = test_setup
+    daily_repo, audit_repo, container_factory, _, _ = test_setup
     t0 = datetime(2026, 8, 7, 8, 0, 0, tzinfo=timezone.utc)
     clock = MutableTestClock(t0)
 
@@ -118,7 +118,7 @@ def test_coordinator_second_run_same_day_skips(test_setup):
 
 
 def test_coordinator_next_day_executes_new_decision(test_setup):
-    daily_repo, audit_repo, container_factory, _ = test_setup
+    daily_repo, audit_repo, container_factory, _, _ = test_setup
     t0 = datetime(2026, 8, 7, 8, 0, 0, tzinfo=timezone.utc)
     clock = MutableTestClock(t0)
 
@@ -145,7 +145,7 @@ def test_coordinator_next_day_executes_new_decision(test_setup):
 
 
 def test_coordinator_timezone_boundary_execution(test_setup):
-    daily_repo, audit_repo, container_factory, _ = test_setup
+    daily_repo, audit_repo, container_factory, _, _ = test_setup
     # 23:30 UTC on Aug 7 -> 01:30 CEST on Aug 8 (Europe/Warsaw)
     t0 = datetime(2026, 8, 7, 23, 30, 0, tzinfo=timezone.utc)
     clock = MutableTestClock(t0)
@@ -164,7 +164,7 @@ def test_coordinator_timezone_boundary_execution(test_setup):
 
 
 def test_coordinator_manual_cli_run_isolation(test_setup):
-    daily_repo, audit_repo, container_factory, _ = test_setup
+    daily_repo, audit_repo, container_factory, _, _ = test_setup
     t0 = datetime(2026, 8, 7, 8, 0, 0, tzinfo=timezone.utc)
     clock = MutableTestClock(t0)
 
@@ -199,7 +199,7 @@ def test_coordinator_manual_cli_run_isolation(test_setup):
 
 
 def test_coordinator_crash_recovery_after_persistence(test_setup):
-    daily_repo, audit_repo, container_factory, _ = test_setup
+    daily_repo, audit_repo, container_factory, _, _ = test_setup
     t0 = datetime(2026, 8, 7, 8, 0, 0, tzinfo=timezone.utc)
     clock = MutableTestClock(t0)
 
@@ -248,7 +248,7 @@ def test_coordinator_crash_recovery_after_persistence(test_setup):
 
 
 def test_coordinator_active_lease_skips_in_progress(test_setup):
-    daily_repo, audit_repo, container_factory, _ = test_setup
+    daily_repo, audit_repo, container_factory, _, _ = test_setup
     t0 = datetime(2026, 8, 7, 8, 0, 0, tzinfo=timezone.utc)
     clock = MutableTestClock(t0)
 
@@ -281,7 +281,7 @@ def test_coordinator_active_lease_skips_in_progress(test_setup):
 
 
 def test_coordinator_expired_lease_takes_over_and_executes(test_setup):
-    daily_repo, audit_repo, container_factory, _ = test_setup
+    daily_repo, audit_repo, container_factory, _, _ = test_setup
     t0 = datetime(2026, 8, 7, 8, 0, 0, tzinfo=timezone.utc)
     clock = MutableTestClock(t0)
 
@@ -318,7 +318,7 @@ def test_coordinator_expired_lease_takes_over_and_executes(test_setup):
 
 
 def test_coordinator_failed_run_retry(test_setup):
-    daily_repo, audit_repo, _, _ = test_setup
+    daily_repo, audit_repo, _, _, _ = test_setup
     t0 = datetime(2026, 8, 7, 8, 0, 0, tzinfo=timezone.utc)
     clock = MutableTestClock(t0)
 
@@ -366,32 +366,124 @@ def test_coordinator_failed_run_retry(test_setup):
     assert res2.record.status == DailyExecutionLedgerState.COMPLETED
 
 
+
 def test_coordinator_concurrency_reservation_race(test_setup):
-    daily_repo, audit_repo, container_factory, _ = test_setup
+    daily_repo, audit_repo, container_factory, _, db_path = test_setup
     t0 = datetime(2026, 8, 7, 8, 0, 0, tzinfo=timezone.utc)
 
-    # Two coordinator instances
-    coord1 = DailyDecisionRuntimeCoordinator(
-        daily_repository=daily_repo,
-        audit_repository=audit_repo,
-        container_factory=container_factory,
-        clock=MutableTestClock(t0),
-        id_factory=lambda: "dec-race-winner",
-    )
-    coord2 = DailyDecisionRuntimeCoordinator(
-        daily_repository=daily_repo,
-        audit_repository=audit_repo,
-        container_factory=container_factory,
-        clock=MutableTestClock(t0),
-        id_factory=lambda: "dec-race-loser",
+    import concurrent.futures
+    import threading
+
+    barrier = threading.Barrier(2)
+
+    def run_contender(cid: str):
+        thread_conn = duckdb.connect(db_path)
+        th_audit_repo = DuckDbDecisionAuditRecordRepository(conn=thread_conn)
+        th_daily_repo = DuckDbDailyExecutionRepository(conn=thread_conn)
+
+        def th_container_factory(fixed_gen: FixedDecisionIdGenerator):
+            app = create_persisted_decision_runtime_application(
+                morning_briefing_provider=EmptyMorningBriefingInputProvider(),
+                performance_history_provider=EmptyPerformanceTestHistoryProvider(),
+                repository=th_audit_repo,
+                id_generator=fixed_gen,
+            )
+            class DummyContainer:
+                def __init__(self, app): self.app = app
+                def __enter__(self): return self
+                def __exit__(self, *args): pass
+            return DummyContainer(app)
+
+        coord = DailyDecisionRuntimeCoordinator(
+            daily_repository=th_daily_repo,
+            audit_repository=th_audit_repo,
+            container_factory=th_container_factory,
+            clock=MutableTestClock(t0),
+            id_factory=lambda: f"dec-race-{cid}",
+        )
+        barrier.wait()
+        res = coord.run_daily_if_needed()
+        thread_conn.close()
+        return res
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        f1 = executor.submit(run_contender, "1")
+        f2 = executor.submit(run_contender, "2")
+        r1 = f1.result()
+        r2 = f2.result()
+
+    outcomes = [r1.outcome, r2.outcome]
+    # Exactly one executed, the other skipped
+    exec_count = sum(1 for o in outcomes if o == DailyCoordinatorOutcome.EXECUTED)
+    assert exec_count == 1
+
+    records = audit_repo.list_records()
+    assert len(records) == 1
+
+
+def test_coordinator_takeover_concurrency_race(test_setup):
+    daily_repo, audit_repo, container_factory, _, db_path = test_setup
+    t0 = datetime(2026, 8, 7, 8, 0, 0, tzinfo=timezone.utc)
+
+    # Seed an expired lease RUNNING record
+    from decision.daily_execution import DailyExecutionRecord
+    daily_repo.reserve(
+        DailyExecutionRecord(
+            run_date=date(2026, 8, 7),
+            status=DailyExecutionLedgerState.RUNNING,
+            decision_id="dec-takeover-race",
+            timezone_name="Europe/Warsaw",
+            started_at=t0,
+            lease_expires_at=t0 + timedelta(minutes=15),
+            attempt_count=1,
+        )
     )
 
-    # Run coord1 first
-    res1 = coord1.run_daily_if_needed()
-    assert res1.outcome == DailyCoordinatorOutcome.EXECUTED
-    assert res1.decision_id == "dec-race-winner"
+    import concurrent.futures
+    import threading
 
-    # Immediately run coord2 for same date
-    res2 = coord2.run_daily_if_needed()
-    assert res2.outcome == DailyCoordinatorOutcome.SKIPPED_ALREADY_COMPLETED
-    assert res2.decision_id == "dec-race-winner"
+    barrier = threading.Barrier(2)
+    t_expired = t0 + timedelta(minutes=30)
+
+    def run_takeover_contender(cid: str):
+        thread_conn = duckdb.connect(db_path)
+        th_audit_repo = DuckDbDecisionAuditRecordRepository(conn=thread_conn)
+        th_daily_repo = DuckDbDailyExecutionRepository(conn=thread_conn)
+
+        def th_container_factory(fixed_gen: FixedDecisionIdGenerator):
+            app = create_persisted_decision_runtime_application(
+                morning_briefing_provider=EmptyMorningBriefingInputProvider(),
+                performance_history_provider=EmptyPerformanceTestHistoryProvider(),
+                repository=th_audit_repo,
+                id_generator=fixed_gen,
+            )
+            class DummyContainer:
+                def __init__(self, app): self.app = app
+                def __enter__(self): return self
+                def __exit__(self, *args): pass
+            return DummyContainer(app)
+
+        coord = DailyDecisionRuntimeCoordinator(
+            daily_repository=th_daily_repo,
+            audit_repository=th_audit_repo,
+            container_factory=th_container_factory,
+            clock=MutableTestClock(t_expired),
+        )
+        barrier.wait()
+        res = coord.run_daily_if_needed()
+        thread_conn.close()
+        return res
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        f1 = executor.submit(run_takeover_contender, "1")
+        f2 = executor.submit(run_takeover_contender, "2")
+        r1 = f1.result()
+        r2 = f2.result()
+
+    outcomes = [r1.outcome, r2.outcome]
+    exec_count = sum(1 for o in outcomes if o == DailyCoordinatorOutcome.EXECUTED)
+    assert exec_count == 1
+
+    ledger_entry = daily_repo.get_by_run_date(date(2026, 8, 7))
+    assert ledger_entry.status == DailyExecutionLedgerState.COMPLETED
+    assert ledger_entry.attempt_count == 2

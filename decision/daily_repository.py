@@ -1,5 +1,5 @@
 """Daily Execution Repository protocol and exceptions."""
-from datetime import date
+from datetime import date, datetime
 from typing import Optional, Protocol, runtime_checkable
 
 from decision.daily_execution import DailyExecutionRecord, DailyExecutionLedgerState
@@ -25,20 +25,35 @@ class DailyExecutionRepository(Protocol):
         """Retrieves a DailyExecutionRecord by its local calendar date."""
         ...
 
-    def mark_completed(self, run_date: date, decision_id: str, completed_at: date) -> DailyExecutionRecord:
-        """Updates a daily execution record status to COMPLETED."""
+    def mark_completed(
+        self,
+        run_date: date,
+        decision_id: str,
+        expected_attempt_count: int,
+        completed_at: datetime,
+    ) -> DailyExecutionRecord:
+        """Updates a daily execution record status to COMPLETED if attempt match."""
         ...
 
-    def mark_failed(self, run_date: date, error_message: str, completed_at: date) -> DailyExecutionRecord:
-        """Updates a daily execution record status to FAILED."""
+    def mark_failed(
+        self,
+        run_date: date,
+        decision_id: str,
+        expected_attempt_count: int,
+        error_message: str,
+        completed_at: datetime,
+    ) -> DailyExecutionRecord:
+        """Updates a daily execution record status to FAILED if attempt match."""
         ...
 
     def takeover_retry(
         self,
         run_date: date,
         decision_id: str,
-        new_started_at: date,
-        new_lease_expires_at: date,
+        expected_attempt_count: int,
+        expected_status: DailyExecutionLedgerState,
+        new_started_at: datetime,
+        new_lease_expires_at: datetime,
     ) -> DailyExecutionRecord:
         """Takes over an expired RUNNING or FAILED execution attempt, incrementing attempt_count and updating lease."""
         ...

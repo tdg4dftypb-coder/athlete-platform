@@ -78,7 +78,7 @@ def test_duckdb_daily_repo_mark_completed_and_failed(in_memory_daily_repo):
     in_memory_daily_repo.reserve(rec)
 
     t_comp = datetime(2026, 8, 7, 10, 5, 0, tzinfo=timezone.utc)
-    updated = in_memory_daily_repo.mark_completed(d, "decision-01", t_comp)
+    updated = in_memory_daily_repo.mark_completed(d, "decision-01", 1, t_comp)
 
     assert updated.status == DailyExecutionLedgerState.COMPLETED
     assert updated.completed_at == t_comp
@@ -95,7 +95,7 @@ def test_duckdb_daily_repo_mark_completed_and_failed(in_memory_daily_repo):
     )
     in_memory_daily_repo.reserve(rec2)
 
-    failed = in_memory_daily_repo.mark_failed(d2, "ValueError: Timeout", t_comp)
+    failed = in_memory_daily_repo.mark_failed(d2, "decision-02", 1, "ValueError: Timeout", t_comp)
     assert failed.status == DailyExecutionLedgerState.FAILED
     assert failed.error_message == "ValueError: Timeout"
 
@@ -118,6 +118,8 @@ def test_duckdb_daily_repo_takeover_retry(in_memory_daily_repo):
     taken_over = in_memory_daily_repo.takeover_retry(
         run_date=d,
         decision_id="decision-01",
+        expected_attempt_count=1,
+        expected_status=DailyExecutionLedgerState.FAILED,
         new_started_at=t_retry_start,
         new_lease_expires_at=t_retry_lease,
     )
@@ -126,3 +128,54 @@ def test_duckdb_daily_repo_takeover_retry(in_memory_daily_repo):
     assert taken_over.attempt_count == 2
     assert taken_over.started_at == t_retry_start
     assert taken_over.lease_expires_at == t_retry_lease
+
+
+def test_duckdb_daily_repo_stale_worker_cas_conflict(in_memory_daily_repo):
+    t_start = datetime(2026, 8, 7, 10, 0, 0, tzinfo=timezone.utc)
+    d = date(2026, 8, 7)
+    rec = DailyExecutionRecord(
+        run_date=d,
+        status=DailyExecutionLedgerState.RUNNING,
+        decision_id="decision-stale-1",
+        timezone_name="Europe/Warsaw",
+        started_at=t_start,
+        attempt_count=1,
+    )
+    in_memory_daily_repo.reserve(rec)
+
+    # Attempt 2 takes over
+    t_retry_start = datetime(2026, 8, 7, 11, 0, 0, tzinfo=timezone.utc)
+    t_retry_lease = datetime(2026, 8, 7, 11, 15, 0, tzinfo=timezone.utc)
+    in_memory_daily_repo.takeover_retry(
+        run_date=d,
+        decision_id="decision-stale-1",
+        expected_attempt_count=1,
+        expected_status=DailyExecutionLedgerState.RUNNING,
+        new_started_at=t_retry_start,
+        new_lease_expires_at=t_retry_lease,
+    )
+
+    # Attempt 1 delayed mark_failed should fail with DailyExecutionConflictError
+    t_comp = datetime(2026, 8, 7, 11, 5, 0, tzinfo=timezone.utc)
+    with pytest.raises(DailyExecutionConflictError):
+        in_memory_daily_repo.mark_failed(
+            run_date=d,
+            decision_id="decision-stale-1",
+            expected_attempt_count=1,
+            error_message="Stale failure",
+            completed_at=t_comp,
+        )
+
+    # Attempt 1 delayed mark_completed should fail with DailyExecutionConflictError
+    with pytest.raises(DailyExecutionConflictError):
+        in_memory_daily_repo.mark_completed(
+            run_date=d,
+            decision_id="decision-stale-1",
+            expected_attempt_count=1,
+            completed_at=t_comp,
+        )
+
+    # Verify attempt 2 record remains RUNNING attempt 2
+    current = in_memory_daily_repo.get_by_run_date(d)
+    assert current.attempt_count == 2
+    assert current.status == DailyExecutionLedgerState.RUNNING

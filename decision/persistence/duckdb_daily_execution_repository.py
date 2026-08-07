@@ -81,8 +81,6 @@ class DuckDbDailyExecutionRepository:
 
         with self._lock:
             try:
-                # Primary key constraint check / insertion
-                self._conn.execute("BEGIN TRANSACTION;")
                 self._conn.execute(
                     """
                     INSERT INTO daily_decision_executions (
@@ -107,14 +105,15 @@ class DuckDbDailyExecutionRepository:
                         record.attempt_count,
                     ],
                 )
-                self._conn.execute("COMMIT;")
             except duckdb.ConstraintException as err:
-                self._rollback_safe()
                 raise DailyExecutionConflictError(
                     f"Execution record for run_date '{record.run_date}' already exists."
                 ) from err
+            except (DailyExecutionConflictError, DailyExecutionRepositoryError):
+                raise
             except Exception as err:
-                self._rollback_safe()
+                if "Conflict" in str(err) or "TransactionContext" in str(err) or "Constraint" in str(err):
+                    raise DailyExecutionConflictError(f"Concurrent transaction conflict on reserve: {err}") from err
                 raise DailyExecutionRepositoryError("Failed to reserve daily execution") from err
 
     def get_by_run_date(self, run_date: date) -> Optional[DailyExecutionRecord]:
@@ -122,73 +121,118 @@ class DuckDbDailyExecutionRepository:
             raise TypeError("run_date must be a date instance")
 
         with self._lock:
+            return self._get_by_run_date_unlocked(run_date)
+
+    def _get_by_run_date_unlocked(self, run_date: date) -> Optional[DailyExecutionRecord]:
+        try:
+            cursor = self._conn.execute(
+                """
+                SELECT run_date, status, decision_id, timezone_name, started_at, completed_at, lease_expires_at, attempt_count, error_message
+                FROM daily_decision_executions
+                WHERE run_date = ?;
+                """,
+                [run_date],
+            )
+            row = cursor.fetchone()
+            if row is None:
+                return None
+
+            return self._parse_row(row)
+        except Exception as err:
+            raise DailyExecutionRepositoryError("Failed to query get_by_run_date") from err
+
+    def mark_completed(
+        self,
+        run_date: date,
+        decision_id: str,
+        expected_attempt_count: int,
+        completed_at: datetime,
+    ) -> DailyExecutionRecord:
+        comp_naive = _to_naive_utc(completed_at)
+        with self._lock:
             try:
                 cursor = self._conn.execute(
                     """
-                    SELECT run_date, status, decision_id, timezone_name, started_at, completed_at, lease_expires_at, attempt_count, error_message
-                    FROM daily_decision_executions
-                    WHERE run_date = ?;
-                    """,
-                    [run_date],
-                )
-                row = cursor.fetchone()
-                if row is None:
-                    return None
-
-                return self._parse_row(row)
-            except Exception as err:
-                raise DailyExecutionRepositoryError("Failed to query get_by_run_date") from err
-
-    def mark_completed(self, run_date: date, decision_id: str, completed_at: datetime) -> DailyExecutionRecord:
-        comp_naive = _to_naive_utc(completed_at)
-        with self._lock:
-            try:
-                self._conn.execute("BEGIN TRANSACTION;")
-                self._conn.execute(
-                    """
                     UPDATE daily_decision_executions
                     SET status = ?, completed_at = ?, lease_expires_at = NULL, error_message = NULL
-                    WHERE run_date = ? AND decision_id = ?;
+                    WHERE run_date = ? AND decision_id = ? AND attempt_count = ? AND status = ?
+                    RETURNING run_date;
                     """,
-                    [DailyExecutionLedgerState.COMPLETED.value, comp_naive, run_date, decision_id],
+                    [
+                        DailyExecutionLedgerState.COMPLETED.value,
+                        comp_naive,
+                        run_date,
+                        decision_id,
+                        expected_attempt_count,
+                        DailyExecutionLedgerState.RUNNING.value,
+                    ],
                 )
-                self._conn.execute("COMMIT;")
+                updated_rows = cursor.fetchall()
 
-                rec = self.get_by_run_date(run_date)
+                if not updated_rows:
+                    raise DailyExecutionConflictError(
+                        f"CAS update failed for mark_completed on {run_date} (attempt {expected_attempt_count})."
+                    )
+
+                rec = self._get_by_run_date_unlocked(run_date)
                 if rec is None:
                     raise DailyExecutionRepositoryError("Record missing after completion update")
                 return rec
+            except (DailyExecutionConflictError, DailyExecutionRepositoryError):
+                raise
             except Exception as err:
-                self._rollback_safe()
                 raise DailyExecutionRepositoryError("Failed to mark execution completed") from err
 
-    def mark_failed(self, run_date: date, error_message: str, completed_at: datetime) -> DailyExecutionRecord:
+    def mark_failed(
+        self,
+        run_date: date,
+        decision_id: str,
+        expected_attempt_count: int,
+        error_message: str,
+        completed_at: datetime,
+    ) -> DailyExecutionRecord:
         comp_naive = _to_naive_utc(completed_at)
         with self._lock:
             try:
-                self._conn.execute("BEGIN TRANSACTION;")
-                self._conn.execute(
+                cursor = self._conn.execute(
                     """
                     UPDATE daily_decision_executions
                     SET status = ?, completed_at = ?, error_message = ?
-                    WHERE run_date = ?;
+                    WHERE run_date = ? AND decision_id = ? AND attempt_count = ? AND status = ?
+                    RETURNING run_date;
                     """,
-                    [DailyExecutionLedgerState.FAILED.value, comp_naive, error_message, run_date],
+                    [
+                        DailyExecutionLedgerState.FAILED.value,
+                        comp_naive,
+                        error_message,
+                        run_date,
+                        decision_id,
+                        expected_attempt_count,
+                        DailyExecutionLedgerState.RUNNING.value,
+                    ],
                 )
-                self._conn.execute("COMMIT;")
+                updated_rows = cursor.fetchall()
 
-                rec = self.get_by_run_date(run_date)
+                if not updated_rows:
+                    raise DailyExecutionConflictError(
+                        f"CAS update failed for mark_failed on {run_date} (attempt {expected_attempt_count})."
+                    )
+
+                rec = self._get_by_run_date_unlocked(run_date)
                 if rec is None:
                     raise DailyExecutionRepositoryError("Record missing after failure update")
                 return rec
+            except (DailyExecutionConflictError, DailyExecutionRepositoryError):
+                raise
             except Exception as err:
-                self._rollback_safe()
                 raise DailyExecutionRepositoryError("Failed to mark execution failed") from err
 
     def takeover_retry(
         self,
         run_date: date,
         decision_id: str,
+        expected_attempt_count: int,
+        expected_status: DailyExecutionLedgerState,
         new_started_at: datetime,
         new_lease_expires_at: datetime,
     ) -> DailyExecutionRecord:
@@ -197,8 +241,7 @@ class DuckDbDailyExecutionRepository:
 
         with self._lock:
             try:
-                self._conn.execute("BEGIN TRANSACTION;")
-                self._conn.execute(
+                cursor = self._conn.execute(
                     """
                     UPDATE daily_decision_executions
                     SET status = ?,
@@ -208,7 +251,8 @@ class DuckDbDailyExecutionRepository:
                         lease_expires_at = ?,
                         attempt_count = attempt_count + 1,
                         error_message = NULL
-                    WHERE run_date = ?;
+                    WHERE run_date = ? AND decision_id = ? AND attempt_count = ? AND status = ?
+                    RETURNING run_date;
                     """,
                     [
                         DailyExecutionLedgerState.RUNNING.value,
@@ -216,16 +260,27 @@ class DuckDbDailyExecutionRepository:
                         start_naive,
                         lease_naive,
                         run_date,
+                        decision_id,
+                        expected_attempt_count,
+                        expected_status.value,
                     ],
                 )
-                self._conn.execute("COMMIT;")
+                updated_rows = cursor.fetchall()
 
-                rec = self.get_by_run_date(run_date)
+                if not updated_rows:
+                    raise DailyExecutionConflictError(
+                        f"CAS update failed for takeover_retry on {run_date} (attempt {expected_attempt_count})."
+                    )
+
+                rec = self._get_by_run_date_unlocked(run_date)
                 if rec is None:
                     raise DailyExecutionRepositoryError("Record missing after takeover retry")
                 return rec
+            except (DailyExecutionConflictError, DailyExecutionRepositoryError):
+                raise
             except Exception as err:
-                self._rollback_safe()
+                if "Conflict" in str(err) or "TransactionContext" in str(err):
+                    raise DailyExecutionConflictError(f"Concurrent transaction conflict on takeover_retry: {err}") from err
                 raise DailyExecutionRepositoryError("Failed to take over execution retry") from err
 
     def _parse_row(self, row: tuple) -> DailyExecutionRecord:

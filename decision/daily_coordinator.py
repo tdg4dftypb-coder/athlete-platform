@@ -81,11 +81,15 @@ class DailyDecisionRuntimeCoordinator:
             # 1b. Check if decision audit record already exists for reserved decision_id (CRASH RECOVERY)
             persisted_audit = self._audit_repo.get_by_id(existing.decision_id)
             if persisted_audit is not None:
-                updated_rec = self._daily_repo.mark_completed(
-                    run_date=local_date,
-                    decision_id=existing.decision_id,
-                    completed_at=now_utc,
-                )
+                try:
+                    updated_rec = self._daily_repo.mark_completed(
+                        run_date=local_date,
+                        decision_id=existing.decision_id,
+                        expected_attempt_count=existing.attempt_count,
+                        completed_at=now_utc,
+                    )
+                except DailyExecutionConflictError:
+                    updated_rec = self._daily_repo.get_by_run_date(local_date)
                 return CoordinatorExecutionResult(
                     outcome=DailyCoordinatorOutcome.RECOVERED_COMPLETED,
                     run_date_str=date_str,
@@ -106,12 +110,31 @@ class DailyDecisionRuntimeCoordinator:
             # 1d. Expired RUNNING lease or FAILED status -> takeover retry reusing same decision_id
             reserved_id = existing.decision_id
             lease_exp = now_utc + self._lease_duration
-            ledger_rec = self._daily_repo.takeover_retry(
-                run_date=local_date,
-                decision_id=reserved_id,
-                new_started_at=now_utc,
-                new_lease_expires_at=lease_exp,
-            )
+            try:
+                ledger_rec = self._daily_repo.takeover_retry(
+                    run_date=local_date,
+                    decision_id=reserved_id,
+                    expected_attempt_count=existing.attempt_count,
+                    expected_status=existing.status,
+                    new_started_at=now_utc,
+                    new_lease_expires_at=lease_exp,
+                )
+            except DailyExecutionConflictError:
+                # Lost takeover race
+                concurrent_rec = self._daily_repo.get_by_run_date(local_date)
+                if concurrent_rec and concurrent_rec.status == DailyExecutionLedgerState.COMPLETED:
+                    return CoordinatorExecutionResult(
+                        outcome=DailyCoordinatorOutcome.SKIPPED_ALREADY_COMPLETED,
+                        run_date_str=date_str,
+                        decision_id=concurrent_rec.decision_id,
+                        record=concurrent_rec,
+                    )
+                return CoordinatorExecutionResult(
+                    outcome=DailyCoordinatorOutcome.SKIPPED_IN_PROGRESS,
+                    run_date_str=date_str,
+                    decision_id=concurrent_rec.decision_id if concurrent_rec else reserved_id,
+                    record=concurrent_rec,
+                )
         else:
             # 2. First attempt for this date: reserve new decision_id
             reserved_id = self._id_factory()
@@ -145,6 +168,8 @@ class DailyDecisionRuntimeCoordinator:
                     record=concurrent_rec,
                 )
 
+        current_attempt = ledger_rec.attempt_count
+
         # 3. Execute Production Decision Runtime using FixedDecisionIdGenerator
         fixed_gen = FixedDecisionIdGenerator(reserved_id)
         try:
@@ -156,11 +181,16 @@ class DailyDecisionRuntimeCoordinator:
             audit_confirm = self._audit_repo.get_by_id(reserved_id)
             if audit_confirm is None:
                 # Safety check if audit save failed unexpectedly
-                updated_fail = self._daily_repo.mark_failed(
-                    run_date=local_date,
-                    error_message="Decision audit record missing after execution",
-                    completed_at=self._clock.now(),
-                )
+                try:
+                    updated_fail = self._daily_repo.mark_failed(
+                        run_date=local_date,
+                        decision_id=reserved_id,
+                        expected_attempt_count=current_attempt,
+                        error_message="Decision audit record missing after execution",
+                        completed_at=self._clock.now(),
+                    )
+                except DailyExecutionConflictError:
+                    updated_fail = self._daily_repo.get_by_run_date(local_date)
                 return CoordinatorExecutionResult(
                     outcome=DailyCoordinatorOutcome.FAILED,
                     run_date_str=date_str,
@@ -168,13 +198,24 @@ class DailyDecisionRuntimeCoordinator:
                     record=updated_fail,
                 )
 
-            final_rec = self._daily_repo.mark_completed(
-                run_date=local_date,
-                decision_id=reserved_id,
-                completed_at=self._clock.now(),
-            )
+            try:
+                final_rec = self._daily_repo.mark_completed(
+                    run_date=local_date,
+                    decision_id=reserved_id,
+                    expected_attempt_count=current_attempt,
+                    completed_at=self._clock.now(),
+                )
+                outcome_res = DailyCoordinatorOutcome.EXECUTED
+            except DailyExecutionConflictError:
+                # Lost transition (stale worker or concurrent takeover)
+                final_rec = self._daily_repo.get_by_run_date(local_date)
+                if final_rec and final_rec.status == DailyExecutionLedgerState.COMPLETED:
+                    outcome_res = DailyCoordinatorOutcome.SKIPPED_ALREADY_COMPLETED
+                else:
+                    outcome_res = DailyCoordinatorOutcome.SKIPPED_IN_PROGRESS
+
             return CoordinatorExecutionResult(
-                outcome=DailyCoordinatorOutcome.EXECUTED,
+                outcome=outcome_res,
                 run_date_str=date_str,
                 decision_id=reserved_id,
                 record=final_rec,
@@ -184,11 +225,15 @@ class DailyDecisionRuntimeCoordinator:
             # Check if audit repository actually succeeded despite exception (Failure Race Defense)
             audit_check = self._audit_repo.get_by_id(reserved_id)
             if audit_check is not None:
-                updated_rec = self._daily_repo.mark_completed(
-                    run_date=local_date,
-                    decision_id=reserved_id,
-                    completed_at=self._clock.now(),
-                )
+                try:
+                    updated_rec = self._daily_repo.mark_completed(
+                        run_date=local_date,
+                        decision_id=reserved_id,
+                        expected_attempt_count=current_attempt,
+                        completed_at=self._clock.now(),
+                    )
+                except DailyExecutionConflictError:
+                    updated_rec = self._daily_repo.get_by_run_date(local_date)
                 return CoordinatorExecutionResult(
                     outcome=DailyCoordinatorOutcome.RECOVERED_COMPLETED,
                     run_date_str=date_str,
@@ -197,11 +242,17 @@ class DailyDecisionRuntimeCoordinator:
                 )
 
             err_msg = f"{type(err).__name__}: {str(err)}"
-            updated_fail = self._daily_repo.mark_failed(
-                run_date=local_date,
-                error_message=err_msg[:250],
-                completed_at=self._clock.now(),
-            )
+            try:
+                updated_fail = self._daily_repo.mark_failed(
+                    run_date=local_date,
+                    decision_id=reserved_id,
+                    expected_attempt_count=current_attempt,
+                    error_message=err_msg[:250],
+                    completed_at=self._clock.now(),
+                )
+            except DailyExecutionConflictError:
+                updated_fail = self._daily_repo.get_by_run_date(local_date)
+
             return CoordinatorExecutionResult(
                 outcome=DailyCoordinatorOutcome.FAILED,
                 run_date_str=date_str,
