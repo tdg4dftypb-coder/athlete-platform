@@ -152,6 +152,10 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 - **Daily Production CLI & Composition (25.2):** udostępniono produkcyjny punkt wejścia CLI `scripts/run_daily_decision_runtime` z bezpiecznym loggingiem operacyjnym (bez wycieku danych zdrowotnych) i stabilnym kontraktem kodów wyjścia (0 dla sukcesów/skips, 1 dla awarii);
 - **macOS LaunchAgent & Operations Automation (25.3):** zaimplementowano repozytoryjny szablon plist, skrypty instalatora/odinstalowywacza (`ops/macos/`) ze wsparciem dla target-override w środowiskach z ograniczonymi uprawnieniami, harmonogramem `StartCalendarInterval`, `RunAtLoad` dla uruchomienia po załadowaniu agenta oraz dokumentacją operacyjną. Realny bootstrap, RunAtLoad i idempotency smoke zostały zweryfikowane; trwała instalacja w standardowym `~/Library/LaunchAgents` na bieżącym zarządzanym Macu pozostaje zablokowana przez uprawnienia środowiska.
 
+### Stage 26 — Adaptive Training Plan
+
+- **Domain Model & Calendar Contract (26.1):** utworzono nową czystą domenę `training_plan/` wprowadzającą niezmienne modele `PlannedSessionKind` (`TRAINING`, `REST`), `PlannedSession` (wielodniowe zamiary z walidacją inwariantów i kanonicznym `target_tss=0.0` dla dni REST), `TrainingPlan` (z gwarancją kompletnego 1-slot-per-day pokrycia zakresu dat) oraz bezstanowy pomocnik `TrainingPlanSessionSelector` i protokół `TrainingPlanProvider`. Domena nie posiada żadnych zależności od podsystemów decyzyjnych ani generowania workoutów.
+
 ## Planned
 
 
