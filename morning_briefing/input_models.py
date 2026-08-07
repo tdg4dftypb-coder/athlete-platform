@@ -21,6 +21,9 @@ class TrainingBriefingInput:
     duration_minutes: Optional[int]
     intensity: Optional[str]
     is_available: bool
+    session_type: Optional[str] = None
+    recent_training_load: Optional[float] = None
+    fatigue_status: Optional[str] = None
 
 
 @dataclass(frozen=True)

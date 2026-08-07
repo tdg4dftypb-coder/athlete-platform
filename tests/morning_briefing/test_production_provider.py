@@ -172,3 +172,41 @@ def test_recovery_metric_statuses_mapped_to_input():
     assert inp.recovery.hrv_status == "supportive"
     assert inp.recovery.resting_heart_rate_status == "neutral"
     assert inp.recovery.sleep_status == "caution"
+
+
+def test_training_enrichment_mapped_to_input():
+    mock_use_case = MagicMock()
+    mock_coach_result = MagicMock()
+    mock_coach_result.athlete_state.context.today.date = date(2026, 8, 7)
+
+    # 1. Decision recommendation -> session_type="tempo", intensity="moderate"
+    mock_decision_res = MagicMock()
+    mock_decision_res.decision.recommendation.value = "tempo"
+    mock_decision_res.decision.intensity = "moderate"
+    mock_coach_result.decision = mock_decision_res
+
+    # 2. Performance weekly load -> 450.0 TSS
+    mock_coach_result.athlete_state.performance.weekly.total_tss = 450.0
+
+    # 3. Assessment fatigue status -> FatigueStatus.HIGH
+    mock_coach_result.athlete_assessment.fatigue_status.value = "high"
+
+    # 4. Planned workout
+    mock_pw = MagicMock()
+    mock_pw.name = "Sweet Spot Builder"
+    mock_pw.sport = "cycling"
+    mock_pw.target_tss = 80
+    mock_pw.estimated_duration = 75
+    mock_coach_result.planned_workout = mock_pw
+
+    mock_use_case.run.return_value = mock_coach_result
+
+    provider = ProductionMorningBriefingInputProvider(morning_coach_use_case=mock_use_case)
+    inp = provider.get_input()
+
+    assert inp.training is not None
+    assert inp.training.title == "Sweet Spot Builder"
+    assert inp.training.session_type == "tempo"  # Canonical value, NOT presentation title "sweet spot builder"
+    assert inp.training.intensity == "moderate"
+    assert inp.training.recent_training_load == 450.0
+    assert inp.training.fatigue_status == "high"

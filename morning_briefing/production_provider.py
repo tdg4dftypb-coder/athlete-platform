@@ -129,22 +129,51 @@ class ProductionMorningBriefingInputProvider(MorningBriefingInputProvider):
 
         # 5. Training Mapping
         training_input: TrainingBriefingInput | None = None
+
+        # Extract canonical DecisionResult recommendation and intensity if available
+        decision_res = getattr(coach_result, "decision", None) if coach_result else None
+        inner_decision = getattr(decision_res, "decision", None) if decision_res else None
+        rec_obj = getattr(inner_decision, "recommendation", None) if inner_decision else None
+        session_type = rec_obj.value if hasattr(rec_obj, "value") else (str(rec_obj) if rec_obj is not None else None)
+        planned_intensity = getattr(inner_decision, "intensity", None) if inner_decision else None
+
+        # Extract recent_training_load (weekly.total_tss) from athlete_state.performance
+        recent_training_load: float | None = None
+        athlete_st = getattr(coach_result, "athlete_state", None) if coach_result else None
+        perf_st = getattr(athlete_st, "performance", None) if athlete_st else None
+        weekly_load = getattr(perf_st, "weekly", None) if perf_st else None
+        if weekly_load is not None:
+            recent_training_load = getattr(weekly_load, "total_tss", None)
+
+        # Extract fatigue_status from athlete_assessment (or upstream assessment)
+        fatigue_status: str | None = None
+        assessment_obj = getattr(coach_result, "athlete_assessment", None) if coach_result else None
+        fatigue_st_enum = getattr(assessment_obj, "fatigue_status", None) if assessment_obj else None
+        if fatigue_st_enum is not None:
+            fatigue_status = fatigue_st_enum.value if hasattr(fatigue_st_enum, "value") else str(fatigue_st_enum)
+
         if coach_result is not None and getattr(coach_result, "planned_workout", None) is not None:
             pw = coach_result.planned_workout
             training_input = TrainingBriefingInput(
                 title=getattr(pw, "name", None),
                 description=f"Sport: {getattr(pw, 'sport', '')}, Target TSS: {getattr(pw, 'target_tss', '')}",
                 duration_minutes=getattr(pw, "estimated_duration", None),
-                intensity=None,  # Preserved partial/None as per Stage 24.1 spec
+                intensity=planned_intensity,
                 is_available=True,
+                session_type=session_type,
+                recent_training_load=recent_training_load,
+                fatigue_status=fatigue_status,
             )
         else:
             training_input = TrainingBriefingInput(
                 title=None,
                 description=None,
                 duration_minutes=None,
-                intensity=None,
+                intensity=planned_intensity,
                 is_available=False,
+                session_type=session_type,
+                recent_training_load=recent_training_load,
+                fatigue_status=fatigue_status,
             )
 
         return MorningBriefingInput(

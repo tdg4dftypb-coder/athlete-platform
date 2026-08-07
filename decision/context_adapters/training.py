@@ -35,15 +35,15 @@ class DefaultTrainingDecisionContextAdapter:
         if not tr.is_available:
             return TrainingDecisionContext(status=ContextDataStatus.UNAVAILABLE)
 
-        # Planned session type mapping
-        session_type = tr.title.lower() if tr.title else None
+        # Planned session type mapping: prefer canonical tr.session_type, fallback to tr.title.lower() for legacy tests
+        session_type = tr.session_type if tr.session_type is not None else (tr.title.lower() if tr.title else None)
 
         return TrainingDecisionContext(
             status=ContextDataStatus.AVAILABLE,
             planned_session_type=session_type,
             planned_duration_minutes=tr.duration_minutes,
             planned_intensity=tr.intensity,
-            recent_training_load=None,
-            fatigue_status=None,
+            recent_training_load=tr.recent_training_load,
+            fatigue_status=tr.fatigue_status,
             generated_at=briefing_input.generated_at,
         )

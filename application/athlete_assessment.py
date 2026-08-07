@@ -23,12 +23,19 @@ class AthleteAssessmentReason(Enum):
     TRAINING_ATTENTION_REQUIRED = "training_attention_required"
 
 
+class FatigueStatus(Enum):
+    HIGH = "high"
+    NORMAL = "normal"
+    UNAVAILABLE = "unavailable"
+
+
 @dataclass(frozen=True)
 class AthleteAssessment:
     as_of: datetime
     status: AthleteAssessmentStatus
     training_assessment: TrainingAssessment
     reasons: tuple[AthleteAssessmentReason, ...]
+    fatigue_status: FatigueStatus = FatigueStatus.UNAVAILABLE
 
 
 class AthleteAssessmentBuilder:
@@ -58,10 +65,12 @@ class AthleteAssessmentBuilder:
                 training,
                 AthleteAssessmentStatus.INSUFFICIENT_DATA,
                 tuple(insufficient_reasons),
+                fatigue_status=FatigueStatus.UNAVAILABLE,
             )
 
         athlete = context.athlete_state
         caution_reasons = []
+        fatigue_status = FatigueStatus.NORMAL
 
         if athlete.recovery.score < 70:
             caution_reasons.append(
@@ -72,6 +81,7 @@ class AthleteAssessmentBuilder:
             caution_reasons.append(
                 AthleteAssessmentReason.HIGH_FATIGUE,
             )
+            fatigue_status = FatigueStatus.HIGH
 
         if training.status is TrainingAssessmentStatus.ATTENTION_REQUIRED:
             caution_reasons.append(
@@ -84,6 +94,7 @@ class AthleteAssessmentBuilder:
                 training,
                 AthleteAssessmentStatus.CAUTION,
                 tuple(caution_reasons),
+                fatigue_status=fatigue_status,
             )
 
         return self._assessment(
@@ -91,6 +102,7 @@ class AthleteAssessmentBuilder:
             training,
             AthleteAssessmentStatus.STABLE,
             (),
+            fatigue_status=fatigue_status,
         )
 
     @staticmethod
@@ -99,6 +111,7 @@ class AthleteAssessmentBuilder:
         training: TrainingAssessment,
         status: AthleteAssessmentStatus,
         reasons: tuple[AthleteAssessmentReason, ...],
+        fatigue_status: FatigueStatus = FatigueStatus.UNAVAILABLE,
     ) -> AthleteAssessment:
 
         return AthleteAssessment(
@@ -106,4 +119,5 @@ class AthleteAssessmentBuilder:
             status=status,
             training_assessment=training,
             reasons=reasons,
+            fatigue_status=fatigue_status,
         )

@@ -113,7 +113,16 @@ def test_recovery_adapter():
 
 def test_training_adapter():
     gen_at = datetime.now(timezone.utc)
-    tr_input = TrainingBriefingInput(title="Endurance Ride", description="Zone 2", duration_minutes=90, intensity="moderate", is_available=True)
+    tr_input = TrainingBriefingInput(
+        title="Sweet Spot Builder",
+        description="Zone 2",
+        duration_minutes=90,
+        intensity="moderate",
+        is_available=True,
+        session_type="tempo",  # Canonical session_type from DecisionResult
+        recent_training_load=450.0,
+        fatigue_status="high",
+    )
     briefing = MorningBriefingInput(generated_at=gen_at, recovery=None, training=tr_input, biomarkers=None)
 
     provider = StubMorningBriefingProvider(briefing)
@@ -121,9 +130,11 @@ def test_training_adapter():
     ctx = adapter.get_context(gen_at)
 
     assert ctx.status == ContextDataStatus.AVAILABLE
-    assert ctx.planned_session_type == "endurance ride"
+    assert ctx.planned_session_type == "tempo"  # Canonical value preferred over title.lower() "sweet spot builder"
     assert ctx.planned_duration_minutes == 90
     assert ctx.planned_intensity == "moderate"
+    assert ctx.recent_training_load == 450.0
+    assert ctx.fatigue_status == "high"
 
     # Plan missing but source available
     tr_none = TrainingBriefingInput(title=None, description=None, duration_minutes=None, intensity=None, is_available=True)

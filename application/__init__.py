@@ -22,6 +22,7 @@ from application.athlete_assessment import (
     AthleteAssessmentBuilder,
     AthleteAssessmentReason,
     AthleteAssessmentStatus,
+    FatigueStatus,
 )
 from application.knowledge_context import (
     AthleteKnowledgeContext,
@@ -69,6 +70,7 @@ __all__ = [
     "AthleteAssessmentBuilder",
     "AthleteAssessmentReason",
     "AthleteAssessmentStatus",
+    "FatigueStatus",
     "AthleteKnowledgeContext",
     "AthleteKnowledgeContextBuilder",
     "build_athlete_goal_reader",
