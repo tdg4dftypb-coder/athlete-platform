@@ -192,6 +192,8 @@ class DecisionAuditRecordCodec:
             recent_training_load=float(d["recent_training_load"]) if d.get("recent_training_load") is not None else None,
             fatigue_status=d.get("fatigue_status"),
             generated_at=gen_at,
+            plan_id=d.get("plan_id"),
+            planned_session_id=d.get("planned_session_id"),
         )
 
     def _decode_biomarkers(self, d: Dict[str, Any]) -> BiomarkerDecisionContext:

@@ -23,6 +23,7 @@ def create_decision_runtime_workflow(
     *,
     clock: DecisionClock | None = None,
     id_generator: DecisionIdGenerator | None = None,
+    training_adapter: Any | None = None,
 ) -> DecisionRuntimeWorkflow:
     """Factory composing the production/runtime Decision Intelligence 2.0 workflow graph.
 
@@ -35,7 +36,7 @@ def create_decision_runtime_workflow(
         raise TypeError("performance_history_provider must not be None")
 
     rec_adapter = DefaultRecoveryDecisionContextAdapter(morning_briefing_provider)
-    tr_adapter = DefaultTrainingDecisionContextAdapter(morning_briefing_provider)
+    tr_adapter = training_adapter or DefaultTrainingDecisionContextAdapter(morning_briefing_provider)
     bio_adapter = DefaultBiomarkerDecisionContextAdapter(morning_briefing_provider)
     perf_adapter = DefaultPerformanceDecisionContextAdapter(performance_history_provider)
 

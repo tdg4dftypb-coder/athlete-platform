@@ -37,6 +37,8 @@ class TrainingDecisionContext:
     recent_training_load: float | None = None
     fatigue_status: str | None = None
     generated_at: datetime | None = None
+    plan_id: str | None = None
+    planned_session_id: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.status, ContextDataStatus):
@@ -47,6 +49,12 @@ class TrainingDecisionContext:
         if self.recent_training_load is not None:
             if self.recent_training_load < 0.0:
                 raise ValueError("recent_training_load must be >= 0")
+        if self.plan_id is not None:
+            if not isinstance(self.plan_id, str) or not self.plan_id.strip():
+                raise ValueError("plan_id must be non-empty string when provided")
+        if self.planned_session_id is not None:
+            if not isinstance(self.planned_session_id, str) or not self.planned_session_id.strip():
+                raise ValueError("planned_session_id must be non-empty string when provided")
 
 
 @dataclass(frozen=True)

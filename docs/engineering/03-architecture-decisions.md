@@ -547,6 +547,29 @@ Plan treningowy (`TrainingPlan`) oraz dzienne uzgodnione preskrypcje (`FinalSess
 - Brak wywołań silników fizjologicznych lub decyzyjnych przy odczycie z API;
 - Pełna separacja fizyczna pliku bazy danych od `decisions.duckdb`.
 
+## ADR-016 — Granica integracji adaptacyjnego dziennego środowiska wykonawczego (Adaptive Daily Runtime Integration Boundary)
+
+### Status
+
+**Accepted**
+
+### Context
+
+Integracja cyklu adaptacyjnego planu treningowego (`Stage 26 Adaptive Training Plan`) z automatycznym dziennym środowiskiem wykonawczym (`Stage 25 Daily Decision Runtime`) wymaga spójnej rezerwacji slotu dziennego, wyliczenia decyzji oraz materializacji preskrypcji treningowej bez naruszenia zasad idempotencji i odzyskiwania po awarii.
+
+### Decision
+
+- Wprowadzono outer coordinator `AdaptiveDailyRuntimeCoordinator`, który otacza wewnętrzny `DailyDecisionRuntimeCoordinator`;
+- Wewnętrzny coordinator odpowiada wyłącznie za rezerwację slotu dziennego i wyliczenie `DecisionAuditRecord`;
+- Outer coordinator odpowiada za załadowanie zapisanego rekordu audytowego, pobranie baseline planu treningowego dla `plan_id` i `planned_session_id`, uruchomienie deterministycznego `DailyTrainingReconciler` oraz utrwalenie `FinalSessionPrescription`;
+- W przypadku zakłócenia wykonania po zapisaniu decyzji ale przed zapisem preskrypcji, outer coordinator podczas ponownego uruchomienia wykrywa status ledgeru `RECOVERED_COMPLETED` lub `SKIPPED_ALREADY_COMPLETED`, dokańcza materializację preskrypcji i zwraca status `RECOVERED_COMPLETED`;
+- Gdy brak planu bazowego dla danej daty (`MissingTrainingPlanError`),outer coordinator nie generuje syntetycznych decyzji ani nie mutuje bazy danych, zwracając kontrolowany status `MISSING_PLAN` (kod wyjścia CLI = 1).
+
+### Consequences
+
+- Cykl decyzyjny 2.0 oraz plan treningowy pozostają w 100% rozdzielonymi domenami zintegrowanymi na poziomie warstwy aplikacyjnej;
+- Awaria procesu na dowolnym etapie po wyliczeniu decyzji automatycznie dąży do spójnego stanu preskrypcji przy następnym wywołaniu.
+
 ## Rejestr ADR
 
 | ADR | Tytuł | Status | Główne źródło |
@@ -566,6 +589,7 @@ Plan treningowy (`TrainingPlan`) oraz dzienne uzgodnione preskrypcje (`FinalSess
 | ADR-013 | Granica źródeł produkcyjnych Decision Intelligence 2.0 | Accepted | `decision/production_composition.py`, `morning_briefing/production_provider.py` |
 | ADR-014 | Granica automatyzacji i schedulera systemowego macOS | Accepted | `decision/daily_coordinator.py`, `ops/macos/` |
 | ADR-015 | Dedykowana trwałość i odczytowe API planu treningowego | Accepted | `training_plan/persistence/`, `server/app.py` |
+| ADR-016 | Granica integracji adaptacyjnego dziennego środowiska wykonawczego | Accepted | `application/adaptive_daily_coordinator.py`, `scripts/run_daily_decision_runtime.py` |
 
 ## Powiązane dokumenty
 

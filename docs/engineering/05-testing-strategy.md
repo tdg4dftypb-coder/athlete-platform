@@ -138,6 +138,12 @@ Test musi używać stałych timestampów. Samo zamrożenie zegara nie usprawiedl
 
 ## Smoke Tests
 
+Smoke tests weryfikują spójność produkcyjną i automatyzację:
+
+- **Isolated Production DB Smoke Policy:** produkcyjne testy smoke wywoływane w trakcie weryfikacji etapu (np. Stage 26.5) muszą bezwzględnie korzystać z tymczasowych, odizolowanych baz danych DuckDB (np. w `tmp_path`), nie modyfikując plików produkcyjnych w `data/database/`;
+- **Adaptive Daily Runtime Precheck Policy:** weryfikacja idempotencji oraz ścieżek `MISSING_PLAN` gwarantuje brak rezerwacji dziennego slotu decyzyjnego w ledgerze i braku nowych wpisów w `DecisionAuditRecord` przy braku planu bazowego;
+- **Plan Version Race Policy:** testy regresyjne weryfikują odzyskiwanie wykonania po awarii na podstawie `plan_id` zapisanego w `DecisionAuditRecord`, ignorując ewentualne nowsze wersje planów (`Plan B`) zapisane w późniejszym czasie.
+
 Smoke test daje szybką odpowiedź, czy aplikacja może się uruchomić:
 
 - import publicznych symboli z `application` i `recommendation` w świeżym procesie;

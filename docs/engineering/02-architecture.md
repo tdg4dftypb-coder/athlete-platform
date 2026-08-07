@@ -220,13 +220,15 @@ Warstwa aplikacyjna orkiestruje przypadki użycia i przekazuje typowane wyniki m
 Aktualne główne elementy:
 
 - `MorningCoachUseCase` — kanoniczny dzienny use case;
+- `AdaptiveDailyRuntimeCoordinator` —aplikacyjny koordynator cyklu adaptacyjnego łączenia baseline planu treningowego (`TrainingPlan`) z wynikami `Decision Intelligence 2.0` w finalną preskrypcję (`FinalSessionPrescription`);
+- `TrainingPlanDecisionContextAdapter` — bezstanowy adapter dostarczający `plan_id` i `planned_session_id` do kontekstu decyzyjnego;
 - `IntelligenceDecisionWorkflow` — przepływ observations → insights → decision → recommendations → explainability;
 - `WeeklyReviewWorkflow` — jednokrotny odczyt snapshotu i budowa przeglądu;
 - `PostWorkoutRecordingService` — analiza ukończonego treningu i zapis eventu;
 - builders oceny i kontekstu wiedzy: `AthleteKnowledgeContextBuilder`, `TrainingAssessmentBuilder`, `AthleteAssessmentBuilder`;
 - `AdaptationPolicy` — wyznaczenie jawnej dyrektywy adaptacyjnej;
 - `DecisionExplainabilityBuilder` — budowa strukturalnego wyniku wyjaśnialności;
-- `application/composition.py` — bootstrap i composition root.
+- `application/composition.py` i `application/adaptive_daily_production_composition.py` — bootstrap i composition root.
 
 Application Layer może znać porty wymagane przez use case, ale nie powinna wiązać logiki biznesowej z konkretnym DuckDB lub parserem pliku.
 

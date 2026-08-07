@@ -173,6 +173,8 @@ def test_serializer_keysets_and_json_safety():
         "recent_training_load",
         "fatigue_status",
         "generated_at",
+        "plan_id",
+        "planned_session_id",
     }
 
     assert set(ctx["biomarkers"].keys()) == {

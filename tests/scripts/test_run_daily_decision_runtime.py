@@ -116,12 +116,43 @@ def test_cli_same_day_execution_idempotency(tmp_path):
     h_db = tmp_path / "health.duckdb"
     b_db = tmp_path / "biomarkers.duckdb"
     d_db = tmp_path / "decisions.duckdb"
+    tp_db = tmp_path / "training_plan.duckdb"
+
+    # Pre-populate baseline training plan covering current date
+    from training_plan.builder import BaselineTrainingPlanBuilder
+    from training_plan.intent import TrainingIntent, WeeklySessionIntent, Weekday
+    from training_plan.models import PlannedSessionKind
+    from training_plan.persistence.duckdb_repository import DuckDbTrainingPlanRepository
+
+    tp_repo = DuckDbTrainingPlanRepository(db_path=tp_db)
+    builder = BaselineTrainingPlanBuilder()
+    intent = TrainingIntent(
+        intent_id="intent-cli-test",
+        weekly_sessions=(
+            WeeklySessionIntent(Weekday.MONDAY, PlannedSessionKind.TRAINING, "VO2", 60, 80.0, "HIGH", 4, ("Intervals",)),
+            WeeklySessionIntent(Weekday.TUESDAY, PlannedSessionKind.REST, None, 0, None, None, 1, ("Rest",)),
+            WeeklySessionIntent(Weekday.WEDNESDAY, PlannedSessionKind.TRAINING, "THRESHOLD", 90, 100.0, "HIGH", 4, ("FTP",)),
+            WeeklySessionIntent(Weekday.THURSDAY, PlannedSessionKind.REST, None, 0, None, None, 1, ("Rest",)),
+            WeeklySessionIntent(Weekday.FRIDAY, PlannedSessionKind.TRAINING, "ENDURANCE", 120, 90.0, "MODERATE", 3, ("Base",)),
+            WeeklySessionIntent(Weekday.SATURDAY, PlannedSessionKind.TRAINING, "TEMPO", 90, 85.0, "MODERATE", 3, ("Tempo",)),
+            WeeklySessionIntent(Weekday.SUNDAY, PlannedSessionKind.REST, None, 0, None, None, 1, ("Rest",)),
+        ),
+    )
+    plan = builder.build(
+        intent=intent,
+        start_date=date(2026, 8, 3),
+        end_date=date(2026, 8, 30),
+        plan_id="plan-cli-01",
+        generated_at=datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc),
+    )
+    tp_repo.save(plan)
 
     # First run on local day
     exit1 = run_daily_decision_runtime(
         health_db_path=h_db,
         biomarkers_db_path=b_db,
         decisions_db_path=d_db,
+        training_plan_db_path=tp_db,
     )
     assert exit1 == 0
 
@@ -130,6 +161,7 @@ def test_cli_same_day_execution_idempotency(tmp_path):
         health_db_path=h_db,
         biomarkers_db_path=b_db,
         decisions_db_path=d_db,
+        training_plan_db_path=tp_db,
     )
     assert exit2 == 0
 

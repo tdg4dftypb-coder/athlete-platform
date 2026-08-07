@@ -75,6 +75,8 @@ class DecisionAuditRecordSerializer:
             "recent_training_load": training.recent_training_load,
             "fatigue_status": training.fatigue_status,
             "generated_at": training.generated_at.isoformat() if training.generated_at else None,
+            "plan_id": training.plan_id,
+            "planned_session_id": training.planned_session_id,
         }
 
     def _serialize_biomarkers_context(self, biomarkers: BiomarkerDecisionContext) -> dict[str, object]:

@@ -26,6 +26,7 @@ def create_persisted_decision_runtime_application(
     *,
     clock: DecisionClock | None = None,
     id_generator: DecisionIdGenerator | None = None,
+    training_adapter: Any | None = None,
 ) -> DecisionRuntimeApplication:
     """Factory composing the persisted Decision Intelligence 2.0 application runtime."""
     if morning_briefing_provider is None:
@@ -40,6 +41,7 @@ def create_persisted_decision_runtime_application(
         performance_history_provider=performance_history_provider,
         clock=clock,
         id_generator=id_generator,
+        training_adapter=training_adapter,
     )
 
     persisted_workflow = PersistedDecisionRuntimeWorkflow(

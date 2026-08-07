@@ -55,6 +55,7 @@ def create_production_decision_runtime_application(
     performance_history_provider: Optional[PerformanceTestHistoryProvider] = None,
     id_generator: Optional[Callable[[], str]] = None,
     clock: Optional[Callable[[], Any]] = None,
+    training_adapter: Optional[Any] = None,
 ) -> ProductionDecisionRuntimeContainer:
     """Builds a ProductionDecisionRuntimeContainer wired with real Athlete Platform data sources."""
     from application.composition import build_morning_coach_use_case
@@ -94,6 +95,7 @@ def create_production_decision_runtime_application(
         repository=repo,
         id_generator=id_generator,
         clock=clock,
+        training_adapter=training_adapter,
     )
 
     return ProductionDecisionRuntimeContainer(
