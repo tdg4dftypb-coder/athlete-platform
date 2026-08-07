@@ -13,6 +13,11 @@ from training_plan.models import (
 from training_plan.ports import TrainingPlanProvider
 from training_plan.selector import TrainingPlanSessionSelector
 
+from training_plan.prescription import (
+    FinalSessionPrescription,
+    PrescriptionDisposition,
+)
+
 __all__ = [
     "Weekday",
     "WeeklySessionIntent",
@@ -23,4 +28,6 @@ __all__ = [
     "BaselineTrainingPlanBuilder",
     "TrainingPlanSessionSelector",
     "TrainingPlanProvider",
+    "PrescriptionDisposition",
+    "FinalSessionPrescription",
 ]

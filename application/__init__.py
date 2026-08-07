@@ -48,6 +48,7 @@ from application.training_assessment import (
     TrainingAssessmentBuilder,
     TrainingAssessmentStatus,
 )
+from application.training_plan_reconciliation import DailyTrainingReconciler
 from application.weekly_review import WeeklyReviewWorkflow
 from application.composition import (
     build_athlete_goal_reader,
@@ -85,6 +86,7 @@ __all__ = [
     "build_weekly_review_workflow",
     "BodyCompositionInputBuilder",
     "BodyMassTrendQualityInputBuilder",
+    "DailyTrainingReconciler",
     "DecisionExplainabilityBuilder",
     "ExplainabilityMappingError",
     "ExplainabilityResult",
