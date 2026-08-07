@@ -472,6 +472,30 @@ Wprowadzenie badań laboratoryjnych (morfologia, gospodarka żelazowa, hormony, 
 - Nazwy i jednostki są ujednolicone niezależnie od dostawcy laboratorium;
 - Ścieżka analityczna zachowuje pełną proweniencję od surowej wartości po ocenę pewności.
 
+## ADR-013 — Granica źródeł produkcyjnych Decision Intelligence 2.0
+
+### Status
+
+**Accepted**
+
+### Context
+
+Przejście z Decision Intelligence 1.0 do 2.0 oraz podłączenie produkcyjnych źródeł wymagało zdefiniowania ścisłych granic domenowych. Bez jasnego rozdzielenia istniało ryzyko ponownego przeliczania progu mleczanowego LT1/LT2, powielania analizy badań laboratoryjnych lub ponownego klasyfikowania stanu regeneracji wewnątrz modułu decyzyjnego.
+
+### Decision
+
+- **Konsumpcja gotowej wiedzy (Read Models):** Decision Intelligence 2.0 konsumuje wyłącznie zinterpretowane wyniki z dedykowanych bounded contextów (`RecoveryEngine`, `TrainingAssessment`, `BiomarkersDashboard`, `PerformanceTestHistory`);
+- **Zakaz powielania logiki domenowej:** Silnik polityk `DecisionPolicyV2` nie przelicza wskaźników HRV/RHR, nie tworzy nowych klasyfikacji klinicznych biomarkerów i nie buduje krzywej mleczanowej z surowych sesji;
+- **Pojedynczy snapshot wejściowy:** Każde wywołanie runtime pobiera dokładnie jeden snapshot `MorningBriefingInput` dzielony między wszystkie adaptery domenowe;
+- **Obsługa braku trwałego źródła (Performance Lab):** W przypadku braku produkcyjnego repozytorium sesji wydolnościowych Decision Context zwraca status `UNAVAILABLE` bez używania danych syntetycznych ani danych typu mock;
+- **Nienaruszalność odczytowa HTTP:** Punkty końcowe `GET /latest` oraz `GET /history` pozostają w 100% odczytowe i nie generują nowych decyzji.
+
+### Consequences
+
+- Wszystkie bounded contexty zachowują pojedyncze źródło prawdy dla swoich dziedzin;
+- Wprowadzanie zmian w algorytmach regeneracji lub biomarkerów nie wymaga modyfikacji silnika decyzyjnego;
+- Historia decyzji jest w 100% reprodukowalna i bezpieczna przed przypadkową modyfikacją przy odczycie z API.
+
 ## Rejestr ADR
 
 | ADR | Tytuł | Status | Główne źródło |
@@ -488,6 +512,7 @@ Wprowadzenie badań laboratoryjnych (morfologia, gospodarka żelazowa, hormony, 
 | ADR-010 | Kanoniczny Athlete Dashboard Read Model | Accepted | `dashboard/`, `application/morning_coach_use_case.py` |
 | ADR-011 | Web Product Layer & Transport Boundary Architecture | Accepted | `web/AthleteWeb/`, `server/app.py`, `docs/dashboard_http_transport_boundary.md` |
 | ADR-012 | Biomarker Ingestion, Alias Registry, and Unit Normalization Boundary | Accepted | `docs/engineering/biomarkers-architecture.md` |
+| ADR-013 | Granica źródeł produkcyjnych Decision Intelligence 2.0 | Accepted | `decision/production_composition.py`, `morning_briefing/production_provider.py` |
 
 ## Powiązane dokumenty
 

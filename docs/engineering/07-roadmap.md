@@ -133,21 +133,27 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 - **Serialization & HTTP API (22.6 / 22.6A):** `DecisionAuditRecordSerializer`, provider boundary `DecisionAuditRecordProvider` oraz endpoint `GET /api/v1/decision-intelligence/latest` serwujący gotowy rekord (z obsługą `decision: null` i bezpiecznym błędem 503);
 - **AthleteWeb AI Coach Experience (22.7 / 22.7A):** typowany `DecisionIntelligenceApiClient` z pełną walidacją runtime, responsywny widok AI Coach prezentujący kartę Hero, rekomendacje, wyjaśnienia oraz 4 źródła kontekstu z bezprzeładowaniowym routingiem.
 
-### Stage 23 — Decision Runtime & Persistence
+### Stage 24 — Production Decision Data Integration
 
-- **Decision Execution Orchestrator (23.1):** bezstanowy `DecisionExecutionService` wywołujący kompletny pipeline Decision Intelligence 2.0;
-- **Real Decision Context Adapters (23.2 / 23.2A):** neutralne adaptery `Recovery`, `Training`, `Biomarkers`, `Performance` oraz composite provider `RuntimeAthleteDecisionContextProvider` z gwarancją pojedynczego pobrania `MorningBriefingInput`;
-- **Runtime Workflow & Composition (23.3):** czysty workflow `DecisionRuntimeWorkflow` ze wstrzykiwalnym zegarem `SystemUtcDecisionClock` i generatorem ID `UuidDecisionIdGenerator`;
-- **DuckDB Decision Repository (23.4 / 23.4A):** trwałe, wątkowo bezpieczne repozytorium `DuckDbDecisionAuditRecordRepository` z obsługą unikalnych transakcji append-only oraz weryfikacją spójności metadanych;
-- **Persisted Runtime Workflow & Latest Provider (23.5 / 23.5A):** dekorator `PersistedDecisionRuntimeWorkflow`, `RepositoryDecisionAuditRecordProvider`, produktywny WSGI composition root w `server/app.py` oraz CLI runner `scripts/run_decision_runtime.py`;
-- **Decision History HTTP API (23.6):** `RepositoryDecisionHistoryProvider`, bezstanowy `DecisionHistorySerializer` oraz endpoint `GET /api/v1/decision-intelligence/history` zwracający rekordy chronologicznie (*oldest $\rightarrow$ newest*);
-- **AthleteWeb Decision History Experience (23.7 / 23.7A):** niezależny interfejs historii `DecisionHistoryContainer` z odwróconą prezentacją (*newest $\rightarrow$ oldest*), dostępnymi szczegółami kart, polską lokalizacją etykiet oraz w pełni izolowanym cyklem życia zapytań HTTP.
+- **Production Morning Briefing Boundary (24.1 / 24.1A):** `ProductionMorningBriefingInputProvider` zasilający kontekst z gotowego `MorningCoachResult` i `BiomarkersDashboard`;
+- **Performance Read-Model Boundary (24.2):** eliminacja powielonej analizy mleczanowej w Decision Intelligence poprzez konsumpcję gotowego read-modelu `PerformanceTestHistory`;
+- **Recovery Context Enrichment (24.3):** uzupełnienie kontekstu regeneracji o statusy `hrv_status`, `resting_heart_rate_status` oraz `sleep_status` bezpośrednio z `RecoveryEngine`;
+- **Training Context Enrichment (24.4):** zasilenie kontekstu treningowego kanonicznym `planned_session_type`, `planned_intensity`, `recent_training_load` i `fatigue_status`;
+- **Biomarker Context Enrichment (24.5):** zastąpienie syntetycznego podsumowania realnymi sygnałami z `BiomarkersDashboard` i precyzyjnym podliczeniem `critical_count` wyłącznie dla flag laboratoryjnych;
+- **Production Composition Root & Real Data Runtime (24.6 / 24.6A):** `ProductionDecisionRuntimeContainer`, poprawnie rozwiązana canonical path `<repo>/data/database/decisions.duckdb` oraz obsługa cyklu życia zasobów;
+- **AthleteWeb Real-Data Verification (24.7):** bezkompromisowa walidacja odczytowa interfejsu AI Coach z trwałym backendem bez modyfikacji danych na serwerze;
+- **Final Verification & Stage 24 Closure (24.8):** formalne zamknięcie etapu z pełnym audytem spójności architektonicznej i regresyjnej.
 
 
 ## Planned
 
 
 Poniższe obszary są udokumentowanym kierunkiem, ale nie są obecnie zaimplementowanymi modułami:
+
+### Stage 25 — Automated Daily Runtime
+
+- automatyczne wyzwalanie Decision Runtime w cyklu dziennym bez konieczności rącznego wywołania CLI;
+- powiadomienia i subskrypcje wyników rekomendacji.
 
 ### Kontraktor historii i replay
 

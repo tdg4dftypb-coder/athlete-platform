@@ -271,10 +271,16 @@ Repozytorium nie zawiera obecnie skonfigurowanego workflow CI. Poniższa sekcja 
   - testy obsługi sześciu stanów prezentacyjnych (`ready`, `partial`, `unavailable`, `stale`, `loading`, `failure`);
   - testy braku wycieku danych podglądu (`Preview Data`) do trybów `live-file` i `http`.
 
-- **Backend Endpoint Tests (pytest)**:
-  - testy akceptacyjne WSGI serwera `GET /api/v1/dashboard`;
-  - testy nagłówka `Content-Type: application/json` i wersji kontraktu `1.0`;
-  - testy kontrolowanej obsługi błędów `500` bez wycieku śladu stosu.
+- **Backend Endpoint & Pipeline Tests (pytest)**:
+  - testy akceptacyjne WSGI serwera `GET /api/v1/dashboard`, `GET /api/v1/biomarkers`, `GET /api/v1/morning-briefing`, `GET /api/v1/performance-lab/history`, `GET /api/v1/decision-intelligence/latest`, `GET /api/v1/decision-intelligence/history`;
+  - testy nagłówka `Content-Type: application/json` i nienaruszalności odczytowej `GET` (read-only invariant);
+  - testy produkcyjnego kontenera `ProductionDecisionRuntimeContainer` i trwałego zapisywania rekordów w DuckDB;
+  - zweryfikowane minimum testów backendowych: **>= 1419 passed**.
+
+- **Frontend Client & Runtime Validation Tests (Vitest + jsdom)**:
+  - testy ścisłych walidatorów `validateDecisionAuditRecord` oraz `parseDecisionHistoryPayloadV1`;
+  - testy komponentów prezentacji AI Coach (`READY`, `Hero Card`, `Recommendations`, `Explainability`, `Context Cards`, `History`);
+  - zweryfikowane minimum testów frontendowych AthleteWeb: **>= 409 passed** (28 plików testowych).
 
 ### Przed merge
 
