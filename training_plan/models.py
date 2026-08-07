@@ -63,12 +63,10 @@ class PlannedSession:
             if not isinstance(item, str) or not item.strip():
                 raise ValueError("rationale items must be non-empty strings")
 
-        # Invariants according to kind
         if self.kind == PlannedSessionKind.TRAINING:
             if not isinstance(self.session_type, str) or not self.session_type.strip():
                 raise ValueError("TRAINING session_type must be non-empty string")
-            normalized_type = self.session_type.strip().upper()
-            object.__setattr__(self, "session_type", normalized_type)
+            object.__setattr__(self, "session_type", self.session_type.strip().upper())
 
             if self.duration_minutes <= 0:
                 raise ValueError("TRAINING duration_minutes must be > 0")
@@ -77,6 +75,7 @@ class PlannedSession:
                 if not isinstance(self.intensity, str) or not self.intensity.strip():
                     raise ValueError("intensity must be non-empty string if provided")
                 object.__setattr__(self, "intensity", self.intensity.strip().upper())
+
         elif self.kind == PlannedSessionKind.REST:
             if self.session_type is not None:
                 raise ValueError("REST session_type must be None")

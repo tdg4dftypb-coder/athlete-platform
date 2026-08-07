@@ -154,7 +154,8 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 
 ### Stage 26 — Adaptive Training Plan
 
-- **Domain Model & Calendar Contract (26.1):** utworzono nową czystą domenę `training_plan/` wprowadzającą niezmienne modele `PlannedSessionKind` (`TRAINING`, `REST`), `PlannedSession` (wielodniowe zamiary z walidacją inwariantów i kanonicznym `target_tss=0.0` dla dni REST), `TrainingPlan` (z gwarancją kompletnego 1-slot-per-day pokrycia zakresu dat) oraz bezstanowy pomocnik `TrainingPlanSessionSelector` i protokół `TrainingPlanProvider`. Domena nie posiada żadnych zależności od podsystemów decyzyjnych ani generowania workoutów.
+- **Domain Model & Calendar Contract (26.1):** utworzono nową czystą domenę `training_plan/` wprowadzającą niezmienne modele `PlannedSessionKind` (`TRAINING`, `REST`), `PlannedSession` (wielodniowe zamiary z walidacją inwariantów i kanonicznym `target_tss=0.0` dla dni REST), `TrainingPlan` (z gwarancją kompletnego 1-slot-per-day pokrycia zakresu dat) oraz bezstanowy pomocnik `TrainingPlanSessionSelector` i protokół `TrainingPlanProvider`. Domena nie posiada żadnych zależności od podsystemów decyzyjnych ani generowania workoutów;
+- **Baseline Weekly Plan Builder (26.2):** wprowadzono bezstanowe modele szablonu tygodniowego `Weekday` (dopasowany do `date.weekday()`), `WeeklySessionIntent`, `TrainingIntent` (wymagający dokładnie 7 slotów i zapisu chronologicznego Monday->Sunday) oraz bezstanowy projektor `BaselineTrainingPlanBuilder` budujący kanoniczne `TrainingPlan` z deterministyczną identyfikacją sesji `{plan_id}:{YYYY-MM-DD}` na dowolnym zakreślonym przedziale kalendarzowym.
 
 ## Planned
 
