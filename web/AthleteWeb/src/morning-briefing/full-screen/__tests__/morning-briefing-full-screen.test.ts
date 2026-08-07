@@ -63,7 +63,7 @@ describe('createMorningBriefingFullScreen', () => {
       noop,
     );
     const h1 = el.querySelector('h1');
-    expect(h1?.textContent).toBe('Morning Briefing');
+    expect(h1?.textContent).toBe('Poranny briefing');
     expect(h1?.getAttribute('tabindex')).toBe('-1');
   });
 
@@ -73,7 +73,7 @@ describe('createMorningBriefingFullScreen', () => {
       noop,
       noop,
     );
-    expect(el.querySelector('.mb-full__generated-at')?.textContent).toContain('Updated:');
+    expect(el.querySelector('.mb-full__generated-at')?.textContent).toContain('Briefing wygenerowany:');
   });
 
   it('partial — renders main with partial class', () => {
@@ -150,7 +150,7 @@ describe('createMorningBriefingFullScreen', () => {
       noop,
     );
     const headings = Array.from(el.querySelectorAll('.mb-full__section-heading')).map(h => h.textContent);
-    expect(headings).toEqual(['Recovery', 'Training', 'Biomarkers']);
+    expect(headings).toEqual(['Regeneracja', 'Trening', 'Biomarkery']);
   });
 
   it('renders metrics for each section', () => {
@@ -184,7 +184,7 @@ describe('createMorningBriefingFullScreen', () => {
       noop,
     );
     const badge = el.querySelector('.mb-full__priority-badge');
-    expect(badge?.textContent).toBe('Low');
+    expect(badge?.textContent).toBe('Niski');
     expect(badge?.classList.contains('mb-full__priority-badge--low')).toBe(true);
   });
 

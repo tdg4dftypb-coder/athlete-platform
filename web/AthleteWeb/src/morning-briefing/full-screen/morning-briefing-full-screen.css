@@ -348,3 +348,317 @@
     color: #f87171;
   }
 }
+
+
+/* Product polish — Morning Briefing full screen */
+
+.mb-full__shell {
+  min-height: 0;
+  background: transparent;
+}
+
+.mb-full__main {
+  max-width: none;
+  padding: 1.25rem var(--space-page, 1.25rem) 2rem;
+  overflow: visible;
+}
+
+/* Navigation */
+.mb-full__back-btn {
+  min-height: 2.55rem;
+  margin-bottom: 1rem;
+  padding: 0.5rem 0.85rem;
+
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+
+  font-weight: 620;
+
+  box-shadow: var(--shadow-soft);
+}
+
+/* Page heading */
+.mb-full__title {
+  margin-bottom: 0.8rem;
+
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 7vw, 2.35rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+/* Status / freshness hero */
+.mb-full__meta {
+  gap: 0.35rem;
+
+  margin-bottom: 1.15rem;
+  padding: 1rem 1.1rem;
+
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-warning) 8%, var(--color-surface)),
+      var(--color-surface-elevated)
+    );
+
+  box-shadow: var(--shadow-soft);
+}
+
+.mb-full__status-label {
+  font-family: var(--font-display);
+  font-size: 1.02rem;
+  font-weight: 680;
+  letter-spacing: -0.018em;
+  line-height: 1.35;
+}
+
+.mb-full__generated-at {
+  font-size: 0.7rem;
+  font-weight: 540;
+}
+
+/* Domain cards */
+.mb-full__sections {
+  display: grid;
+  gap: 1rem;
+}
+
+.mb-full__section {
+  --mb-section-accent: var(--color-accent-neutral);
+
+  position: relative;
+  overflow: hidden;
+
+  padding: 1.1rem;
+
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--mb-section-accent) 17%,
+      var(--color-border)
+    );
+
+  border-radius: 1.2rem;
+
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(
+        in srgb,
+        var(--mb-section-accent) 7%,
+        var(--color-surface-elevated)
+      ),
+      var(--color-surface-elevated) 62%
+    );
+
+  box-shadow: var(--shadow-soft);
+}
+
+.mb-full__section--recovery {
+  --mb-section-accent: var(--color-accent-recovery);
+}
+
+.mb-full__section--training {
+  --mb-section-accent: var(--color-accent-training);
+}
+
+.mb-full__section--biomarkers {
+  --mb-section-accent: var(--accent-sleep);
+}
+
+.mb-full__section--neutral {
+  --mb-section-accent: var(--color-accent-neutral);
+}
+
+.mb-full__section::after {
+  content: "";
+  position: absolute;
+  top: -3.5rem;
+  right: -3.5rem;
+
+  width: 8rem;
+  height: 8rem;
+
+  border-radius: 50%;
+
+  background:
+    color-mix(
+      in srgb,
+      var(--mb-section-accent) 6%,
+      transparent
+    );
+
+  pointer-events: none;
+}
+
+.mb-full__section-heading {
+  margin: 0;
+
+  color: var(--mb-section-accent);
+
+  font-family: var(--font-display);
+  font-size: 1.12rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.mb-full__section-summary {
+  max-width: 34rem;
+
+  margin: 0.35rem 0 1rem;
+
+  color: var(--color-text-secondary);
+
+  font-size: 0.84rem;
+  font-weight: 520;
+  line-height: 1.45;
+}
+
+/* Metrics become readable stat tiles */
+.mb-full__metric-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+
+  margin: 0;
+}
+
+.mb-full__metric-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.32rem;
+
+  min-width: 0;
+  min-height: 4.5rem;
+
+  padding: 0.72rem 0.78rem;
+
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--mb-section-accent) 10%,
+      var(--color-border)
+    );
+
+  border-radius: 0.85rem;
+
+  background:
+    color-mix(
+      in srgb,
+      var(--mb-section-accent) 4%,
+      var(--color-surface)
+    );
+}
+
+.mb-full__metric-item:last-child {
+  border-bottom: 1px solid
+    color-mix(
+      in srgb,
+      var(--mb-section-accent) 10%,
+      var(--color-border)
+    );
+}
+
+.mb-full__metric-title {
+  color: var(--color-text-secondary);
+
+  font-size: 0.67rem;
+  font-weight: 620;
+  line-height: 1.25;
+}
+
+.mb-full__metric-value-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.18rem;
+  align-items: baseline;
+}
+
+.mb-full__metric-value {
+  color: var(--color-text-primary);
+
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.mb-full__metric-unit {
+  color: var(--color-text-muted);
+  font-size: 0.66rem;
+}
+
+/* Recommendations become insight cards */
+.mb-full__rec-subheading {
+  margin: 1rem 0 0.6rem;
+
+  color: var(--mb-section-accent);
+
+  font-size: 0.67rem;
+  font-weight: 740;
+  letter-spacing: 0.055em;
+}
+
+.mb-full__rec-list {
+  gap: 0.55rem;
+}
+
+.mb-full__rec-item {
+  gap: 0.38rem;
+
+  padding: 0.78rem 0.82rem;
+
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--mb-section-accent) 12%,
+      var(--color-border)
+    );
+
+  border-radius: 0.85rem;
+
+  background:
+    color-mix(
+      in srgb,
+      var(--mb-section-accent) 5%,
+      var(--color-surface)
+    );
+}
+
+.mb-full__rec-header {
+  gap: 0.5rem;
+}
+
+.mb-full__rec-title {
+  font-size: 0.82rem;
+  font-weight: 680;
+}
+
+.mb-full__rec-description {
+  color: var(--color-text-secondary);
+
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.mb-full__priority-badge {
+  padding: 0.18rem 0.48rem;
+
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+/* Very narrow devices */
+@media (max-width: 24rem) {
+  .mb-full__metric-list {
+    grid-template-columns: 1fr;
+  }
+}
