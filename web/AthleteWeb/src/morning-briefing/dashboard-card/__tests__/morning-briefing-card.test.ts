@@ -99,17 +99,17 @@ describe('pickTopRecommendation', () => {
 // ── statusLabel ───────────────────────────────────────────────────────────────
 
 describe('statusLabel', () => {
-  it('ready → "Your briefing is ready."', () => {
-    expect(statusLabel('ready')).toBe('Your briefing is ready.');
+  it('ready → "Poranny briefing jest gotowy."', () => {
+    expect(statusLabel('ready')).toBe('Poranny briefing jest gotowy.');
   });
-  it('partial → "Some briefing data is unavailable."', () => {
-    expect(statusLabel('partial')).toBe('Some briefing data is unavailable.');
+  it('partial → "Część danych jest obecnie niedostępna."', () => {
+    expect(statusLabel('partial')).toBe('Część danych jest obecnie niedostępna.');
   });
-  it('unavailable → "Morning briefing is not available yet."', () => {
-    expect(statusLabel('unavailable')).toBe('Morning briefing is not available yet.');
+  it('unavailable → "Poranny briefing nie jest jeszcze dostępny."', () => {
+    expect(statusLabel('unavailable')).toBe('Poranny briefing nie jest jeszcze dostępny.');
   });
-  it('stale → "Some briefing data may be outdated."', () => {
-    expect(statusLabel('stale')).toBe('Some briefing data may be outdated.');
+  it('stale → "Niektóre źródła danych wymagają odświeżenia."', () => {
+    expect(statusLabel('stale')).toBe('Niektóre źródła danych wymagają odświeżenia.');
   });
 });
 
@@ -129,7 +129,7 @@ describe('createMorningBriefingCard', () => {
       noop,
       noop,
     );
-    expect(card.querySelector('h2')?.textContent).toBe('Morning Briefing');
+    expect(card.querySelector('h2')?.textContent).toBe('Poranny briefing');
     expect(card.classList.contains('mb-card--ready')).toBe(true);
   });
 
@@ -216,7 +216,7 @@ describe('createMorningBriefingCard', () => {
     );
     expect(card.querySelector('.mb-card__rec-row')).not.toBeNull();
     expect(card.querySelector('.mb-card__rec-title')?.textContent).toBe('Prioritize recovery');
-    expect(card.querySelector('.mb-card__priority-badge')?.textContent).toBe('High');
+    expect(card.querySelector('.mb-card__priority-badge')?.textContent).toBe('Wysoki');
   });
 
   it('does not render rec block when topRec is null', () => {

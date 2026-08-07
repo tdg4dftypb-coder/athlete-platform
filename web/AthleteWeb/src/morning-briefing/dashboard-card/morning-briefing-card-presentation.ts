@@ -4,6 +4,24 @@ import { statusLabel, formatGeneratedAt } from './morning-briefing-card-types';
 
 const MAX_SECTION_SUMMARIES = 3;
 
+const SECTION_LABELS: Record<string, string> = {
+  Recovery: 'Regeneracja',
+  Training: 'Trening',
+  Biomarkers: 'Biomarkery',
+};
+
+const RECOMMENDATION_LABELS: Record<string, string> = {
+  'Refresh source data': 'Odśwież dane źródłowe',
+  'Proceed as planned': 'Realizuj plan zgodnie z założeniami',
+};
+
+const PRIORITY_LABELS: Record<MorningBriefingPriority, string> = {
+  low: 'Niski',
+  medium: 'Średni',
+  high: 'Wysoki',
+  critical: 'Krytyczny',
+};
+
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, attrs?: Record<string, string>): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -41,7 +59,7 @@ function createSkeletonCard(): HTMLElement {
 
 function createPriorityBadge(priority: MorningBriefingPriority): HTMLElement {
   const badge = el('span', `mb-card__priority-badge mb-card__priority-badge--${priority}`);
-  badge.textContent = priority.charAt(0).toUpperCase() + priority.slice(1);
+  badge.textContent = PRIORITY_LABELS[priority];
   return badge;
 }
 
@@ -50,7 +68,7 @@ function createPriorityBadge(priority: MorningBriefingPriority): HTMLElement {
 function createTopRecRow(topRec: TopRecommendation): HTMLElement {
   const row = el('div', 'mb-card__rec-row');
   const title = el('span', 'mb-card__rec-title');
-  title.textContent = topRec.title;
+  title.textContent = RECOMMENDATION_LABELS[topRec.title] ?? topRec.title;
   row.append(title, createPriorityBadge(topRec.priority));
   return row;
 }
@@ -66,13 +84,13 @@ function createErrorCard(
   if (isAlert) card.setAttribute('role', 'alert');
 
   const heading = el('h2', 'mb-card__heading');
-  heading.textContent = 'Morning Briefing';
+  heading.textContent = 'Poranny briefing';
 
   const msg = el('p', 'mb-card__error-message');
   msg.textContent = message;
 
   const retryBtn = el('button', 'mb-card__retry-btn');
-  retryBtn.textContent = 'Retry';
+  retryBtn.textContent = 'Spróbuj ponownie';
   retryBtn.setAttribute('type', 'button');
   retryBtn.addEventListener('click', onRetry);
 
@@ -93,7 +111,7 @@ function createContentCard(
 
   // Heading
   const heading = el('h2', 'mb-card__heading');
-  heading.textContent = 'Morning Briefing';
+  heading.textContent = 'Poranny briefing';
 
   // Status label
   const statusEl = el('p', 'mb-card__status-label');
@@ -101,7 +119,7 @@ function createContentCard(
 
   // Generated at
   const genAt = el('p', 'mb-card__generated-at');
-  genAt.textContent = `Updated: ${formatGeneratedAt(briefing.generatedAt)}`;
+  genAt.textContent = `Briefing wygenerowany: ${formatGeneratedAt(briefing.generatedAt)}`;
 
   card.append(heading, statusEl, genAt);
 
@@ -113,7 +131,7 @@ function createContentCard(
     for (const section of visibleSections) {
       const item = el('li', 'mb-card__section-item');
       const sectionTitle = el('span', 'mb-card__section-title');
-      sectionTitle.textContent = section.title;
+      sectionTitle.textContent = SECTION_LABELS[section.title] ?? section.title;
       const sectionSummary = el('span', 'mb-card__section-summary');
       sectionSummary.textContent = section.summary;
       item.append(sectionTitle, sectionSummary);
@@ -133,9 +151,9 @@ function createContentCard(
 
   // "View briefing" button
   const openBtn = el('button', 'mb-card__open-btn');
-  openBtn.textContent = 'View briefing';
+  openBtn.textContent = 'Zobacz briefing';
   openBtn.setAttribute('type', 'button');
-  openBtn.setAttribute('aria-label', 'Open full Morning Briefing');
+  openBtn.setAttribute('aria-label', 'Otwórz pełny poranny briefing');
   openBtn.addEventListener('click', onOpen);
   openBtn.addEventListener('keydown', (e: KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -167,21 +185,21 @@ export function createMorningBriefingCard(
 
     case 'failure':
       return createErrorCard(
-        'Failed to load Morning Briefing. Please try again.',
+        'Nie udało się pobrać porannego briefingu. Spróbuj ponownie.',
         true,
         onRetry,
       );
 
     case 'network_error':
       return createErrorCard(
-        'Morning Briefing could not be loaded. Check your connection.',
+        'Nie udało się połączyć z serwerem danych. Sprawdź połączenie.',
         true,
         onRetry,
       );
 
     case 'invalid_data':
       return createErrorCard(
-        'Morning Briefing data is temporarily unavailable.',
+        'Dane porannego briefingu są chwilowo niedostępne.',
         false,
         onRetry,
       );

@@ -199,3 +199,32 @@
     color: #f87171;
   }
 }
+
+/* Product polish — Morning Briefing */
+.mb-card__section-item {
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--surface-elevated);
+}
+
+.mb-card--stale .mb-card__status-label {
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--color-warning, #f59e0b);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.mb-card__rec-section {
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--surface-elevated);
+}
+
+.mb-card__open-btn {
+  margin-top: var(--space-1);
+}

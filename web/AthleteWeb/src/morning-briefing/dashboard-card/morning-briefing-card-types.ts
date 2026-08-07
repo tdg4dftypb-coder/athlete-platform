@@ -30,10 +30,10 @@ export function pickTopRecommendation(briefing: MorningBriefing): TopRecommendat
 
 export function statusLabel(status: MorningBriefingStatus): string {
   switch (status) {
-    case 'ready': return 'Your briefing is ready.';
-    case 'partial': return 'Some briefing data is unavailable.';
-    case 'unavailable': return 'Morning briefing is not available yet.';
-    case 'stale': return 'Some briefing data may be outdated.';
+    case 'ready': return 'Poranny briefing jest gotowy.';
+    case 'partial': return 'Część danych jest obecnie niedostępna.';
+    case 'unavailable': return 'Poranny briefing nie jest jeszcze dostępny.';
+    case 'stale': return 'Niektóre źródła danych wymagają odświeżenia.';
   }
 }
 
