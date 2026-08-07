@@ -11,7 +11,7 @@ from server.app import create_dashboard_wsgi_app
 from tests.decision.test_decision_record_codec import build_sample_record
 from tests.decision.test_decision_runtime_composition import (
     CountingMorningBriefingProvider,
-    CountingPerformanceProvider,
+    CountingPerformanceHistoryProvider,
 )
 from tests.server.test_decision_intelligence_v2_endpoint import make_request
 
@@ -21,11 +21,11 @@ def test_persisted_decision_latest_endpoint_integration():
     conn = duckdb.connect(":memory:")
     repo = DuckDbDecisionAuditRecordRepository(conn=conn)
     mb_provider = CountingMorningBriefingProvider()
-    perf_provider = CountingPerformanceProvider()
+    perf_provider = CountingPerformanceHistoryProvider()
 
     app_runtime = create_persisted_decision_runtime_application(
         morning_briefing_provider=mb_provider,
-        performance_test_provider=perf_provider,
+        performance_history_provider=perf_provider,
         repository=repo,
     )
 

@@ -7,7 +7,7 @@ from decision import (
 )
 from tests.decision.test_decision_runtime_composition import (
     CountingMorningBriefingProvider,
-    CountingPerformanceProvider,
+    CountingPerformanceHistoryProvider,
 )
 
 
@@ -15,11 +15,11 @@ def test_runtime_persistence_composition_end_to_end():
     conn = duckdb.connect(":memory:")
     repo = DuckDbDecisionAuditRecordRepository(conn=conn)
     mb_provider = CountingMorningBriefingProvider()
-    perf_provider = CountingPerformanceProvider()
+    perf_provider = CountingPerformanceHistoryProvider()
 
     app = create_persisted_decision_runtime_application(
         morning_briefing_provider=mb_provider,
-        performance_test_provider=perf_provider,
+        performance_history_provider=perf_provider,
         repository=repo,
     )
 

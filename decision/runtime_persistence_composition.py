@@ -7,7 +7,7 @@ from decision.repository_audit_provider import RepositoryDecisionAuditRecordProv
 from decision.runtime_composition import create_decision_runtime_workflow
 from decision.runtime_workflow import DecisionClock, DecisionIdGenerator
 from morning_briefing.provider import MorningBriefingInputProvider
-from performance_lab.provider import PerformanceTestSessionProvider
+from performance_lab.provider import PerformanceTestHistoryProvider
 
 
 @dataclass(frozen=True)
@@ -21,7 +21,7 @@ class DecisionRuntimeApplication:
 
 def create_persisted_decision_runtime_application(
     morning_briefing_provider: MorningBriefingInputProvider,
-    performance_test_provider: PerformanceTestSessionProvider,
+    performance_history_provider: PerformanceTestHistoryProvider,
     repository: DecisionAuditRecordRepository,
     *,
     clock: DecisionClock | None = None,
@@ -30,14 +30,14 @@ def create_persisted_decision_runtime_application(
     """Factory composing the persisted Decision Intelligence 2.0 application runtime."""
     if morning_briefing_provider is None:
         raise TypeError("morning_briefing_provider must not be None")
-    if performance_test_provider is None:
-        raise TypeError("performance_test_provider must not be None")
+    if performance_history_provider is None:
+        raise TypeError("performance_history_provider must not be None")
     if repository is None:
         raise TypeError("repository must not be None")
 
     inner_workflow = create_decision_runtime_workflow(
         morning_briefing_provider=morning_briefing_provider,
-        performance_test_provider=performance_test_provider,
+        performance_history_provider=performance_history_provider,
         clock=clock,
         id_generator=id_generator,
     )

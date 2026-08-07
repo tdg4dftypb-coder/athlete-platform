@@ -9,7 +9,7 @@ from decision import (
 from tests.decision.test_decision_record_codec import build_sample_record
 from tests.decision.test_decision_runtime_composition import (
     CountingMorningBriefingProvider,
-    CountingPerformanceProvider,
+    CountingPerformanceHistoryProvider,
 )
 
 
@@ -19,7 +19,7 @@ def test_persisted_workflow_runs_and_saves_record():
 
     inner_workflow = create_decision_runtime_workflow(
         morning_briefing_provider=CountingMorningBriefingProvider(),
-        performance_test_provider=CountingPerformanceProvider(),
+        performance_history_provider=CountingPerformanceHistoryProvider(),
     )
 
     persisted = PersistedDecisionRuntimeWorkflow(
@@ -36,7 +36,7 @@ def test_persisted_workflow_runs_and_saves_record():
     assert repo.get_latest() == result.record
 
 
-def test_persisted_workflow_error_in_workflow_does_not_call_save(mocker=None):
+def test_persisted_workflow_error_in_workflow_does_not_call_save():
     class FailingWorkflow:
         def run(self):
             raise RuntimeError("Workflow failed")

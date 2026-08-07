@@ -10,7 +10,7 @@ from server.app import create_dashboard_wsgi_app, create_production_dashboard_ws
 from tests.decision.test_decision_record_codec import build_sample_record
 from tests.decision.test_decision_runtime_composition import (
     CountingMorningBriefingProvider,
-    CountingPerformanceProvider,
+    CountingPerformanceHistoryProvider,
 )
 from tests.server.test_decision_intelligence_v2_endpoint import make_request
 
@@ -18,12 +18,12 @@ from tests.server.test_decision_intelligence_v2_endpoint import make_request
 def test_cli_runner_executes_and_returns_zero(tmp_path, capsys):
     db_file = tmp_path / "cli_decisions.duckdb"
     mb_provider = CountingMorningBriefingProvider()
-    perf_provider = CountingPerformanceProvider()
+    perf_provider = CountingPerformanceHistoryProvider()
 
     exit_code = run_decision_runtime(
         db_path=str(db_file),
         morning_briefing_provider=mb_provider,
-        performance_test_provider=perf_provider,
+        performance_history_provider=perf_provider,
     )
 
     assert exit_code == 0

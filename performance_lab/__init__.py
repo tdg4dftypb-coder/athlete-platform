@@ -35,6 +35,9 @@ from performance_lab.provider import (
     PerformanceTestSessionProviderError,
     PerformanceTestSessionProvider,
     EmptyPerformanceTestSessionProvider,
+    PerformanceTestHistoryProviderError,
+    PerformanceTestHistoryProvider,
+    EmptyPerformanceTestHistoryProvider,
 )
 
 __all__ = [
@@ -71,4 +74,7 @@ __all__ = [
     "PerformanceTestSessionProviderError",
     "PerformanceTestSessionProvider",
     "EmptyPerformanceTestSessionProvider",
+    "PerformanceTestHistoryProviderError",
+    "PerformanceTestHistoryProvider",
+    "EmptyPerformanceTestHistoryProvider",
 ]

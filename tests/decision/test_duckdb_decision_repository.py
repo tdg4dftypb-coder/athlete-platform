@@ -158,7 +158,7 @@ def test_file_database_round_trip(tmp_path):
 def test_workflow_save_read_integration(in_memory_repo):
     from tests.decision.test_decision_runtime_composition import (
         CountingMorningBriefingProvider,
-        CountingPerformanceProvider,
+        CountingPerformanceHistoryProvider,
     )
     from morning_briefing.input_models import MorningBriefingInput, RecoveryBriefingInput, TrainingBriefingInput
 
@@ -172,7 +172,7 @@ def test_workflow_save_read_integration(in_memory_repo):
 
     workflow = create_decision_runtime_workflow(
         morning_briefing_provider=CountingMorningBriefingProvider(mb_input),
-        performance_test_provider=CountingPerformanceProvider(),
+        performance_history_provider=CountingPerformanceHistoryProvider(),
     )
 
     # 1. Run workflow

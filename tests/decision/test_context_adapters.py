@@ -134,6 +134,30 @@ def test_biomarkers_adapter():
     assert len(ctx_clean.signals) == 0
 
 
+from performance_lab.provider import (
+    EmptyPerformanceTestHistoryProvider,
+    PerformanceTestHistoryProviderError,
+)
+from performance_lab.history import (
+    PerformanceHistoryEntry,
+    PerformanceTestHistory,
+    PerformanceTestHistoryBuilder,
+)
+
+
+class StubPerformanceHistoryProvider:
+    def __init__(self, history=None, raise_error=False):
+        self.history = history or PerformanceTestHistory(entries=())
+        self.raise_error = raise_error
+        self.call_count = 0
+
+    def get_history(self) -> PerformanceTestHistory:
+        self.call_count += 1
+        if self.raise_error:
+            raise PerformanceTestHistoryProviderError("Performance history source unavailable")
+        return self.history
+
+
 def test_performance_adapter():
     gen_at = datetime.now(timezone.utc)
 
@@ -151,10 +175,10 @@ def test_performance_adapter():
     )
 
     session = PerformanceTestSessionBuilder().build(sess_input)
+    # Pre-analyzed history built outside Decision Intelligence
+    history = PerformanceTestHistoryBuilder().build((session,))
 
-
-
-    provider = StubPerformanceProvider(sessions=(session,))
+    provider = StubPerformanceHistoryProvider(history=history)
     adapter = DefaultPerformanceDecisionContextAdapter(provider)
     ctx = adapter.get_context(gen_at)
 
@@ -163,9 +187,79 @@ def test_performance_adapter():
     assert ctx.lt1 is not None
     assert ctx.lt2 is not None
 
-    # Empty provider
-    adapter_empty = DefaultPerformanceDecisionContextAdapter(StubPerformanceProvider(sessions=()))
-    assert adapter_empty.get_context(gen_at).status == ContextDataStatus.UNAVAILABLE
+
+def test_performance_adapter_empty_history():
+    provider = StubPerformanceHistoryProvider(history=PerformanceTestHistory(entries=()))
+    adapter = DefaultPerformanceDecisionContextAdapter(provider)
+    ctx = adapter.get_context(datetime.now(timezone.utc))
+    assert ctx.status == ContextDataStatus.UNAVAILABLE
+
+
+def test_performance_adapter_provider_error():
+    provider = StubPerformanceHistoryProvider(raise_error=True)
+    adapter = DefaultPerformanceDecisionContextAdapter(provider)
+    ctx = adapter.get_context(datetime.now(timezone.utc))
+    assert ctx.status == ContextDataStatus.UNAVAILABLE
+
+
+def test_performance_adapter_non_lactate_test_without_thresholds():
+    gen_at = datetime.now(timezone.utc)
+    session = PerformanceTestSession(
+        test_id="ftp-01",
+        performed_at=gen_at,
+        test_type=PerformanceTestType.FTP_TEST,
+        status=PerformanceTestStatus.COMPLETED,
+        modality=ExerciseModality.CYCLING,
+        stages=(),
+    )
+    # History entry without threshold analysis (non-lactate test)
+    entry = PerformanceHistoryEntry(session=session, threshold_analysis=None)
+    history = PerformanceTestHistory(entries=(entry,))
+
+    provider = StubPerformanceHistoryProvider(history=history)
+    adapter = DefaultPerformanceDecisionContextAdapter(provider)
+    ctx = adapter.get_context(gen_at)
+
+    assert ctx.status == ContextDataStatus.AVAILABLE
+    assert ctx.latest_test_id == "ftp-01"
+    assert ctx.latest_test_type == "ftp_test"
+    assert ctx.performed_at == gen_at
+    assert ctx.lt1 is None
+    assert ctx.lt2 is None
+
+
+def test_performance_adapter_selects_latest_entry_without_reordering():
+    gen_at1 = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
+    gen_at2 = datetime(2026, 8, 5, 10, 0, tzinfo=timezone.utc)
+    sess1 = PerformanceTestSession(
+        test_id="old-01",
+        performed_at=gen_at1,
+        test_type=PerformanceTestType.FTP_TEST,
+        status=PerformanceTestStatus.COMPLETED,
+        modality=ExerciseModality.CYCLING,
+        stages=(),
+    )
+    sess2 = PerformanceTestSession(
+        test_id="new-02",
+        performed_at=gen_at2,
+        test_type=PerformanceTestType.FTP_TEST,
+        status=PerformanceTestStatus.COMPLETED,
+        modality=ExerciseModality.CYCLING,
+        stages=(),
+    )
+    history = PerformanceTestHistory(
+        entries=(
+            PerformanceHistoryEntry(session=sess1, threshold_analysis=None),
+            PerformanceHistoryEntry(session=sess2, threshold_analysis=None),
+        )
+    )
+
+    provider = StubPerformanceHistoryProvider(history=history)
+    adapter = DefaultPerformanceDecisionContextAdapter(provider)
+    ctx = adapter.get_context(datetime.now(timezone.utc))
+
+    assert ctx.latest_test_id == "new-02"
+    assert ctx.performed_at == gen_at2
 
 
 def test_runtime_context_provider_order_and_execution():
@@ -182,7 +276,7 @@ def test_runtime_context_provider_order_and_execution():
     rec_adapter = DefaultRecoveryDecisionContextAdapter(mb_provider)
     tr_adapter = DefaultTrainingDecisionContextAdapter(mb_provider)
     bio_adapter = DefaultBiomarkerDecisionContextAdapter(mb_provider)
-    perf_adapter = DefaultPerformanceDecisionContextAdapter(StubPerformanceProvider())
+    perf_adapter = DefaultPerformanceDecisionContextAdapter(EmptyPerformanceTestHistoryProvider())
 
     runtime_provider = RuntimeAthleteDecisionContextProvider(
         recovery_adapter=rec_adapter,
@@ -251,7 +345,7 @@ def test_integration_with_execution_service():
         recovery_adapter=DefaultRecoveryDecisionContextAdapter(mb_provider),
         training_adapter=DefaultTrainingDecisionContextAdapter(mb_provider),
         biomarker_adapter=DefaultBiomarkerDecisionContextAdapter(mb_provider),
-        performance_adapter=DefaultPerformanceDecisionContextAdapter(StubPerformanceProvider()),
+        performance_adapter=DefaultPerformanceDecisionContextAdapter(StubPerformanceHistoryProvider()),
     )
 
     service = DecisionExecutionService(context_provider=runtime_provider)

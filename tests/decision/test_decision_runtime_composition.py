@@ -35,14 +35,18 @@ class CountingMorningBriefingProvider:
         return self.briefing_input
 
 
-class CountingPerformanceProvider:
-    def __init__(self, sessions=()):
-        self.sessions = sessions
+from performance_lab.history import PerformanceTestHistory
+from performance_lab.provider import EmptyPerformanceTestHistoryProvider
+
+
+class CountingPerformanceHistoryProvider:
+    def __init__(self, history=None):
+        self.history = history or PerformanceTestHistory(entries=())
         self.call_count = 0
 
-    def get_sessions(self):
+    def get_history(self) -> PerformanceTestHistory:
         self.call_count += 1
-        return self.sessions
+        return self.history
 
 
 def test_create_decision_runtime_workflow_composition():
@@ -55,11 +59,11 @@ def test_create_decision_runtime_workflow_composition():
     )
 
     mb_provider = CountingMorningBriefingProvider(mb_input)
-    perf_provider = CountingPerformanceProvider()
+    perf_provider = CountingPerformanceHistoryProvider()
 
     workflow = create_decision_runtime_workflow(
         morning_briefing_provider=mb_provider,
-        performance_test_provider=perf_provider,
+        performance_history_provider=perf_provider,
     )
 
     assert isinstance(workflow, DecisionRuntimeWorkflow)
@@ -91,7 +95,7 @@ def test_runtime_composition_scenarios():
     )
     wf_rest = create_decision_runtime_workflow(
         morning_briefing_provider=CountingMorningBriefingProvider(mb_rest),
-        performance_test_provider=CountingPerformanceProvider(),
+        performance_history_provider=CountingPerformanceHistoryProvider(),
     )
     res_rest = wf_rest.run()
     assert res_rest.record.policy_result.action == DecisionAction.REST
@@ -99,7 +103,7 @@ def test_runtime_composition_scenarios():
     # 2. All unavailable -> REVIEW
     wf_unavail = create_decision_runtime_workflow(
         morning_briefing_provider=CountingMorningBriefingProvider(None),
-        performance_test_provider=CountingPerformanceProvider(),
+        performance_history_provider=CountingPerformanceHistoryProvider(),
     )
     res_unavail = wf_unavail.run()
     assert res_unavail.record.policy_result.action == DecisionAction.REVIEW

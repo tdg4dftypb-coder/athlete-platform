@@ -14,12 +14,12 @@ from decision.runtime_workflow import (
     UuidDecisionIdGenerator,
 )
 from morning_briefing.provider import MorningBriefingInputProvider
-from performance_lab.provider import PerformanceTestSessionProvider
+from performance_lab.provider import PerformanceTestHistoryProvider
 
 
 def create_decision_runtime_workflow(
     morning_briefing_provider: MorningBriefingInputProvider,
-    performance_test_provider: PerformanceTestSessionProvider,
+    performance_history_provider: PerformanceTestHistoryProvider,
     *,
     clock: DecisionClock | None = None,
     id_generator: DecisionIdGenerator | None = None,
@@ -31,13 +31,13 @@ def create_decision_runtime_workflow(
     """
     if morning_briefing_provider is None:
         raise TypeError("morning_briefing_provider must not be None")
-    if performance_test_provider is None:
-        raise TypeError("performance_test_provider must not be None")
+    if performance_history_provider is None:
+        raise TypeError("performance_history_provider must not be None")
 
     rec_adapter = DefaultRecoveryDecisionContextAdapter(morning_briefing_provider)
     tr_adapter = DefaultTrainingDecisionContextAdapter(morning_briefing_provider)
     bio_adapter = DefaultBiomarkerDecisionContextAdapter(morning_briefing_provider)
-    perf_adapter = DefaultPerformanceDecisionContextAdapter(performance_test_provider)
+    perf_adapter = DefaultPerformanceDecisionContextAdapter(performance_history_provider)
 
     context_provider = RuntimeAthleteDecisionContextProvider(
         recovery_adapter=rec_adapter,

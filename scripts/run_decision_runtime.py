@@ -6,24 +6,24 @@ from decision.persistence import DuckDbDecisionAuditRecordRepository
 from decision.persistence.paths import get_default_decisions_db_path
 from decision.runtime_persistence_composition import create_persisted_decision_runtime_application
 from morning_briefing.provider import EmptyMorningBriefingInputProvider
-from performance_lab.provider import EmptyPerformanceTestSessionProvider
+from performance_lab.provider import EmptyPerformanceTestHistoryProvider
 
 
 def run_decision_runtime(
     db_path: Optional[Union[str, Path]] = None,
     morning_briefing_provider=None,
-    performance_test_provider=None,
+    performance_history_provider=None,
 ) -> int:
     """Explicit CLI runner for Decision Intelligence 2.0 runtime workflow."""
     mb_provider = morning_briefing_provider or EmptyMorningBriefingInputProvider()
-    perf_provider = performance_test_provider or EmptyPerformanceTestSessionProvider()
+    perf_provider = performance_history_provider or EmptyPerformanceTestHistoryProvider()
     target_path = get_default_decisions_db_path(db_path)
 
     try:
         repo = DuckDbDecisionAuditRecordRepository(db_path=str(target_path))
         app = create_persisted_decision_runtime_application(
             morning_briefing_provider=mb_provider,
-            performance_test_provider=perf_provider,
+            performance_history_provider=perf_provider,
             repository=repo,
         )
 
