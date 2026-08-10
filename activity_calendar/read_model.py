@@ -128,7 +128,7 @@ class ActivityCalendarBuilder:
             for current_date in _dates_inclusive(start_date, end_date)
         }
         try:
-            for event in events:
+            for event in self._preferred_activity_events(events):
                 activity = self._project_activity(event)
                 local_date = self._local_datetime(activity.start_time).date()
                 if local_date in activities_by_date:
@@ -157,7 +157,10 @@ class ActivityCalendarBuilder:
         return ActivityCalendar(start_date, end_date, self._timezone_name, days)
 
     def _project_activity(self, event: AthleteMemoryEvent) -> CalendarActivity:
-        if event.event_type is not AthleteMemoryEventType.WORKOUT_COMPLETED:
+        if event.event_type not in (
+            AthleteMemoryEventType.ACTIVITY_RECORDED,
+            AthleteMemoryEventType.WORKOUT_COMPLETED,
+        ):
             raise ValueError("Unsupported Athlete Memory event type")
         activity = event.payload["activity"]
         summary = event.payload.get("workout_summary", {})
@@ -175,6 +178,26 @@ class ActivityCalendarBuilder:
             completed=execution.get("completed"),
             status=feedback.get("status"),
         )
+
+    @staticmethod
+    def _preferred_activity_events(
+        events: list[AthleteMemoryEvent],
+    ) -> tuple[AthleteMemoryEvent, ...]:
+        by_source: dict[tuple[str, str], AthleteMemoryEvent] = {}
+        for event in events:
+            if event.event_type not in (
+                AthleteMemoryEventType.ACTIVITY_RECORDED,
+                AthleteMemoryEventType.WORKOUT_COMPLETED,
+            ):
+                continue
+            key = (event.source_type, event.source_key)
+            current = by_source.get(key)
+            if current is None or (
+                event.event_type is AthleteMemoryEventType.ACTIVITY_RECORDED
+                and current.event_type is AthleteMemoryEventType.WORKOUT_COMPLETED
+            ):
+                by_source[key] = event
+        return tuple(by_source.values())
 
     def _local_datetime(self, value: datetime) -> datetime:
         # Existing FIT ingestion persists naive timestamps as athlete-local wall

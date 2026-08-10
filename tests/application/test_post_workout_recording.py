@@ -10,10 +10,7 @@ from application.post_workout_recording import (
 )
 from athlete.memory.models import AthleteMemoryEvent, AthleteMemoryEventType, DateRange
 from athlete.memory.reader import AthleteMemoryReader
-from athlete.memory.repository import (
-    AthleteMemoryRepository,
-    DuplicateSourceIdentityError,
-)
+from athlete.memory.repository import AthleteMemoryRepository
 from athlete.memory.writer import AthleteMemoryWriter
 from core.database import Database
 from execution.result import ExecutionResult
@@ -260,7 +257,7 @@ def test_activity_does_not_receive_source_identity():
     assert not hasattr(build_activity(), "source_identity")
 
 
-def test_recording_service_rejects_a_duplicate_source_identity(tmp_path):
+def test_recording_service_deduplicates_within_workout_completed_type(tmp_path):
 
     db = Database(tmp_path / "athlete_memory.duckdb")
     AthleteMemorySchema(db).create()
@@ -273,9 +270,10 @@ def test_recording_service_rejects_a_duplicate_source_identity(tmp_path):
     activity = build_activity()
     source_identity = build_source_identity()
 
-    service.record(workout, activity, source_identity)
+    first = service.record(workout, activity, source_identity)
+    second = service.record(workout, activity, source_identity)
 
-    with pytest.raises(DuplicateSourceIdentityError):
-        service.record(workout, activity, source_identity)
+    assert second.event.event_id == first.event.event_id
+    assert len(repository.load_between(activity.start, activity.end)) == 1
 
     db.close()

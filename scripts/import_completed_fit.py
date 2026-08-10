@@ -10,7 +10,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from application.post_workout_recording import PostWorkoutRecordingService
-from athlete.memory.models import DateRange
+from athlete.memory.models import AthleteMemoryEventType, DateRange
 from athlete.memory.reader import AthleteMemoryReader
 from athlete.memory.repository import (
     AthleteMemoryRepository,
@@ -97,6 +97,17 @@ def import_completed_fit(
     try:
         AthleteMemorySchema(database).create()
         repository = AthleteMemoryRepository(database)
+        existing = repository.get_by_source_identity(
+            AthleteMemoryEventType.WORKOUT_COMPLETED,
+            source_identity.provider,
+            source_identity.external_id,
+        )
+        if existing is not None:
+            print(
+                "SKIPPED: already imported "
+                f"(source_key={source_identity.external_id})",
+            )
+            return None
         service = PostWorkoutRecordingService(
             PostWorkoutPipeline(),
             AthleteMemoryWriter(repository),

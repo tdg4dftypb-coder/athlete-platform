@@ -41,6 +41,7 @@ def activity_event(
     event_id,
     start,
     *,
+    event_type=AthleteMemoryEventType.WORKOUT_COMPLETED,
     duration=3600,
     distance=25000.0,
     tss=55.0,
@@ -53,7 +54,7 @@ def activity_event(
     return AthleteMemoryEvent(
         event_id=event_id,
         occurred_at=event_end,
-        event_type=AthleteMemoryEventType.WORKOUT_COMPLETED,
+        event_type=event_type,
         source_type="fit_file",
         source_key=f"source-{event_id}",
         schema_version=1,
@@ -148,6 +149,53 @@ def test_activities_are_grouped_across_multiple_days_with_stable_event_ids():
     assert calendar.days[1].activities == ()
     assert [activity.activity_id for activity in calendar.days[2].activities] == [
         "stable-2"
+    ]
+
+
+def test_calendar_reads_activity_recorded_facts_without_feedback():
+    event = activity_event(
+        "fact-event",
+        datetime(2026, 8, 2, 8, 0),
+        event_type=AthleteMemoryEventType.ACTIVITY_RECORDED,
+        status=None,
+    )
+
+    calendar = builder([event]).build(date(2026, 8, 2), date(2026, 8, 2))
+
+    activity = calendar.days[0].activities[0]
+    assert activity.activity_id == "fact-event"
+    assert activity.status is None
+
+
+@pytest.mark.parametrize("fact_first", [True, False])
+def test_activity_recorded_precedes_workout_completed_for_same_source_identity(
+    fact_first,
+):
+    workout_event = activity_event("workout", datetime(2026, 8, 2, 8, 0))
+    fact_event = activity_event(
+        "fact",
+        datetime(2026, 8, 2, 8, 0),
+        event_type=AthleteMemoryEventType.ACTIVITY_RECORDED,
+    )
+    fact_event = AthleteMemoryEvent(
+        event_id=fact_event.event_id,
+        occurred_at=fact_event.occurred_at,
+        event_type=fact_event.event_type,
+        source_type=workout_event.source_type,
+        source_key=workout_event.source_key,
+        schema_version=fact_event.schema_version,
+        payload=fact_event.payload,
+    )
+
+    events = (
+        [fact_event, workout_event]
+        if fact_first
+        else [workout_event, fact_event]
+    )
+    calendar = builder(events).build(date(2026, 8, 2), date(2026, 8, 2))
+
+    assert [activity.activity_id for activity in calendar.days[0].activities] == [
+        "fact"
     ]
 
 

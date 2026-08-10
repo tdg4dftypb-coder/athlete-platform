@@ -1,14 +1,29 @@
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from core.database import Database
 from training.analysis.workout_summary import WorkoutSummary
 
 
+@dataclass(frozen=True)
+class PersistedWorkoutRecord:
+    file_name: str
+    start_time: datetime
+    end_time: datetime
+    sport: str | None
+    duration: int | None
+    distance: float | None
+    calories: int | None
+    normalized_power: float | None
+    intensity_factor: float | None
+    tss: float | None
+
+
 class WorkoutRepository:
 
-    def __init__(self):
+    def __init__(self, db: Database | None = None):
 
-        self.db = Database()
+        self.db = db or Database()
 
     #
     # SAVE
@@ -158,6 +173,41 @@ class WorkoutRepository:
         ).fetchone()[0]
 
         return value > 0
+
+    def get_persisted_record(
+        self,
+        file_name: str,
+    ) -> PersistedWorkoutRecord | None:
+        row = self.db.connection.execute(
+            self._persisted_record_query() + " WHERE file_name = ?",
+            [file_name],
+        ).fetchone()
+        return self._persisted_record(row) if row is not None else None
+
+    def persisted_records_between(
+        self,
+        start: datetime,
+        end: datetime,
+    ) -> tuple[PersistedWorkoutRecord, ...]:
+        rows = self.db.connection.execute(
+            self._persisted_record_query()
+            + " WHERE start_time >= ? AND start_time < ? ORDER BY start_time, file_name",
+            [start, end],
+        ).fetchall()
+        return tuple(self._persisted_record(row) for row in rows)
+
+    @staticmethod
+    def _persisted_record_query() -> str:
+        return """
+            SELECT
+                file_name, start_time, end_time, sport, duration, distance,
+                calories, normalized_power, intensity_factor, tss
+            FROM workouts
+        """
+
+    @staticmethod
+    def _persisted_record(row) -> PersistedWorkoutRecord:
+        return PersistedWorkoutRecord(*row)
 
     #
     # DELETE

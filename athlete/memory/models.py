@@ -5,6 +5,7 @@ from typing import Any
 
 
 class AthleteMemoryEventType(Enum):
+    ACTIVITY_RECORDED = "activity_recorded"
     WORKOUT_COMPLETED = "workout_completed"
 
 

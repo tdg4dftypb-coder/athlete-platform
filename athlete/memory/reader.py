@@ -27,19 +27,23 @@ class AthleteMemoryReader:
     ) -> AthleteMemorySnapshot:
 
         events = self.repository.load_between(period.start, period.end)
+        for event in events:
+            if not isinstance(event.event_type, AthleteMemoryEventType):
+                raise ValueError(
+                    f"Unsupported athlete memory event type: {event.event_type}"
+                )
         events_in_period = sorted(
             (
                 event
                 for event in events
-                if period.start <= event.occurred_at < period.end
+                if event.event_type is AthleteMemoryEventType.WORKOUT_COMPLETED
+                and period.start <= event.occurred_at < period.end
             ),
             key=lambda event: event.occurred_at,
         )
 
         observations = []
         for event in events_in_period:
-            if event.event_type != AthleteMemoryEventType.WORKOUT_COMPLETED:
-                raise ValueError(f"Unsupported athlete memory event type: {event.event_type}")
             if event.schema_version != self.SCHEMA_VERSION:
                 raise ValueError(
                     f"Unsupported athlete memory schema version: {event.schema_version}"

@@ -32,10 +32,13 @@ class AthleteMemorySchema:
                 "DROP INDEX IF EXISTS athlete_memory_events_source_key_unique"
             )
             self.db.connection.execute(
+                "DROP INDEX IF EXISTS athlete_memory_events_source_identity_unique"
+            )
+            self.db.connection.execute(
                 """
                 CREATE UNIQUE INDEX IF NOT EXISTS
-                athlete_memory_events_source_identity_unique
-                ON athlete_memory_events (source_type, source_key)
+                athlete_memory_events_event_source_identity_unique
+                ON athlete_memory_events (event_type, source_type, source_key)
                 """
             )
         except Exception:

@@ -4,7 +4,10 @@ from athlete.memory.models import (
     AthleteMemoryEvent,
     AthleteMemoryEventType,
 )
-from athlete.memory.repository import AthleteMemoryRepository
+from athlete.memory.repository import (
+    AthleteMemoryRepository,
+    DuplicateSourceIdentityError,
+)
 from athlete.memory.serializer import WorkoutCompletedSerializer
 from pipeline.models import PostWorkoutResult
 from training.ingestion.source_identity import SourceIdentity
@@ -27,6 +30,14 @@ class AthleteMemoryWriter:
         source_identity: SourceIdentity,
     ) -> AthleteMemoryEvent:
 
+        existing = self.repository.get_by_source_identity(
+            AthleteMemoryEventType.WORKOUT_COMPLETED,
+            source_identity.provider,
+            source_identity.external_id,
+        )
+        if existing is not None:
+            return existing
+
         event = AthleteMemoryEvent(
             event_id=str(uuid4()),
             occurred_at=result.activity.end,
@@ -37,6 +48,16 @@ class AthleteMemoryWriter:
             payload=self.serializer.serialize(result),
         )
 
-        self.repository.append(event)
+        try:
+            self.repository.append(event)
+        except DuplicateSourceIdentityError:
+            existing = self.repository.get_by_source_identity(
+                AthleteMemoryEventType.WORKOUT_COMPLETED,
+                source_identity.provider,
+                source_identity.external_id,
+            )
+            if existing is None:
+                raise
+            return existing
 
         return event

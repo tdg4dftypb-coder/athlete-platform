@@ -3,9 +3,9 @@ from core.database import Database
 
 class TrainingSchema:
 
-    def __init__(self):
+    def __init__(self, db: Database | None = None):
 
-        self.db = Database()
+        self.db = db or Database()
 
     def create(self):
 

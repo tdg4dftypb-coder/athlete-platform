@@ -55,7 +55,10 @@ chronological.
 
 ## Sources and local-day semantics
 
-- Completed activities come from `WORKOUT_COMPLETED` Athlete Memory events.
+- Completed activities primarily come from factual `ACTIVITY_RECORDED` Athlete
+  Memory events. Existing `WORKOUT_COMPLETED` events remain supported for
+  backward compatibility. When both projections carry the same source identity,
+  `ACTIVITY_RECORDED` takes deterministic precedence.
   `activity_id` is the existing immutable event `event_id`, suitable for a future
   Activity Detail lookup contract.
 - Planned sessions come from the newest persisted `TrainingPlan` applicable to
@@ -66,6 +69,10 @@ chronological.
 - The persistence query is bounded to the requested interval plus one preceding
   and one following day because Athlete Memory indexes workout completion time
   while calendar grouping uses persisted activity start time.
+
+Historical FIT timestamps in the legacy `workouts` table are naive UTC values.
+The explicit backfill emits them with `+00:00`; the calendar then applies the
+configured athlete timezone exactly as it does for any offset-aware activity.
 
 There is not yet a public Activity Detail endpoint. Clients may persist and pass
 `activity_id`, but should not construct a detail URL until that contract exists.

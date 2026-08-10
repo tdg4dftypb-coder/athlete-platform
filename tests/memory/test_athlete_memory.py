@@ -4,6 +4,10 @@ from datetime import datetime, timedelta
 import duckdb
 import pytest
 
+from athlete.memory.activity_recorded import (
+    ActivityRecordedWriter,
+    RecordedActivityFacts,
+)
 from athlete.memory.history import AthleteMemoryHistoryAdapter
 from athlete.memory.models import (
     AthleteMemoryEvent,
@@ -413,7 +417,7 @@ def test_schema_migrates_legacy_source_key_index_without_losing_events(tmp_path)
         ).fetchall()
     }
     assert "athlete_memory_events_source_key_unique" not in index_names
-    assert "athlete_memory_events_source_identity_unique" in index_names
+    assert "athlete_memory_events_event_source_identity_unique" in index_names
 
     db.close()
 
@@ -473,8 +477,68 @@ def test_schema_rolls_back_the_legacy_index_when_new_index_creation_fails(tmp_pa
         ).fetchall()
     }
     assert "athlete_memory_events_source_key_unique" in index_names
-    assert "athlete_memory_events_source_identity_unique" not in index_names
+    assert "athlete_memory_events_event_source_identity_unique" not in index_names
 
+    db.close()
+
+
+def test_schema_migrates_global_source_identity_index_to_event_scoped(tmp_path):
+    db = Database(tmp_path / "athlete_memory.duckdb")
+    db.connection.execute(
+        """
+        CREATE TABLE athlete_memory_events (
+            event_id VARCHAR PRIMARY KEY,
+            occurred_at TIMESTAMP NOT NULL,
+            event_type VARCHAR NOT NULL,
+            source_type VARCHAR NOT NULL,
+            source_key VARCHAR NOT NULL,
+            schema_version INTEGER NOT NULL,
+            payload_json VARCHAR NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    db.connection.execute(
+        """
+        CREATE UNIQUE INDEX athlete_memory_events_source_identity_unique
+        ON athlete_memory_events (source_type, source_key)
+        """
+    )
+    db.connection.execute(
+        """
+        INSERT INTO athlete_memory_events
+        (event_id, occurred_at, event_type, source_type, source_key, schema_version, payload_json)
+        VALUES ('rich-event', '2026-07-30 09:00:00', 'workout_completed', 'fit_file', 'sha256:same', 1, '{}')
+        """
+    )
+
+    AthleteMemorySchema(db).create()
+    repository = AthleteMemoryRepository(db)
+    repository.append(
+        AthleteMemoryEvent(
+            event_id="fact-event",
+            occurred_at=datetime(2026, 7, 30, 9, 0),
+            event_type=AthleteMemoryEventType.ACTIVITY_RECORDED,
+            source_type="fit_file",
+            source_key="sha256:same",
+            schema_version=1,
+            payload={},
+        )
+    )
+
+    events = repository.load_between(
+        datetime(2026, 7, 30, 9, 0),
+        datetime(2026, 7, 30, 9, 0),
+    )
+    assert len(events) == 2
+    index_names = {
+        row[0]
+        for row in db.connection.execute(
+            "SELECT index_name FROM duckdb_indexes()"
+        ).fetchall()
+    }
+    assert "athlete_memory_events_source_identity_unique" not in index_names
+    assert "athlete_memory_events_event_source_identity_unique" in index_names
     db.close()
 
 
@@ -528,6 +592,67 @@ def test_writer_persists_workout_completed_and_builds_history(tmp_path):
     assert history.events[0].title == "Threshold Test"
     assert history.events[0].payload == event.payload
 
+    db.close()
+
+
+def test_workout_completed_writer_is_idempotent(tmp_path):
+    db, repository = build_repository(tmp_path)
+    result = build_post_workout_result()
+    identity = SourceIdentity("fit_file", "sha256:rich")
+    writer = AthleteMemoryWriter(repository)
+
+    first = writer.write(result, identity)
+    second = writer.write(result, identity)
+
+    assert second.event_id == first.event_id
+    assert repository.load_between(
+        result.activity.start,
+        result.activity.end,
+    ) == [first]
+    db.close()
+
+
+@pytest.mark.parametrize("fact_first", [True, False])
+def test_factual_and_rich_writers_coexist_for_same_fit_identity(
+    tmp_path,
+    fact_first,
+):
+    db, repository = build_repository(tmp_path)
+    result = build_post_workout_result()
+    identity = SourceIdentity("fit_file", "sha256:shared")
+    facts = RecordedActivityFacts(
+        start=result.activity.start,
+        end=result.activity.end,
+        sport=result.activity.sport,
+        duration=result.activity.duration,
+        distance=result.activity.distance,
+        calories=result.activity.calories,
+        tss=result.workout_summary.tss,
+        normalized_power=result.workout_summary.normalized_power,
+        intensity_factor=result.workout_summary.intensity_factor,
+    )
+    writes = (
+        (
+            lambda: ActivityRecordedWriter(repository).write(facts, identity).event,
+            lambda: AthleteMemoryWriter(repository).write(result, identity),
+        )
+        if fact_first
+        else (
+            lambda: AthleteMemoryWriter(repository).write(result, identity),
+            lambda: ActivityRecordedWriter(repository).write(facts, identity).event,
+        )
+    )
+
+    first = writes[0]()
+    second = writes[1]()
+    events = repository.load_between(result.activity.start, result.activity.end)
+
+    assert first.event_type is not second.event_type
+    assert {event.event_type for event in events} == {
+        AthleteMemoryEventType.ACTIVITY_RECORDED,
+        AthleteMemoryEventType.WORKOUT_COMPLETED,
+    }
+    assert len(events) == 2
     db.close()
 
 
