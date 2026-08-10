@@ -3,6 +3,8 @@ import re
 import sys
 import json
 from typing import Callable, Optional, Union
+from datetime import date
+from urllib.parse import parse_qs
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -10,6 +12,12 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from application.composition import build_morning_coach_use_case
+from activity_calendar.read_model import (
+    ActivityCalendarBuilder,
+    ActivityCalendarProviderError,
+    RepositoryCalendarPlannedSessionProvider,
+)
+from activity_calendar.serialization import ActivityCalendarSerializer
 from biomarkers.composition import (
     BiomarkersApplicationContext,
     build_biomarkers_dashboard_use_case,
@@ -89,6 +97,16 @@ class EmptyPrescriptionHistoryProvider(PrescriptionHistoryProvider):
         return FinalSessionPrescriptionHistory(records=())
 
 
+class EmptyActivityEventProvider:
+    def load_between(self, start, end):
+        return []
+
+
+class EmptyPlannedSessionProvider:
+    def get_planned_session(self, target_date):
+        return None
+
+
 def create_dashboard_wsgi_app(
     biomarkers_context: Optional[BiomarkersApplicationContext] = None,
     morning_briefing_provider: Optional[MorningBriefingInputProvider] = None,
@@ -97,6 +115,7 @@ def create_dashboard_wsgi_app(
     decision_history_provider: Optional[DecisionHistoryProvider] = None,
     training_plan_history_provider: Optional[TrainingPlanHistoryProvider] = None,
     prescription_history_provider: Optional[PrescriptionHistoryProvider] = None,
+    activity_calendar_builder: Optional[ActivityCalendarBuilder] = None,
 ) -> Callable[[dict, Callable], list[bytes]]:
 
     """
@@ -143,6 +162,12 @@ def create_dashboard_wsgi_app(
     _rx_serializer = FinalSessionPrescriptionSerializer()
     _rx_history_serializer = FinalSessionPrescriptionHistorySerializer()
 
+    _calendar_builder = activity_calendar_builder or ActivityCalendarBuilder(
+        activity_provider=EmptyActivityEventProvider(),
+        planned_session_provider=EmptyPlannedSessionProvider(),
+    )
+    _calendar_serializer = ActivityCalendarSerializer()
+
 
 
 
@@ -151,6 +176,43 @@ def create_dashboard_wsgi_app(
     def wsgi_app(environ: dict, start_response: Callable) -> list[bytes]:
         path_info = environ.get("PATH_INFO", "")
         request_method = environ.get("REQUEST_METHOD", "GET")
+
+        # Canonical bounded month/day history projection.
+        if path_info == "/api/v1/activity-calendar" and request_method == "GET":
+            try:
+                query = parse_qs(environ.get("QUERY_STRING", ""))
+                start_values = query.get("start_date", [])
+                end_values = query.get("end_date", [])
+                if len(start_values) != 1 or len(end_values) != 1:
+                    raise ValueError(
+                        "start_date and end_date are required exactly once"
+                    )
+                start_date = date.fromisoformat(start_values[0])
+                end_date = date.fromisoformat(end_values[0])
+                calendar = _calendar_builder.build(start_date, end_date)
+                payload = _calendar_serializer.serialize(calendar)
+                status = "200 OK"
+            except (ValueError, TypeError) as error:
+                status = "400 Bad Request"
+                payload = {"error": str(error)}
+            except ActivityCalendarProviderError:
+                status = "503 Service Unavailable"
+                payload = {
+                    "error": "Activity Calendar data source is temporarily unavailable."
+                }
+            except Exception:
+                status = "500 Internal Server Error"
+                payload = {"error": "Internal server error fetching Activity Calendar."}
+
+            response_body = json.dumps(
+                payload, indent=2, ensure_ascii=False
+            ).encode("utf-8")
+            headers = [
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Content-Length", str(len(response_body))),
+            ]
+            start_response(status, headers)
+            return [response_body]
 
         # 1. Route: GET /api/v1/dashboard
         if path_info == "/api/v1/dashboard" and request_method == "GET":
@@ -628,6 +690,7 @@ def create_production_dashboard_wsgi_app(
     from decision.persistence.paths import get_default_decisions_db_path
     from decision.repository_audit_provider import RepositoryDecisionAuditRecordProvider
     from decision.repository_history_provider import RepositoryDecisionHistoryProvider
+    from athlete.memory.repository import AthleteMemoryRepository
     from morning_briefing.production_provider import ProductionMorningBriefingInputProvider
     from repositories.health_repository import HealthRepository
     from training_plan.history import (
@@ -673,6 +736,10 @@ def create_production_dashboard_wsgi_app(
     rx_repo = DuckDbFinalSessionPrescriptionRepository(db_path=str(target_tp_path))
     tp_history_provider = RepositoryTrainingPlanHistoryProvider(repository=tp_repo)
     rx_history_provider = RepositoryPrescriptionHistoryProvider(repository=rx_repo)
+    calendar_builder = ActivityCalendarBuilder(
+        activity_provider=AthleteMemoryRepository(db),
+        planned_session_provider=RepositoryCalendarPlannedSessionProvider(tp_repo),
+    )
 
     return create_dashboard_wsgi_app(
         biomarkers_context=bio_context,
@@ -681,6 +748,7 @@ def create_production_dashboard_wsgi_app(
         decision_history_provider=history_provider,
         training_plan_history_provider=tp_history_provider,
         prescription_history_provider=rx_history_provider,
+        activity_calendar_builder=calendar_builder,
     )
 
 
