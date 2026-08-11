@@ -1,16 +1,15 @@
 from pathlib import Path
 
-from application.activity_fact_backfill import recorded_activity_facts_from_persisted
+from application.standard_fit_ingestion import (
+    StandardActivityFactSynchronizationService,
+    StandardFitWorkoutIngestionService,
+)
 from athlete.memory.activity_recorded import ActivityRecordedWriter
 from athlete.memory.repository import AthleteMemoryRepository
 from core.database import Database
 from repositories.workout_repository import WorkoutRepository
 from schema.athlete_memory_schema import AthleteMemorySchema
 from schema.training_schema import TrainingSchema
-from training.factories.activity_factory import ActivityFactory
-from training.ingestion.fit_file_source_identity import FitFileSourceIdentity
-from training.parsers.fit_parser import FitParser
-from training.analysis.workout_analyzer import WorkoutAnalyzer
 
 
 WORKOUTS = Path(
@@ -27,15 +26,12 @@ def import_workouts(
     TrainingSchema(database).create()
     AthleteMemorySchema(database).create()
 
-    parser = FitParser()
-
-    factory = ActivityFactory()
-
-    analyzer = WorkoutAnalyzer()
-
     repository = WorkoutRepository(database)
-    event_writer = ActivityRecordedWriter(AthleteMemoryRepository(database))
-    identity_factory = FitFileSourceIdentity()
+    ingestion = StandardFitWorkoutIngestionService(repository)
+    fact_synchronization = StandardActivityFactSynchronizationService(
+        repository,
+        ActivityRecordedWriter(AthleteMemoryRepository(database)),
+    )
 
     files = sorted(
         workouts_directory.glob("*.fit")
@@ -54,29 +50,15 @@ def import_workouts(
     try:
         for file in files:
 
-            if repository.exists(file.name):
+            ingestion_result = ingestion.ingest(file)
+            if not ingestion_result.persisted:
                 print(f"• {file.name} (analyzed facts exist)")
             else:
-                parsed_activity = parser.parse(str(file))
-                activity = factory.create(parsed_activity)
-                workout = analyzer.analyze(activity)
-                repository.save(
-                    file_name=file.name,
-                    workout=workout,
-                )
                 imported += 1
                 print(f"✓ {file.name}")
 
-            record = repository.get_persisted_record(file.name)
-            if record is None:
-                raise RuntimeError(
-                    f"Persisted workout '{file.name}' could not be read after import"
-                )
-            result = event_writer.write(
-                recorded_activity_facts_from_persisted(record),
-                identity_factory.create(file),
-            )
-            if result.created:
+            sync_result = fact_synchronization.synchronize(file)
+            if sync_result.created:
                 factual_created += 1
             else:
                 factual_existing += 1

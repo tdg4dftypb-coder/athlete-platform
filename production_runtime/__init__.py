@@ -23,6 +23,12 @@ from production_runtime.repository import (
     RuntimeAuditRepository,
     RuntimeAuditRepositoryError,
 )
+from production_runtime.ingestion_slice import (
+    FitArtifactDiscovery,
+    FitSourceUnavailableError,
+    IngestionRuntimeSlice,
+    RuntimeAttemptNotResumableError,
+)
 
 __all__ = [
     "RUNTIME_CONTRACT_VERSION",
@@ -33,6 +39,10 @@ __all__ = [
     "RuntimeAuditRepository",
     "RuntimeAuditRepositoryError",
     "RuntimeClock",
+    "FitArtifactDiscovery",
+    "FitSourceUnavailableError",
+    "IngestionRuntimeSlice",
+    "RuntimeAttemptNotResumableError",
     "RuntimeFailure",
     "RuntimePhase",
     "RuntimePhaseResult",

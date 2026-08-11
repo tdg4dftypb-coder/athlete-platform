@@ -1,8 +1,8 @@
 # Production Runtime and Reliability Contract
 
-Status: Stage 27.2 operational contract and audit persistence, 2026-08-11.
-Stage 27.1 established the baseline topology; Stage 27.2 implements the
-foundation described below. The production coordinator remains unimplemented.
+Status: Stage 27.3 idempotent ingestion and activity-fact synchronization,
+2026-08-11. Stage 27.1 established the topology and Stage 27.2 implemented the
+audit foundation. The full production coordinator remains unimplemented.
 
 ## Conclusion and current topology
 
@@ -293,14 +293,109 @@ is a fresh table/database, so no synthetic migration framework was introduced.
 Minimal production composition constructs only the audit repository; it does
 not construct or call a runtime coordinator.
 
+## Implemented ingestion runtime slice (27.3)
+
+`IngestionRuntimeSlice` is deliberately not named `ProductionDailyRuntime`.
+It runs exactly two existing application boundaries:
+
+```text
+FitArtifactDiscovery
+  -> StandardFitWorkoutIngestionService
+       -> WorkoutRepository (`workouts`)
+  -> audit revision: INGESTION
+  -> StandardActivityFactSynchronizationService
+       -> ActivityRecordedWriter (`ACTIVITY_RECORDED`)
+  -> audit revision: ACTIVITY_FACT_SYNCHRONIZATION
+```
+
+The former standard importer physically coupled these operations in one loop.
+The parsing, activity construction, workout analysis, persisted-record
+projection, SHA-256 source identity, and canonical event writer remain the
+authoritative implementations. Stage 27.3 only extracts one-artifact
+application services so an audit boundary can exist between them. The legacy
+`scripts.imports.import_workouts` command calls both services in the same order
+and retains its public `(imported, facts_created, facts_existing)` result.
+
+The ingestion phase scans sorted top-level `*.fit` artifacts. A workout row
+whose file-name key already exists is a successful no-op and is not parsed or
+recalculated. New artifacts use `FitParser -> ActivityFactory ->
+WorkoutAnalyzer -> WorkoutRepository` unchanged. `activities_discovered` is the
+actual scan count, phase `item_count` is newly persisted workouts, and phase
+artifact IDs are successfully handled persisted workout keys (file names).
+Malformed artifacts receive stable `invalid_activity_artifact` warnings; valid
+artifacts in the same scan continue.
+
+The fact phase processes only artifact IDs successfully established by the
+persisted INGESTION phase. It reads the persisted workout row and calls
+`ActivityRecordedWriter` with `FitFileSourceIdentity`. Thus the normal importer
+continues to use `source_type=fit_file` and `source_key=sha256:<content digest>`.
+An identical event-scoped source identity is a successful no-op. A missing fact
+is repaired; `WORKOUT_COMPLETED`, plan, execution, and feedback state are never
+created. Historical backfill remains separate maintenance tooling.
+
+### Attempts, revisions, and recovery
+
+A new call explicitly supplies `target_local_date`, creates a new `runtime_id`,
+and produces the following normal audit chain:
+
+1. revision 1: `RUNNING`, before phase work;
+2. revision 2: `RUNNING`, immutable INGESTION result and directory watermark;
+3. revision 3: `PARTIAL`, immutable fact-synchronization result and counters.
+
+`PARTIAL` is intentional even when both phases succeed because assessment,
+Decision, plan/prescription, briefing, and publication have not run. The
+meaning of whole-runtime `COMPLETED` is unchanged.
+
+`resume_attempt(runtime_id)` is an explicit same-attempt operation and is only
+allowed for `RUNNING`. If revision 1 survived after domain writes, idempotent
+ingestion repairs/audits the phase. If revision 2 exists, its immutable artifact
+IDs drive fact synchronization without rerunning ingestion or admitting new
+files into that snapshot. A process restart after terminal `PARTIAL` creates a
+new physical attempt sharing the same logical execution key; terminal history
+is not mutated. Audit CAS conflicts propagate, leaving the last durable revision
+available for explicit resume.
+
+Malformed inputs yield `PARTIAL` when valid work can still be synchronized.
+Source discovery failure or a persistence failure before a durable phase yields
+`FAILED`. Failure after INGESTION yields `PARTIAL` and preserves that phase.
+Stable codes are `source_unavailable`, `invalid_activity_artifact`,
+`persistence_unavailable`, and `phase_interrupted`. Details are bounded to 200
+characters and contain no traceback. Generic DuckDB retry/backoff is not
+implemented.
+
+### Composition, ownership, and watermarks
+
+`production_runtime.paths` anchors the health database at repository root and
+accepts `HEALTH_DB_PATH`; FIT source accepts an explicit path or
+`FIT_ACTIVITY_SOURCE_PATH`, with a user-home Zwift default kept only in
+infrastructure composition. No application/domain service contains the old
+absolute machine path. `ProductionIngestionRuntimeSliceContainer` exclusively
+owns one injected health `Database`, initializes the two existing schemas,
+constructs both repositories/services, and closes the connection on success or
+failure. Tests inject temporary health, audit, and FIT paths.
+
+Two real watermarks are recorded: a hash of sorted FIT file name/size/mtime-ns
+metadata at discovery, and a hash of the successfully synchronized canonical
+FIT source-identity set. These are snapshot summaries, not a fabricated “last
+file” cursor. No persisted-workout watermark is claimed because the current
+repository exposes no stable change sequence.
+
+This slice populates only `activities_discovered`, `activity_facts_created`,
+and `activities_already_present`. Reconciliation count and Decision, plan, and
+prescription IDs remain `None`; Morning Briefing availability remains false.
+No new CLI was added: the existing importer remains the operational command,
+while a second partial-runtime CLI would invite accidental scheduling before
+the coordinator exists.
+
 ## Stage 27 migration plan
 
 1. Sprint 27.2: completed — immutable operational models/enums, append-only
    audit revisions, dedicated DuckDB adapter/path, clock/date boundary, codec,
    minimal composition, and contract/persistence tests.
-2. Sprint 27.3: extract shared path/resource composition; wrap standard FIT
-   discovery/import and canonical synchronization as an idempotent phase. Keep
-   historical backfill separate.
+2. Sprint 27.3: completed — shared health/FIT path and owned-resource
+   composition, extracted authoritative standard import services, audited
+   INGESTION and ACTIVITY_FACT_SYNCHRONIZATION phases, explicit resume, bounded
+   failures, real watermarks, and end-to-end idempotency.
 3. Sprint 27.4: compose assessment, existing daily Decision, prescription, and
    persisted or snapshot-addressable Briefing; add resume and typed optional/
    transient outcomes.
