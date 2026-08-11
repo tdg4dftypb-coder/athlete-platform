@@ -166,15 +166,15 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 - **Runtime Contract & Audit Persistence (27.2):** zaimplementowano dedykowany bounded package `production_runtime/`, zamrożony kontrakt próby runtime w wersji `1.0`, jawne statusy i fazy, operacyjne warning/failure, generyczne source watermarks, zegar UTC i pojedynczą granicę wyznaczania daty Europe/Warsaw. Dedykowany `production_runtime.duckdb` przechowuje append-only rewizje wielu prób dla jednego dnia z CAS, idempotentnym no-op identycznej rewizji, konfliktami payloadu oraz pełną rekonstrukcją kontraktu. Nie zaimplementowano jeszcze koordynatora ani wykonywania faz.
 - **Idempotent Ingestion & Activity Fact Synchronization (27.3):** wyodrębniono bez duplikowania logiki istniejące standardowe operacje FIT do aplikacyjnych serwisów zapisu `workouts` i naprawy `ACTIVITY_RECORDED`, dodano kanoniczne ścieżki health/FIT oraz jednoznaczny ownership połączenia. Ograniczony `IngestionRuntimeSlice` zapisuje RUNNING przed pracą, osobną rewizję INGESTION i terminalną rewizję PARTIAL po synchronizacji faktów, obsługuje jawny resume po `runtime_id`, zachowuje SHA-256 `fit_file` identity, raportuje rzeczywiste liczniki/watermarks i klasyfikuje ograniczone awarie. Pełny runtime pozostaje niezaimplementowany; Stage 27 = 50%.
 - **Runtime State, Health & Diagnostics (27.4):** dodano wyłącznie odczytowy `RuntimeOperationalStatusReader` i operator-friendly snapshot bez kopiowania kontraktu persistence, klasyfikacje health/stale/resumability, kanonicznie uporządkowane diagnostyki faz z uczciwym `NOT RUN`, ostatni trwały postęp oraz wszystkie istniejące warnings, failures, watermarks, counters i references. Repozytorium audytu otrzymało jawny tryb DuckDB `read_only`, a `python -m scripts.runtime_status` obsługuje latest/date/all-attempts/runtime-id bez tworzenia bazy lub rewizji. HTTP został świadomie odroczony; Stage 27 = 65%.
-- **Authoritative Daily Runtime Coordinator (27.5):** wdrożono cienki `ProductionDailyRuntime` z ośmioma adapterami faz, rewizją po każdej trwałej granicy, ścisłym inwariantem COMPLETED i ograniczonym resume. Assessment, Decision i dowód Morning Briefing współdzielą jeden zamrożony snapshot; publikacja wyłącznie waliduje repozytoria. Brak planu jest stabilnym błędem, reconciliation nie interpretuje faktów jako wykonania, a nowy CLI pozostaje kandydatem. Scheduler i LaunchAgent nie zostały przełączone; Stage 27 = 85%.
+- **Authoritative Daily Runtime Coordinator (27.5):** wdrożono cienki `ProductionDailyRuntime` z ośmioma adapterami faz, rewizją po każdej trwałej granicy, ścisłym inwariantem COMPLETED i ograniczonym resume. Assessment, Decision i dowód Morning Briefing współdzielą jeden zamrożony snapshot; publikacja wyłącznie waliduje repozytoria. Brak planu jest stabilnym błędem, reconciliation nie interpretuje faktów jako wykonania, a nowy CLI pozostaje kandydatem. Scheduler i LaunchAgent nie zostały przełączone; Stage 27 = 80%.
+- **Persistent Assessment Snapshot & Recovery Certification (27.6):** minimalny `MorningBriefingInput` używany przez runtime jest utrwalany append-only w `production_runtime.duckdb` jako `assessment:sha256:<digest>`, z kanonicznym kodekiem, kontrolą integralności i idempotentnym odtworzeniem providera. Resume obejmuje wszystkie późne granice faz, publikacja weryfikuje snapshot, a izolowane fixtures certyfikują pełny cykl, brak duplikatów i missing-plan. Scheduler pozostaje bez zmian; Stage 27 = 90%.
 
 ## Planned
 
 ### Stage 27 — Production Runtime & Reliability
 
-- certyfikacja operacyjna kandydata i trwały artefakt snapshotu assessment dla
-  recovery po granicy ASSESSMENT;
-- migracja CLI i LaunchAgent dopiero po certyfikacji oraz okresie kompatybilności.
+- Sprint 27.7: decyzja o cutover CLI/LaunchAgent, okno kompatybilności,
+  certyfikacja operacyjna i końcowe zamknięcie Stage 27.
 
 
 Poniższe obszary są udokumentowanym kierunkiem, ale nie są obecnie zaimplementowanymi modułami:

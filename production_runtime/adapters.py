@@ -9,6 +9,15 @@ from typing import Callable
 from morning_briefing.builder import MorningBriefingBuilder
 from morning_briefing.provider import MorningBriefingInputProvider
 from morning_briefing.serialization import MorningBriefingSerializer
+from production_runtime.assessment_snapshot import (
+    AssessmentSnapshot,
+    AssessmentSnapshotCodec,
+    AssessmentSnapshotConflictError,
+    AssessmentSnapshotIntegrityError,
+    AssessmentSnapshotMissingError,
+    AssessmentSnapshotRepository,
+    AssessmentSnapshotUnavailableError,
+)
 from production_runtime.coordinator import (
     RECONCILIATION_NOT_APPLICABLE,
     RuntimePhaseContext,
@@ -58,13 +67,88 @@ class FrozenMorningBriefingInputProvider:
         return self._value
 
 
+class PersistedAssessmentSnapshotProvider:
+    """Attempt-bound provider that computes once or restores exact persisted input."""
+
+    def __init__(self, delegate, repository: AssessmentSnapshotRepository, clock) -> None:
+        self._delegate = delegate
+        self._repository = repository
+        self._clock = clock
+        self._context = None
+        self._snapshot = None
+
+    def bind(self, context: RuntimePhaseContext) -> None:
+        if self._context is not None and self._context.result.runtime_id != context.result.runtime_id:
+            self._snapshot = None
+        self._context = context
+        try:
+            existing = self._repository.get_by_runtime_id(context.result.runtime_id)
+            assessment = next(
+                (p for p in context.result.phases if p.phase.value == "assessment"), None
+            )
+            if assessment is not None:
+                if len(assessment.artifact_ids) != 1:
+                    raise AssessmentSnapshotIntegrityError("assessment audit reference is malformed")
+                if existing is None:
+                    raise AssessmentSnapshotMissingError("assessment snapshot is missing")
+                if existing.artifact_id != assessment.artifact_ids[0]:
+                    raise AssessmentSnapshotIntegrityError("assessment audit artifact mismatch")
+            if existing is not None:
+                if existing.target_local_date != context.target_local_date:
+                    raise AssessmentSnapshotIntegrityError("assessment snapshot target date mismatch")
+                self._snapshot = existing
+        except Exception as error:
+            self._translate(error)
+
+    def get_snapshot(self) -> AssessmentSnapshot:
+        if self._context is None:
+            raise RuntimePhaseError("assessment_snapshot_unavailable", "provider is not attempt-bound")
+        if self._snapshot is not None:
+            return self._snapshot
+        try:
+            value = self._delegate.get_input()
+            snapshot = AssessmentSnapshot(
+                runtime_id=self._context.result.runtime_id,
+                target_local_date=self._context.target_local_date,
+                created_at_utc=self._clock.now_utc(),
+                input=value,
+                artifact_id=AssessmentSnapshotCodec.artifact_id_for(value),
+            )
+            self._repository.save(snapshot)
+            self._snapshot = snapshot
+            return snapshot
+        except Exception as error:
+            self._translate(error)
+
+    def get_input(self):
+        return self.get_snapshot().input
+
+    @staticmethod
+    def _translate(error):
+        if isinstance(error, RuntimePhaseError):
+            raise error
+        if isinstance(error, AssessmentSnapshotMissingError):
+            raise RuntimePhaseError("assessment_snapshot_missing", str(error)) from error
+        if isinstance(error, AssessmentSnapshotConflictError):
+            raise RuntimePhaseError("assessment_snapshot_conflict", str(error)) from error
+        if isinstance(error, AssessmentSnapshotIntegrityError):
+            raise RuntimePhaseError("assessment_snapshot_corrupt", str(error)) from error
+        if isinstance(error, AssessmentSnapshotUnavailableError):
+            raise RuntimePhaseError("assessment_snapshot_unavailable", str(error)) from error
+        raise error
+
+
 class AssessmentSnapshotAdapter:
     """Freezes the canonical Morning Coach projection without persisting coaching state."""
 
-    def __init__(self, provider: FrozenMorningBriefingInputProvider) -> None:
+    def __init__(self, provider) -> None:
         self._provider = provider
 
     def execute(self, context: RuntimePhaseContext) -> RuntimePhaseOutcome:
+        if hasattr(self._provider, "bind"):
+            self._provider.bind(context)
+            snapshot = self._provider.get_snapshot()
+            return RuntimePhaseOutcome(artifact_ids=(snapshot.artifact_id,))
         snapshot = self._provider.get_input()
         snapshot_id = f"assessment:{sha256(snapshot.generated_at.isoformat().encode()).hexdigest()}"
         return RuntimePhaseOutcome(artifact_ids=(snapshot_id,))
@@ -79,6 +163,8 @@ class MorningBriefingProofAdapter:
         self._serializer = MorningBriefingSerializer()
 
     def execute(self, context: RuntimePhaseContext) -> RuntimePhaseOutcome:
+        if hasattr(self._provider, "bind"):
+            self._provider.bind(context)
         briefing = self._builder.build(self._provider.get_input())
         payload = json.dumps(
             self._serializer.serialize(briefing), sort_keys=True, separators=(",", ":")
@@ -98,13 +184,24 @@ class PublicationValidationAdapter:
         decision_exists: Callable[[str], bool],
         plan_exists: Callable[[str], bool],
         prescription_exists: Callable[[str], bool],
+        assessment_resolves: Callable[[str, str, object], bool] | None = None,
     ) -> None:
         self._decision_exists = decision_exists
         self._plan_exists = plan_exists
         self._prescription_exists = prescription_exists
+        self._assessment_resolves = assessment_resolves
 
     def execute(self, context: RuntimePhaseContext) -> RuntimePhaseOutcome:
         result = context.result
+        if self._assessment_resolves is not None:
+            assessment_phases = [p for p in result.phases if p.phase.value == "assessment"]
+            if not assessment_phases or len(assessment_phases[0].artifact_ids) != 1:
+                raise RuntimePhaseError("assessment_snapshot_missing")
+            assessment_id = assessment_phases[0].artifact_ids[0]
+            if not self._assessment_resolves(
+                result.runtime_id, assessment_id, result.target_local_date
+            ):
+                raise RuntimePhaseError("assessment_snapshot_corrupt")
         checks = (
             (result.decision_id, self._decision_exists, "decision_not_resolvable"),
             (result.training_plan_id, self._plan_exists, "training_plan_not_resolvable"),

@@ -31,13 +31,13 @@ from performance_lab.provider import EmptyPerformanceTestHistoryProvider
 from production_runtime.adapters import (
     AssessmentSnapshotAdapter,
     CallablePhaseAdapter,
-    FrozenMorningBriefingInputProvider,
     IngestionRuntimePhaseAdapters,
     MorningBriefingProofAdapter,
+    PersistedAssessmentSnapshotProvider,
     PublicationValidationAdapter,
     ReconciliationPolicySkipAdapter,
 )
-from production_runtime.clock import RuntimeClock
+from production_runtime.clock import RuntimeClock, SystemUtcRuntimeClock
 from production_runtime.coordinator import (
     MISSING_TRAINING_PLAN,
     ProductionDailyRuntime,
@@ -48,7 +48,15 @@ from production_runtime.ingestion_slice import FitArtifactDiscovery, IngestionRu
 from production_runtime.models import RuntimePhase
 from production_runtime.paths import get_default_fit_activity_source_path, get_default_health_db_path
 from production_runtime.paths import PROJECT_ROOT
-from production_runtime.persistence import DuckDbRuntimeAuditRepository, get_default_runtime_audit_db_path
+from production_runtime.persistence import (
+    DuckDbAssessmentSnapshotRepository,
+    DuckDbRuntimeAuditRepository,
+    get_default_runtime_audit_db_path,
+)
+from production_runtime.assessment_snapshot import (
+    AssessmentSnapshotIntegrityError,
+    AssessmentSnapshotUnavailableError,
+)
 from repositories.health_repository import HealthRepository
 from repositories.workout_repository import WorkoutRepository
 from schema.athlete_memory_schema import AthleteMemorySchema
@@ -87,6 +95,7 @@ class ProductionDailyRuntimeContainer:
     decision_database: Database
     daily_repository: DuckDbDailyExecutionRepository
     decision_repository: DuckDbDecisionAuditRecordRepository
+    assessment_snapshot_repository: DuckDbAssessmentSnapshotRepository
 
     def close(self) -> None:
         self.decision_database.close()
@@ -114,6 +123,7 @@ def create_production_daily_runtime(
     clock: RuntimeClock | None = None,
     runtime_id_factory=None,
     timezone_name: str = "Europe/Warsaw",
+    briefing_input_provider=None,
 ) -> ProductionDailyRuntimeContainer:
     """Construct all five stores explicitly; caller owns the returned container."""
     health = Database(get_default_health_db_path(health_db_path))
@@ -124,18 +134,23 @@ def create_production_daily_runtime(
         AthleteMemorySchema(health).create()
         workouts = WorkoutRepository(health)
         memory = AthleteMemoryRepository(health)
-        audit = DuckDbRuntimeAuditRepository(get_default_runtime_audit_db_path(runtime_audit_db_path))
+        runtime_clock = clock or SystemUtcRuntimeClock()
+        runtime_path = get_default_runtime_audit_db_path(runtime_audit_db_path)
+        audit = DuckDbRuntimeAuditRepository(runtime_path)
+        snapshots = DuckDbAssessmentSnapshotRepository(runtime_path)
 
-        coach = build_morning_coach_use_case(
-            database=health, health_repository=HealthRepository(database=health)
-        )
         bio_path = Path(biomarkers_db_path) if biomarkers_db_path else PROJECT_ROOT / "data/database/biomarkers.duckdb"
         if not bio_path.is_absolute():
             bio_path = PROJECT_ROOT / bio_path
         bio = BiomarkersApplicationContext(db_path=str(bio_path))
-        bio_builder = BiomarkersDashboardBuilder(bio.repository, bio.registry, bio.clock)
-        frozen = FrozenMorningBriefingInputProvider(
-            ProductionMorningBriefingInputProvider(coach, bio_builder)
+        if briefing_input_provider is None:
+            coach = build_morning_coach_use_case(
+                database=health, health_repository=HealthRepository(database=health)
+            )
+            bio_builder = BiomarkersDashboardBuilder(bio.repository, bio.registry, bio.clock)
+            briefing_input_provider = ProductionMorningBriefingInputProvider(coach, bio_builder)
+        frozen = PersistedAssessmentSnapshotProvider(
+            briefing_input_provider, snapshots, runtime_clock
         )
 
         decision_clock = _TargetDateDecisionClock(target_local_date, timezone_name)
@@ -174,11 +189,12 @@ def create_production_daily_runtime(
             audit, FitArtifactDiscovery(get_default_fit_activity_source_path(fit_source_path)),
             StandardFitWorkoutIngestionService(workouts),
             StandardActivityFactSynchronizationService(workouts, ActivityRecordedWriter(memory)),
-            clock=clock,
+            clock=runtime_clock,
         )
         ingestion = IngestionRuntimePhaseAdapters(ingestion_slice)
 
         def run_decision(context):
+            frozen.bind(context)
             plan = plan_provider.get_plan_for_date(context.target_local_date)
             if plan is None:
                 raise RuntimePhaseError(MISSING_TRAINING_PLAN)
@@ -215,6 +231,19 @@ def create_production_daily_runtime(
                 prescription_id=result.prescription_id,
             )
 
+        def assessment_resolves(runtime_id, artifact_id, target_date):
+            try:
+                snapshot = snapshots.get_by_runtime_id(runtime_id)
+            except AssessmentSnapshotIntegrityError as error:
+                raise RuntimePhaseError("assessment_snapshot_corrupt", str(error)) from error
+            except AssessmentSnapshotUnavailableError as error:
+                raise RuntimePhaseError("assessment_snapshot_unavailable", str(error)) from error
+            if snapshot is None:
+                raise RuntimePhaseError("assessment_snapshot_missing")
+            if snapshot.artifact_id != artifact_id or snapshot.target_local_date != target_date:
+                raise RuntimePhaseError("assessment_snapshot_corrupt")
+            return True
+
         adapters = {
             RuntimePhase.INGESTION: CallablePhaseAdapter(ingestion.ingestion),
             RuntimePhase.ACTIVITY_FACT_SYNCHRONIZATION: CallablePhaseAdapter(ingestion.facts),
@@ -227,14 +256,15 @@ def create_production_daily_runtime(
                 lambda item: decision_repo.get_by_id(item) is not None,
                 lambda item: plan_repo.get_by_id(item) is not None,
                 lambda item: rx_repo.get_by_id(item) is not None,
+                assessment_resolves,
             ),
         }
         runtime = ProductionDailyRuntime(
-            audit, adapters, clock=clock, runtime_id_factory=runtime_id_factory,
+            audit, adapters, clock=runtime_clock, runtime_id_factory=runtime_id_factory,
             timezone_name=timezone_name,
         )
         return ProductionDailyRuntimeContainer(
-            runtime, health, bio, decision_database, daily_repo, decision_repo
+            runtime, health, bio, decision_database, daily_repo, decision_repo, snapshots
         )
     except Exception:
         if decision_database is not None:

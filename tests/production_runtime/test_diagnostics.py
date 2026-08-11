@@ -113,6 +113,26 @@ def reader(repo, now=START + timedelta(minutes=10), stale_after=timedelta(minute
     return RuntimeOperationalStatusReader(repo, FixedClock(now), stale_after)
 
 
+@pytest.mark.parametrize("phase_count", (4, 5, 6, 7, 8))
+def test_later_canonical_running_prefixes_are_same_attempt_resumable(phase_count, tmp_path):
+    repo = DuckDbRuntimeAuditRepository(tmp_path / "audit.duckdb")
+    initial = attempt()
+    phases = tuple(
+        RuntimePhaseResult(
+            phase,
+            PhaseStatus.SKIPPED if phase is RuntimePhase.RECONCILIATION else PhaseStatus.COMPLETED,
+            START,
+            START,
+            False,
+            artifact_ids=("assessment:sha256:abc",) if phase is RuntimePhase.ASSESSMENT else (),
+        )
+        for phase in tuple(RuntimePhase)[:phase_count]
+    )
+    record = replace(initial, phases=phases)
+    repo.append(record)
+    assert reader(repo).get_latest().resumability is RuntimeResumability.RESUME_SAME_ATTEMPT
+
+
 def test_no_audit_data_returns_none_and_empty_history(tmp_path) -> None:
     repo = DuckDbRuntimeAuditRepository(tmp_path / "audit.duckdb")
     status = reader(repo)

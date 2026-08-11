@@ -120,14 +120,17 @@ def test_terminal_attempt_cannot_resume(tmp_path):
         runtime.resume_attempt("runtime-1")
 
 
-def test_resume_after_persisted_assessment_is_honestly_unsupported(tmp_path):
+def test_resume_after_persisted_assessment_continues_same_attempt(tmp_path):
     values = adapters()
     values[RuntimePhase.DECISION] = Adapter(error=KeyboardInterrupt())
     runtime, _ = build(tmp_path, values)
     with pytest.raises(KeyboardInterrupt):
         runtime.run_new_attempt(date(2026, 8, 11))
-    with pytest.raises(RuntimeAttemptNotResumableError, match="assessment snapshot"):
-        runtime.resume_attempt("runtime-1")
+    values[RuntimePhase.DECISION].error = None
+    values[RuntimePhase.DECISION].outcome = RuntimePhaseOutcome(decision_id="decision-1")
+    result = runtime.resume_attempt("runtime-1")
+    assert result.status is RuntimeStatus.COMPLETED
+    assert values[RuntimePhase.ASSESSMENT].calls == 1
 
 
 def test_independent_attempts_share_logical_date_key(tmp_path):
@@ -138,3 +141,63 @@ def test_independent_attempts_share_logical_date_key(tmp_path):
     two = runtime.run_new_attempt(date(2026, 8, 11))
     assert one.logical_execution_key == two.logical_execution_key
     assert one.runtime_id != two.runtime_id
+
+
+@pytest.mark.parametrize(
+    "durable_phase,next_phase",
+    [
+        (RuntimePhase.ASSESSMENT, RuntimePhase.DECISION),
+        (RuntimePhase.DECISION, RuntimePhase.PLAN_PRESCRIPTION),
+        (RuntimePhase.PLAN_PRESCRIPTION, RuntimePhase.MORNING_BRIEFING),
+        (RuntimePhase.MORNING_BRIEFING, RuntimePhase.PUBLICATION),
+    ],
+)
+def test_resume_after_every_later_durable_boundary_skips_completed_phases(
+    tmp_path, durable_phase, next_phase
+):
+    values = adapters()
+    values[next_phase] = Adapter(
+        outcome=values[next_phase].outcome, error=KeyboardInterrupt()
+    )
+    runtime, _ = build(tmp_path, values)
+    with pytest.raises(KeyboardInterrupt):
+        runtime.run_new_attempt(date(2026, 8, 11))
+    before = {phase: adapter.calls for phase, adapter in values.items()}
+    values[next_phase].error = None
+    result = runtime.resume_attempt("runtime-1")
+    assert result.status is RuntimeStatus.COMPLETED
+    for phase in tuple(RuntimePhase)[:tuple(RuntimePhase).index(durable_phase) + 1]:
+        assert values[phase].calls == before[phase]
+
+
+class InterruptTerminalAudit:
+    def __init__(self, delegate):
+        self.delegate = delegate
+        self.interrupt = True
+    def append(self, result, expected_revision=None):
+        if result.status is RuntimeStatus.COMPLETED and self.interrupt:
+            raise KeyboardInterrupt()
+        return self.delegate.append(result, expected_revision)
+    def get_by_runtime_id(self, runtime_id):
+        return self.delegate.get_by_runtime_id(runtime_id)
+    def list_for_target_date(self, target_date):
+        return self.delegate.list_for_target_date(target_date)
+    def get_latest(self):
+        return self.delegate.get_latest()
+
+
+def test_resume_after_publication_appends_only_terminal_completion(tmp_path):
+    repository = DuckDbRuntimeAuditRepository(tmp_path / "runtime.duckdb")
+    interrupting = InterruptTerminalAudit(repository)
+    values = adapters()
+    runtime = ProductionDailyRuntime(
+        interrupting, values, clock=Clock(), runtime_id_factory=lambda: "runtime-1"
+    )
+    with pytest.raises(KeyboardInterrupt):
+        runtime.run_new_attempt(date(2026, 8, 11))
+    assert repository.get_by_runtime_id("runtime-1").phases[-1].phase is RuntimePhase.PUBLICATION
+    calls = {phase: adapter.calls for phase, adapter in values.items()}
+    interrupting.interrupt = False
+    result = runtime.resume_attempt("runtime-1")
+    assert result.status is RuntimeStatus.COMPLETED
+    assert {phase: adapter.calls for phase, adapter in values.items()} == calls

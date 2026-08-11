@@ -126,15 +126,6 @@ class ProductionDailyRuntime:
             raise RuntimeAttemptNotResumableError(
                 f"Runtime attempt '{runtime_id}' is terminal with status {current.status.value}"
             )
-        completed = {item.phase for item in current.phases}
-        snapshot_lost = (
-            RuntimePhase.ASSESSMENT in completed
-            and RuntimePhase.MORNING_BRIEFING not in completed
-        )
-        if snapshot_lost:
-            raise RuntimeAttemptNotResumableError(
-                f"{PHASE_NOT_RESUMABLE}: immutable assessment snapshot is not persisted"
-            )
         return self._continue(current)
 
     def _continue(self, current: ProductionDailyRuntimeResult) -> ProductionDailyRuntimeResult:

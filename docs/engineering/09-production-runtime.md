@@ -1,8 +1,8 @@
 # Production Runtime and Reliability Contract
 
-Status: Stage 27.5 authoritative daily runtime candidate, 2026-08-11. The
-coordinator and owned composition are implemented; scheduler certification and
-cutover are intentionally deferred.
+Status: Stage 27.6 persistent assessment recovery and controlled certification,
+2026-08-11. The candidate is 90% through Stage 27; scheduler cutover remains
+explicitly deferred to Sprint 27.7.
 
 ## Conclusion and current topology
 
@@ -481,9 +481,12 @@ phase is triggered by diagnostics.
 4. Sprint 27.5: completed — authoritative thin coordinator, one owned resource
    graph, candidate CLI, bounded recovery, briefing proof, and read-only
    publication validation. The existing scheduler remains unchanged.
-5. Sprint 27.6: certify the candidate, close the persisted assessment-snapshot
-   recovery gap, then decide CLI/LaunchAgent cutover with a compatibility window.
-6. Delete duplicate/legacy paths only after call-site, operations, and data
+5. Sprint 27.6: completed — persistent content-addressed assessment snapshot,
+   same-attempt late-phase recovery, publication integrity, and isolated
+   operational certification. Scheduler remains unchanged.
+6. Sprint 27.7: decide candidate CLI/LaunchAgent cutover, compatibility window,
+   operational rollout checks, and final Stage 27 closure.
+7. Delete duplicate/legacy paths only after call-site, operations, and data
    migration verification.
 
 Do not yet tackle cross-provider semantic deduplication, reinterpret historical
@@ -553,6 +556,63 @@ Without `--date`, Warsaw date is derived once. Output is bounded operational
 metadata; FAILED/PARTIAL exits non-zero without raw tracebacks. The existing
 `scripts.run_daily_decision_runtime` scheduler command and LaunchAgent remain
 unchanged pending Sprint 27.6 certification.
+
+## Persistent assessment snapshot and recovery certification (27.6)
+
+The assessment artifact is operational recovery state owned by
+`production_runtime.duckdb`; it is not Athlete Memory, coaching-domain state,
+a Decision record, or an API payload. `AssessmentSnapshot` stores schema
+version `1.0`, runtime ID, target local date, UTC creation time, the minimal
+immutable `MorningBriefingInput`, and its content identity. The dedicated codec
+canonically serializes every currently consumed recovery, training/load/fatigue,
+biomarker/signal field with sorted compact JSON, explicit nulls, ISO datetimes,
+and exact tuple reconstruction. It rejects malformed or non-UTC input.
+
+Identity is `assessment:sha256:<digest>` over schema-versioned canonical input
+JSON, not runtime ID or timestamp alone. The append-only
+`production_runtime_assessment_snapshots` table has one row per runtime attempt.
+An identical second save is a no-op; different content for the same runtime is
+`assessment_snapshot_conflict`. Reads verify table metadata, schema version,
+runtime ID, target date, artifact ID, canonical payload, and digest. Missing,
+corrupt, and unavailable storage map respectively to
+`assessment_snapshot_missing`, `assessment_snapshot_corrupt`, and
+`assessment_snapshot_unavailable`.
+
+ASSESSMENT ordering is compute → persist snapshot → append phase audit with the
+artifact ID. A crash between persistence and audit is repaired by finding the
+existing runtime snapshot and appending the audit without invoking upstream
+Morning Coach/biomarker sources again. If an ASSESSMENT audit exists without a
+valid matching snapshot, resume and publication fail with bounded integrity
+semantics; they never recompute silently.
+
+`PersistedAssessmentSnapshotProvider` remains outside the Morning Briefing
+domain. It binds to the runtime attempt, restores existing state when present,
+and otherwise computes exactly once during ASSESSMENT. The same provider is
+injected into the existing Decision context adapters and Morning Briefing
+builder. Consequently a restarted Decision and briefing consume byte-for-byte
+equivalent reconstructed input, and deterministic briefing serialization keeps
+the existing `briefing:sha256:<digest>` proof stable.
+
+Every canonical RUNNING phase prefix is now resumable. Ingestion and fact
+inputs remain frozen by audit artifacts; a snapshot-only pre-audit crash repairs
+ASSESSMENT; Decision ledger persistence repairs its phase without a second
+Decision; deterministic Stage 26 prescription persistence repairs its audit;
+briefing proof is deterministically rebuilt from the persisted snapshot;
+publication is read-only and can rerun; and a crash after publication appends
+only terminal COMPLETED. Terminal attempts remain immutable.
+
+Publication now resolves and validates the attempt's assessment snapshot before
+checking Decision, Training Plan, prescription, and briefing proof. It performs
+no HTTP or server operation. Controlled tests use isolated temporary health,
+biomarker, Decision, Training Plan, runtime-audit, and FIT paths with real
+repositories/coordinators and only a deterministic briefing-input seam. They
+certify complete execution, repeated logical-day idempotency, assessment restart,
+missing snapshot, missing plan, resource closure, and final healthy/no-action
+diagnostics. No production store or FIT source is used.
+
+Stage 27 weighting is corrected: 27.5 = 80%, 27.6 = 90%, and 27.7 remains the
+required final 10%. The candidate CLI is unchanged and the LaunchAgent still
+runs the legacy coordinated daily Decision command.
 
 ## Executable evidence
 

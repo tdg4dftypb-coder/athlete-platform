@@ -27,6 +27,16 @@ from production_runtime.coordinator import (
     RuntimePhaseError,
     RuntimePhaseOutcome,
 )
+from production_runtime.assessment_snapshot import (
+    ASSESSMENT_SNAPSHOT_SCHEMA_VERSION,
+    AssessmentSnapshot,
+    AssessmentSnapshotCodec,
+    AssessmentSnapshotConflictError,
+    AssessmentSnapshotIntegrityError,
+    AssessmentSnapshotMissingError,
+    AssessmentSnapshotRepository,
+    AssessmentSnapshotUnavailableError,
+)
 from production_runtime.repository import (
     RuntimeAuditConflictError,
     RuntimeAuditDataError,
@@ -48,6 +58,14 @@ from production_runtime.diagnostics import (
 
 __all__ = [
     "RUNTIME_CONTRACT_VERSION",
+    "ASSESSMENT_SNAPSHOT_SCHEMA_VERSION",
+    "AssessmentSnapshot",
+    "AssessmentSnapshotCodec",
+    "AssessmentSnapshotConflictError",
+    "AssessmentSnapshotIntegrityError",
+    "AssessmentSnapshotMissingError",
+    "AssessmentSnapshotRepository",
+    "AssessmentSnapshotUnavailableError",
     "PhaseStatus",
     "ProductionDailyRuntimeResult",
     "RuntimeAuditConflictError",

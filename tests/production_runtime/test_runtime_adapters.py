@@ -7,6 +7,7 @@ from production_runtime.adapters import (
     AssessmentSnapshotAdapter,
     FrozenMorningBriefingInputProvider,
     MorningBriefingProofAdapter,
+    PersistedAssessmentSnapshotProvider,
     PublicationValidationAdapter,
 )
 from production_runtime.coordinator import RuntimePhaseContext, RuntimePhaseError
@@ -19,6 +20,7 @@ from production_runtime.models import (
 )
 from datetime import date
 from production_runtime.models import PhaseStatus
+from production_runtime.persistence import DuckDbAssessmentSnapshotRepository
 
 
 class Provider:
@@ -72,3 +74,48 @@ def test_publication_validates_repositories_and_briefing_proof():
         PublicationValidationAdapter(lambda _: False, lambda _: True, lambda _: True).execute(
             RuntimePhaseContext(result)
         )
+
+
+class Clock:
+    def now_utc(self):
+        return datetime(2026, 8, 11, 1, tzinfo=timezone.utc)
+
+
+def test_snapshot_is_persisted_before_assessment_audit_and_restored_without_recompute(tmp_path):
+    repository = DuckDbAssessmentSnapshotRepository(tmp_path / "runtime.duckdb")
+    source = Provider()
+    provider = PersistedAssessmentSnapshotProvider(source, repository, Clock())
+    context = RuntimePhaseContext(running())
+    outcome = AssessmentSnapshotAdapter(provider).execute(context)
+    persisted = repository.get_by_runtime_id("runtime-1")
+    assert persisted is not None
+    assert persisted.artifact_id == outcome.artifact_ids[0]
+    assert source.calls == 1
+
+    restarted_source = Provider()
+    restarted = PersistedAssessmentSnapshotProvider(restarted_source, repository, Clock())
+    repeated = AssessmentSnapshotAdapter(restarted).execute(context)
+    assert repeated.artifact_ids == outcome.artifact_ids
+    assert restarted_source.calls == 0
+
+
+def test_decision_and_briefing_provider_restore_exact_audited_snapshot(tmp_path):
+    repository = DuckDbAssessmentSnapshotRepository(tmp_path / "runtime.duckdb")
+    source = Provider()
+    initial = PersistedAssessmentSnapshotProvider(source, repository, Clock())
+    context = RuntimePhaseContext(running())
+    assessment = AssessmentSnapshotAdapter(initial).execute(context)
+    now = datetime(2026, 8, 11, tzinfo=timezone.utc)
+    phase = RuntimePhaseResult(
+        RuntimePhase.ASSESSMENT, PhaseStatus.COMPLETED, now, now, False,
+        artifact_ids=assessment.artifact_ids,
+    )
+    resumed_context = RuntimePhaseContext(running(revision=2, phases=(phase,)))
+    restarted_source = Provider()
+    restarted = PersistedAssessmentSnapshotProvider(restarted_source, repository, Clock())
+    restarted.bind(resumed_context)
+    assert restarted.get_input() == repository.get_by_runtime_id("runtime-1").input
+    proof_one = MorningBriefingProofAdapter(initial).execute(context).artifact_ids
+    proof_two = MorningBriefingProofAdapter(restarted).execute(resumed_context).artifact_ids
+    assert proof_one == proof_two
+    assert restarted_source.calls == 0
