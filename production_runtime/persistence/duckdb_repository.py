@@ -24,17 +24,24 @@ def _naive_utc(value: datetime | None) -> datetime | None:
 class DuckDbRuntimeAuditRepository:
     """Stores every lifecycle revision; never overwrites an attempt snapshot."""
 
-    def __init__(self, db_path: Union[str, Path]) -> None:
+    def __init__(self, db_path: Union[str, Path], *, read_only: bool = False) -> None:
         self._db_path = str(db_path)
+        self._read_only = read_only
         self._lock = threading.Lock()
         self._codec = RuntimeAuditCodec()
-        self._ensure_schema()
+        if self._read_only:
+            if self._db_path == ":memory:" or not Path(self._db_path).is_file():
+                raise RuntimeAuditRepositoryError(
+                    f"Runtime audit database is unavailable at '{self._db_path}'"
+                )
+        else:
+            self._ensure_schema()
 
     def _connection(self) -> duckdb.DuckDBPyConnection:
         try:
-            if self._db_path != ":memory:":
+            if self._db_path != ":memory:" and not self._read_only:
                 Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
-            return duckdb.connect(self._db_path)
+            return duckdb.connect(self._db_path, read_only=self._read_only)
         except Exception as error:
             raise RuntimeAuditRepositoryError(
                 f"Failed to connect to runtime audit database at '{self._db_path}'"
@@ -80,6 +87,8 @@ class DuckDbRuntimeAuditRepository:
     ) -> None:
         if not isinstance(result, ProductionDailyRuntimeResult):
             raise TypeError("result must be ProductionDailyRuntimeResult")
+        if self._read_only:
+            raise RuntimeAuditRepositoryError("Runtime audit repository is read-only")
         if expected_revision is not None and (
             not isinstance(expected_revision, int) or expected_revision < 1
         ):

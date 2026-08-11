@@ -29,6 +29,13 @@ from production_runtime.ingestion_slice import (
     IngestionRuntimeSlice,
     RuntimeAttemptNotResumableError,
 )
+from production_runtime.diagnostics import (
+    RuntimeOperationalHealth,
+    RuntimeOperationalSnapshot,
+    RuntimeOperationalStatusReader,
+    RuntimePhaseDiagnostic,
+    RuntimeResumability,
+)
 
 __all__ = [
     "RUNTIME_CONTRACT_VERSION",
@@ -43,6 +50,11 @@ __all__ = [
     "FitSourceUnavailableError",
     "IngestionRuntimeSlice",
     "RuntimeAttemptNotResumableError",
+    "RuntimeOperationalHealth",
+    "RuntimeOperationalSnapshot",
+    "RuntimeOperationalStatusReader",
+    "RuntimePhaseDiagnostic",
+    "RuntimeResumability",
     "RuntimeFailure",
     "RuntimePhase",
     "RuntimePhaseResult",

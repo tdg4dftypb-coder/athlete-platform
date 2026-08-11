@@ -1,8 +1,9 @@
 # Production Runtime and Reliability Contract
 
-Status: Stage 27.3 idempotent ingestion and activity-fact synchronization,
-2026-08-11. Stage 27.1 established the topology and Stage 27.2 implemented the
-audit foundation. The full production coordinator remains unimplemented.
+Status: Stage 27.4 runtime state, health, and diagnostics, 2026-08-11. Stage
+27.1 established the topology, Stage 27.2 implemented audit persistence, and
+Stage 27.3 proved the ingestion slice. The full coordinator remains
+unimplemented.
 
 ## Conclusion and current topology
 
@@ -387,6 +388,83 @@ No new CLI was added: the existing importer remains the operational command,
 while a second partial-runtime CLI would invite accidental scheduling before
 the coordinator exists.
 
+## Read-only runtime diagnostics (27.4)
+
+`RuntimeOperationalStatusReader` projects the latest immutable audit revision
+into `RuntimeOperationalSnapshot`. It depends only on `RuntimeAuditRepository`;
+it does not open health, biomarker, Decision, or Training Plan stores and does
+not call any workflow. The persisted `ProductionDailyRuntimeResult` remains the
+source of truth rather than being copied into another domain model.
+
+The snapshot exposes attempt/logical identity, target date, contract version,
+revision, runtime status, UTC lifecycle times, last durable progress, operational
+health, stale-running flag, resumability, next canonical phase, ordered phase
+diagnostics, stable failure/warning records, exact watermarks, counters, and
+existing artifact references. Every `RuntimePhase` appears once in canonical
+enum order. A missing phase has `present=False` and `status=None`; diagnostics
+never fabricates a `SKIPPED` phase.
+
+Last durable progress is the maximum authoritative timestamp among attempt
+start, attempt completion, and persisted phase completion times. A `RUNNING`
+attempt is stale when the injected aware-UTC clock is strictly more than 30
+minutes beyond that timestamp. The threshold is configurable. Detection is
+read-only: it never marks the attempt failed or initiates retry.
+
+Operational health describes only runtime audit state:
+
+- `NO_DATA`: no matching persisted attempt (used by the CLI/query result);
+- `HEALTHY`: a recent RUNNING attempt, COMPLETED attempt, or expected successful
+  27.3 PARTIAL slice without failure;
+- `DEGRADED`: a non-FAILED attempt containing structured failure data or a
+  failed phase;
+- `STALE`: a RUNNING attempt beyond the configured durable-progress threshold;
+- `FAILED`: persisted runtime status is FAILED.
+
+This is not athlete, biomarker, coaching, or database-server health.
+
+Current resumability is deliberately restricted to implemented behavior:
+
+- `RESUME_SAME_ATTEMPT`: RUNNING revision 1 with no phases or revision 2 with
+  only INGESTION persisted;
+- `START_NEW_ATTEMPT`: terminal PARTIAL or FAILED;
+- `NO_ACTION`: COMPLETED;
+- `NOT_SUPPORTED`: another RUNNING phase shape whose recovery has not been
+  implemented.
+
+The reader supports latest globally, latest for an explicit target date, all
+attempts for that date in repository order, and exact runtime ID. Multiple
+physical attempts are never collapsed. The next expected phase is the first
+absent canonical phase; it is diagnostic sequence information, not a claim that
+the phase can currently resume.
+
+`DuckDbRuntimeAuditRepository(read_only=True)` now requires an existing file,
+opens DuckDB in read-only mode, and rejects append. This prevents a diagnostic
+query from creating a database or schema. Missing, locked, or otherwise
+unreadable audit storage raises `RuntimeAuditRepositoryError` and is distinct
+from a valid empty audit database.
+
+The read-only CLI is:
+
+```bash
+python -m scripts.runtime_status
+python -m scripts.runtime_status --date 2026-08-11
+python -m scripts.runtime_status --date 2026-08-11 --all-attempts
+python -m scripts.runtime_status --runtime-id runtime-...
+python -m scripts.runtime_status --runtime-audit-db /path/to/audit.duckdb
+```
+
+`--stale-after-minutes` overrides the 30-minute diagnostic threshold. Output is
+compact text with phase absence shown as `NOT RUN`, stable codes, counters, and
+watermarks; raw JSON and tracebacks are not emitted. Audit unavailability exits
+with code 2, while valid `NO_DATA` exits 0.
+
+HTTP exposure is deliberately deferred. The repository has no established
+operational-status API boundary, and adding server lifecycle/authentication and
+GET-read-only tests would enlarge a diagnostics sprint unnecessarily. The
+reader is ready for a later thin endpoint once publication/API scope is
+explicit. No ingestion, resume, retry, new attempt, scheduler, or later domain
+phase is triggered by diagnostics.
+
 ## Stage 27 migration plan
 
 1. Sprint 27.2: completed — immutable operational models/enums, append-only
@@ -396,9 +474,9 @@ the coordinator exists.
    composition, extracted authoritative standard import services, audited
    INGESTION and ACTIVITY_FACT_SYNCHRONIZATION phases, explicit resume, bounded
    failures, real watermarks, and end-to-end idempotency.
-3. Sprint 27.4: compose assessment, existing daily Decision, prescription, and
-   persisted or snapshot-addressable Briefing; add resume and typed optional/
-   transient outcomes.
+3. Sprint 27.4: completed — read-only operational snapshot projection, health
+   and stale-running classification, current resumability guidance, canonical
+   phase diagnostics, read-only DuckDB mode, and compact status CLI.
 4. Sprint 27.5: switch CLI, then LaunchAgent; expose read-only run status and
    retain deprecated commands for one warning/migration window.
 5. Delete duplicate/legacy paths only after call-site, operations, and data
