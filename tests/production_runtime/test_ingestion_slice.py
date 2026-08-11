@@ -1,5 +1,6 @@
 from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
+from hashlib import sha256
 from pathlib import Path
 
 import duckdb
@@ -146,6 +147,42 @@ def test_second_attempt_is_domain_idempotent(tmp_path) -> None:
     assert second.activity_facts_created == 0
     assert second.activities_already_present == 1
     assert len(audit.list_for_target_date(TARGET)) == 2
+    database.close()
+
+
+def test_duplicate_fit_content_has_unique_fact_references_and_identity_watermark(
+    tmp_path,
+) -> None:
+    runtime_slice, database, workouts, memory, _, fit_dir = build_slice(tmp_path)
+    first_path = fit_dir / "first.fit"
+    second_path = fit_dir / "second.fit"
+    first_path.write_bytes(b"same-fit-content")
+    second_path.write_bytes(b"same-fit-content")
+    identity = FitFileSourceIdentity().create(first_path)
+    expected_watermark = "sha256:" + sha256(
+        f"{identity.provider}:{identity.external_id}".encode("utf-8")
+    ).hexdigest()
+
+    first = runtime_slice.run_new_attempt(TARGET)
+    second = runtime_slice.run_new_attempt(TARGET)
+    first_phase = first.phases[1]
+    second_phase = second.phases[1]
+    events = memory.load_between(datetime(2026, 8, 11), datetime(2026, 8, 12))
+
+    assert workouts.count() == 2
+    assert len(events) == 1
+    assert first_phase.status.value == "completed"
+    assert first_phase.item_count == 2
+    assert first_phase.artifact_ids == (events[0].event_id,)
+    assert first.activity_facts_created == 1
+    assert first.activities_already_present == 1
+    assert first.source_watermarks[-1].value == expected_watermark
+    assert second_phase.status.value == "completed"
+    assert second_phase.item_count == 2
+    assert second_phase.artifact_ids == first_phase.artifact_ids
+    assert second.activity_facts_created == 0
+    assert second.activities_already_present == 2
+    assert second.source_watermarks[-1].value == expected_watermark
     database.close()
 
 

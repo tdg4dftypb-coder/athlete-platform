@@ -333,7 +333,11 @@ persisted INGESTION phase. It reads the persisted workout row and calls
 continues to use `source_type=fit_file` and `source_key=sha256:<content digest>`.
 An identical event-scoped source identity is a successful no-op. A missing fact
 is repaired; `WORKOUT_COMPLETED`, plan, execution, and feedback state are never
-created. Historical backfill remains separate maintenance tooling.
+created. Fact-phase `artifact_ids` contain unique canonical event IDs in
+first-observed order, while its counters remain per successfully processed FIT
+artifact. The `fit_source_identity_set_sha256` watermark hashes the sorted set
+of source identities, so copied artifacts with identical content do not change
+it. Historical backfill remains separate maintenance tooling.
 
 ### Attempts, revisions, and recovery
 

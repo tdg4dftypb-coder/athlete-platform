@@ -268,15 +268,18 @@ class IngestionRuntimeSlice:
         created = 0
         existing = 0
         artifact_ids = []
-        source_keys = []
+        seen_artifact_ids = set()
+        source_keys = set()
         warning_records = []
         for artifact in artifacts:
             try:
                 result = self._fact_synchronization.synchronize(artifact)
                 created += int(result.created)
                 existing += int(not result.created)
-                artifact_ids.append(result.event_id)
-                source_keys.append(f"{result.source_type}:{result.source_key}")
+                if result.event_id not in seen_artifact_ids:
+                    seen_artifact_ids.add(result.event_id)
+                    artifact_ids.append(result.event_id)
+                source_keys.add(f"{result.source_type}:{result.source_key}")
             except duckdb.Error:
                 raise
             except (MissingPersistedWorkoutError, OSError) as error:
