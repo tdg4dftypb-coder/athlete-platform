@@ -13,9 +13,10 @@
 7. [Lista kontrolna przeglądu](06-review-checklist.md)
 8. [Roadmapa](07-roadmap.md)
 9. [Glosariusz](08-glossary.md)
-10. [Prompty dla Codex](prompts/codex.md)
-11. [Prompty dla Antigravity](prompts/antigravity.md)
-12. [Prompty dla ChatGPT](prompts/chatgpt.md)
+10. [Production Runtime and Reliability Contract](09-production-runtime.md)
+11. [Prompty dla Codex](prompts/codex.md)
+12. [Prompty dla Antigravity](prompts/antigravity.md)
+13. [Prompty dla ChatGPT](prompts/chatgpt.md)
 
 ## Cel handbooka
 

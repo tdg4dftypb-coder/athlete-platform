@@ -160,7 +160,20 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 - **Training Plan Persistence, History & Read API (26.4):** zaimplementowano dedykowaną bazę danych `data/database/training_plan.duckdb`, repozytoria DuckDB (`DuckDbTrainingPlanRepository`, `DuckDbFinalSessionPrescriptionRepository`) ze ścisłą semantyką zapisu append-only (no-op przy identycznym payloadzie, `TrainingPlanConflictError` przy próbie nadpisania), kanoniczne kodeki JSON, bezstanowe serializatory oraz 4 odczytowe punkty końcowe HTTP GET (`/api/v1/training-plan/latest`, `/history`, `/prescriptions/latest`, `/prescriptions/history`). Zapytania odczytowe w 100% konsumują stan utrwalony bez wywoływania generatorów ani przeliczania decyzji;
 - **Production Adaptive Daily Runtime & Stage Closure (26.5):** połączono zintegrowany cykl `Stage 26 Adaptive Training Plan` z automatycznym dziennym środowiskiem wykonawczym `Stage 25 Daily Decision Runtime`. Wprowadzono provenance `plan_id` i `planned_session_id` w `TrainingDecisionContext`, bezstanowy `TrainingPlanDecisionContextAdapter`, wyczyszczono twardo zakodowane harmonogramy osobiste, zaimplementowano koordynator `AdaptiveDailyRuntimeCoordinator` wspierający at-most-once execution, idempotencję oraz crash recovery po odzyskaniu wykonania, zaktualizowano produkcyjne composition root `create_production_adaptive_daily_runtime` i udostępniono flagę CLI `--training-plan-db`. Stage 26 = 100% ukończony.
 
+### Stage 27 — Production Runtime & Reliability
+
+- **Runtime Audit & Contract (27.1):** zinwentaryzowano produkcyjne punkty wejścia, cztery magazyny DuckDB, zależności kolejności, gwarancje idempotencji, ryzyka blokad, semantykę czasu i zachowanie po awarii. Potwierdzono, że bieżący harmonogram koordynuje tylko Decision Intelligence oraz Final Session Prescription, a nie cały przepływ ingestion -> facts -> assessment -> decision -> plan/prescription -> briefing -> read models. Docelowy cienki `ProductionDailyRuntime`, immutable kontrakt wyniku/audytu i plan migracji opisuje [Production Runtime and Reliability Contract](09-production-runtime.md).
+
 ## Planned
+
+### Stage 27 — Production Runtime & Reliability
+
+- immutable modele faz i wyniku runtime oraz trwałe repozytorium audytu;
+- jawny `target_local_date`, zegar UTC i watermarks snapshotu;
+- współdzielony production composition root z jednoznacznym ownership zasobów;
+- idempotentne fazy ingestion/fact synchronization, assessment, Decision,
+  prescription i Morning Briefing z resume po częściowej awarii;
+- migracja CLI i LaunchAgent dopiero po regresji oraz okresie kompatybilności.
 
 
 Poniższe obszary są udokumentowanym kierunkiem, ale nie są obecnie zaimplementowanymi modułami:
