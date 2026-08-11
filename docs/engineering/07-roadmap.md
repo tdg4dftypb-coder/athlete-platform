@@ -163,13 +163,12 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 ### Stage 27 — Production Runtime & Reliability
 
 - **Runtime Audit & Contract (27.1):** zinwentaryzowano produkcyjne punkty wejścia, cztery magazyny DuckDB, zależności kolejności, gwarancje idempotencji, ryzyka blokad, semantykę czasu i zachowanie po awarii. Potwierdzono, że bieżący harmonogram koordynuje tylko Decision Intelligence oraz Final Session Prescription, a nie cały przepływ ingestion -> facts -> assessment -> decision -> plan/prescription -> briefing -> read models. Docelowy cienki `ProductionDailyRuntime`, immutable kontrakt wyniku/audytu i plan migracji opisuje [Production Runtime and Reliability Contract](09-production-runtime.md).
+- **Runtime Contract & Audit Persistence (27.2):** zaimplementowano dedykowany bounded package `production_runtime/`, zamrożony kontrakt próby runtime w wersji `1.0`, jawne statusy i fazy, operacyjne warning/failure, generyczne source watermarks, zegar UTC i pojedynczą granicę wyznaczania daty Europe/Warsaw. Dedykowany `production_runtime.duckdb` przechowuje append-only rewizje wielu prób dla jednego dnia z CAS, idempotentnym no-op identycznej rewizji, konfliktami payloadu oraz pełną rekonstrukcją kontraktu. Nie zaimplementowano jeszcze koordynatora ani wykonywania faz.
 
 ## Planned
 
 ### Stage 27 — Production Runtime & Reliability
 
-- immutable modele faz i wyniku runtime oraz trwałe repozytorium audytu;
-- jawny `target_local_date`, zegar UTC i watermarks snapshotu;
 - współdzielony production composition root z jednoznacznym ownership zasobów;
 - idempotentne fazy ingestion/fact synchronization, assessment, Decision,
   prescription i Morning Briefing z resume po częściowej awarii;

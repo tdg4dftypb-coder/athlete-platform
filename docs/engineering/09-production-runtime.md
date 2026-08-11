@@ -1,8 +1,8 @@
 # Production Runtime and Reliability Contract
 
-Status: Stage 27.1 audit, 2026-08-11. Baseline:
-`e16209b122e0b58c2d432ccf22ea4acece08973c`. This describes current behavior;
-the Stage 27 coordinator proposed below is not implemented.
+Status: Stage 27.2 operational contract and audit persistence, 2026-08-11.
+Stage 27.1 established the baseline topology; Stage 27.2 implements the
+foundation described below. The production coordinator remains unimplemented.
 
 ## Conclusion and current topology
 
@@ -184,12 +184,14 @@ clock and explicit target date. Each existing service returns a bounded
 operational phase result. The server stays read-only and must not run workflows
 as a side effect of GET.
 
-## Proposed immutable runtime result/audit contract
+## Implemented immutable runtime result/audit contract (27.2)
 
 ```python
 @dataclass(frozen=True)
 class ProductionDailyRuntimeResult:
     runtime_id: str                       # new operational ID, not domain ID
+    logical_execution_key: str            # target date + contract version
+    revision: int
     contract_version: str
     target_local_date: date
     timezone_name: str
@@ -201,38 +203,101 @@ class ProductionDailyRuntimeResult:
     training_plan_id: str | None
     prescription_id: str | None
     morning_briefing_available: bool
-    activities_discovered: int
-    activity_facts_created: int
-    activities_already_present: int
-    reconciliations_created: int
+    activities_discovered: int | None
+    activity_facts_created: int | None
+    activities_already_present: int | None
+    reconciliations_created: int | None
     source_watermarks: tuple[SourceWatermark, ...]
     warnings: tuple[RuntimeWarning, ...]
-    failure_phase: RuntimePhase | None
-    failure_code: str | None
+    failure: RuntimeFailure | None
 
 @dataclass(frozen=True)
 class RuntimePhaseResult:
     phase: RuntimePhase
     status: PhaseStatus                   # completed/skipped/failed
     started_at_utc: datetime
-    completed_at_utc: datetime | None
+    completed_at_utc: datetime
     changed_state: bool
     item_count: int | None
     artifact_ids: tuple[str, ...]
     warning_codes: tuple[str, ...]
 ```
 
-Use a stable operational run identity/natural key for target date plus contract
-version and explicit attempts. Completion means all required phases completed
-or policy-skipped, referenced artifacts resolve, and Morning Briefing is
-available for the same snapshot. Existing `daily_decision_executions.COMPLETED`
-proves only the Decision phase.
+The implementation lives in the dedicated `production_runtime/` bounded
+package and uses contract version `1.0`. The final model represents failure as
+a nested `RuntimeFailure(code, phase, detail)` rather than two loosely coupled
+fields. Warnings similarly use stable codes with optional bounded detail and
+source. `SourceWatermark(source, kind, value, observed_at_utc)` intentionally
+keeps watermark kind and value generic; future adapters report only real source
+boundaries.
+
+One unique `runtime_id` identifies one physical execution attempt. The stable
+`logical_execution_key` is `<target-local-date>:<contract-version>` and groups
+multiple attempts without replacing them. It is not a Decision, plan, or
+prescription ID. Every persisted lifecycle snapshot also has a monotonically
+increasing `revision` scoped to the runtime attempt.
+
+Runtime lifecycle semantics are:
+
+- `RUNNING`: an attempt has been durably started; it has no completion time or
+  failure;
+- `COMPLETED`: every required future phase has completed or been explicitly
+  skipped under coordinator policy; it has no failed phase or failure record;
+- `PARTIAL`: the attempt stopped after producing some valid operational state,
+  but did not satisfy whole-runtime completion;
+- `FAILED`: the attempt terminated unsuccessfully and has a stable operational
+  failure code. Raw tracebacks are not part of the contract.
+
+Canonical persisted phase values are `ingestion`,
+`activity_fact_synchronization`, `reconciliation`, `assessment`, `decision`,
+`plan_prescription`, `morning_briefing`, and `publication`. Phase results are
+terminal `completed`, `skipped`, or `failed` records with aware UTC boundaries,
+a state-change flag, optional count, artifact IDs, and warning codes. Phase
+execution is not implemented in 27.2.
+
+All public timestamps must be timezone-aware UTC. `RuntimeClock` and
+`SystemUtcRuntimeClock` provide the small clock boundary. `target_local_date_at`
+derives Warsaw local date once at the future coordinator boundary; the target
+date remains an explicit model field and can differ from the current date for a
+retry or historical run. No repository derives dates or calls `datetime.now()`.
+
+Completion retains the Stage 27.1 meaning: all required phases completed or
+policy-skipped, referenced artifacts resolve when applicable, and Morning
+Briefing is available for the same snapshot. Existing
+`daily_decision_executions.COMPLETED` proves only the Decision phase.
+
+## Runtime audit persistence (27.2)
+
+Runtime audit uses a dedicated operational database,
+`data/database/production_runtime.duckdb`, resolved relative to repository root
+or overridden by `RUNTIME_AUDIT_DB_PATH`. This is intentionally separate from
+health, biomarker, Decision, and Training Plan ownership: audit lifecycle and
+lock contention should not be coupled to any one domain store. It is an
+additional operational store, not database consolidation.
+
+`RuntimeAuditRepository` supports append, latest revision by `runtime_id`, all
+latest attempts for a target date, and deterministic latest-attempt lookup.
+`DuckDbRuntimeAuditRepository` stores immutable revisions in
+`production_runtime_audit_revisions` with primary key
+`(runtime_id, revision)`. An initial attempt must be revision 1. Later revisions
+require the exact expected prior revision. Re-appending an identical revision is
+an idempotent no-op; a different payload conflicts. Identity fields and existing
+phase results cannot change, and terminal attempts cannot transition. This
+append-only revision model is the smallest persistence design that can record
+`RUNNING` before work, preserve attempt history, and later support recovery
+without arbitrary mutable rows.
+
+The JSON codec and indexed metadata use schema version `1.0`, distinct from the
+runtime contract version even though both currently have the same value. This
+is a fresh table/database, so no synthetic migration framework was introduced.
+Minimal production composition constructs only the audit repository; it does
+not construct or call a runtime coordinator.
 
 ## Stage 27 migration plan
 
-1. Sprint 27.2: implement immutable operational models/enums, an audit repository
-   port plus DuckDB adapter, explicit target-date/clock boundary, and contract
-   tests. Do not yet coordinate domain phases.
+1. Sprint 27.2: completed — immutable operational models/enums, append-only
+   audit revisions, dedicated DuckDB adapter/path, clock/date boundary, codec,
+   minimal composition, and contract/persistence tests.
 2. Sprint 27.3: extract shared path/resource composition; wrap standard FIT
    discovery/import and canonical synchronization as an idempotent phase. Keep
    historical backfill separate.
