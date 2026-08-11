@@ -655,6 +655,25 @@ HEALTHY/NO_ACTION diagnostics, loaded new command, absence of concurrent legacy
 scheduling, and first-live logs. Until reviewed evidence exists, Stage 27 must
 not be described as closed or 100%.
 
+### Initial Training Plan bootstrap prerequisite
+
+Gate B preflight may legitimately find an empty Training Plan store. The
+runtime continues to fail closed and never fabricates a plan. The operator-only
+`python -m scripts.bootstrap_training_plan --input PATH` command converts a
+private schema-versioned JSON specification into existing `TrainingIntent` and
+`WeeklySessionIntent` models, then projects it with
+`BaselineTrainingPlanBuilder`. Default behavior validates and previews only;
+`--apply` is required to call `DuckDbTrainingPlanRepository.save`.
+
+The input explicitly carries all seven weekday intents, calendar range,
+version/supersession, and an aware UTC generation timestamp. Therefore plan
+payload and `{plan_id}:{date}` session IDs are deterministic. Domain validation
+owns REST/TRAINING invariants, the repository owns identical-no-op and
+different-payload conflict behavior, and no Decision, prescription, briefing,
+runtime audit, FIT, scheduler, or LaunchAgent operation is reachable from this
+command. The real specification remains private and outside source control.
+Stage 27 remains 90% with live Gate B pending.
+
 ## Executable evidence
 
 Key coverage lives in `tests/decision/test_daily_coordinator.py`,

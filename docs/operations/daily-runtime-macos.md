@@ -41,6 +41,41 @@ lsof data/database/health.duckdb data/database/biomarkers.duckdb \
 Manually close a conflicting writer/server. Never kill automatically, delete
 locks, or stop the WSGI server from tooling.
 
+## INITIAL TRAINING PLAN BOOTSTRAP
+
+This is an explicit one-time prerequisite only when preflight reports no
+applicable persisted Training Plan. It is not automatic plan generation and is
+never called by `ProductionDailyRuntime`.
+
+The operator prepares a private local JSON file outside the repository. Schema
+version `1.0` requires `intent_id`, `plan_id`, inclusive dates, explicit UTC
+`generated_at_utc`, version/supersession metadata, and exactly one entry for
+each canonical weekday Monday through Sunday. Every entry explicitly supplies
+kind, session type, duration, TSS, intensity, priority, and rationale. Existing
+`TrainingIntent`, `WeeklySessionIntent`, and `TrainingPlan` validation applies;
+no value is inferred.
+
+Validate and preview without opening or creating the database:
+
+```bash
+.venv/bin/python -m scripts.bootstrap_training_plan \
+  --input /absolute/private/path/to/plan.json
+```
+
+After reviewing every generated session, persist explicitly:
+
+```bash
+.venv/bin/python -m scripts.bootstrap_training_plan \
+  --input /absolute/private/path/to/plan.json \
+  --apply
+```
+
+Use `--training-plan-db PATH` for an explicit override. The specification's UTC
+timestamp and builder-derived `{plan_id}:{date}` session IDs make retries
+deterministic. Identical apply is a repository no-op; a different payload with
+the same plan ID is a hard conflict. Re-run production preflight afterward.
+Never commit the real specification or athlete schedule.
+
 ## BACKUP
 
 Before the first live candidate execution:
