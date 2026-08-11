@@ -1,19 +1,20 @@
 # Production Runtime and Reliability Contract
 
-Status: Stage 27.4 runtime state, health, and diagnostics, 2026-08-11. Stage
-27.1 established the topology, Stage 27.2 implemented audit persistence, and
-Stage 27.3 proved the ingestion slice. The full coordinator remains
-unimplemented.
+Status: Stage 27.5 authoritative daily runtime candidate, 2026-08-11. The
+coordinator and owned composition are implemented; scheduler certification and
+cutover are intentionally deferred.
 
 ## Conclusion and current topology
 
-There is no authoritative end-to-end production runtime. The scheduled
+`ProductionDailyRuntime` is now the authoritative end-to-end application
+coordinator candidate. The scheduled
 `python -m scripts.run_daily_decision_runtime` is authoritative only for the
 Decision Intelligence plus Final Session Prescription slice. It assumes that
 input stores are current and a persisted Training Plan already covers the day.
 FIT/health ingestion, canonical fact synchronization, plan creation, and
-read-model delivery are separate. Morning Briefing is rebuilt on demand and is
-not a persisted daily artifact.
+read-model delivery were separate. Morning Briefing remains rebuilt on demand
+for HTTP, while the candidate records a content-addressed proof from its frozen
+assessment input.
 
 ```text
 FIT -> scripts.imports.import_workouts
@@ -477,15 +478,81 @@ phase is triggered by diagnostics.
 3. Sprint 27.4: completed — read-only operational snapshot projection, health
    and stale-running classification, current resumability guidance, canonical
    phase diagnostics, read-only DuckDB mode, and compact status CLI.
-4. Sprint 27.5: switch CLI, then LaunchAgent; expose read-only run status and
-   retain deprecated commands for one warning/migration window.
-5. Delete duplicate/legacy paths only after call-site, operations, and data
+4. Sprint 27.5: completed — authoritative thin coordinator, one owned resource
+   graph, candidate CLI, bounded recovery, briefing proof, and read-only
+   publication validation. The existing scheduler remains unchanged.
+5. Sprint 27.6: certify the candidate, close the persisted assessment-snapshot
+   recovery gap, then decide CLI/LaunchAgent cutover with a compatibility window.
+6. Delete duplicate/legacy paths only after call-site, operations, and data
    migration verification.
 
 Do not yet tackle cross-provider semantic deduplication, reinterpret historical
 timestamps, change coaching or plan-generation policy, consolidate databases,
 add distributed transactions, redesign scheduling, delete legacy events, or add
 conversational AI.
+
+## Authoritative daily coordinator (27.5)
+
+`ProductionDailyRuntime` depends on one adapter per canonical phase and the
+runtime audit repository. It owns ordering, target date, revisions, recovery,
+failure classification, and completion only; FIT, assessment, Decision,
+Training Plan, prescription, and briefing policies remain in existing services.
+A new attempt writes revision 1 RUNNING, one RUNNING revision after every
+durable phase, and a separate terminal COMPLETED revision after publication.
+DuckDB errors map to `persistence_unavailable`; generic retry/backoff is absent.
+
+The production composition explicitly owns health, biomarker, Decision,
+Training Plan, and runtime-audit resources plus FIT source and clocks. A clock
+pinned to the explicit target date feeds the Warsaw Decision ledger and plan
+lookup. The container closes owned long-lived resources on normal or exceptional
+exit; no databases are consolidated.
+
+The adapters and policy are:
+
+1. INGESTION and ACTIVITY_FACT_SYNCHRONIZATION reuse 27.3 services inside the
+   parent audit chain. Persisted ingestion artifact IDs freeze fact-sync input.
+2. RECONCILIATION is policy-SKIPPED with
+   `reconciliation_not_applicable`; `ACTIVITY_RECORDED` is never reinterpreted
+   as `WORKOUT_COMPLETED`.
+3. ASSESSMENT freezes one production Morning Briefing input. Decision context
+   and briefing consume that same immutable in-process result.
+4. DECISION calls the coordinated daily ledger path. Existing and recovered
+   same-day Decisions succeed idempotently and real Decision/plan provenance is
+   recorded.
+5. PLAN_PRESCRIPTION reuses Stage 26 after Decision. Its ledger call is an
+   idempotent lookup and deterministic prescription creation/repair is unchanged.
+   No plan is generated; absence terminates with `missing_training_plan`.
+6. MORNING_BRIEFING runs the existing builder/serializer over frozen input and
+   records `briefing:sha256:<digest>` as concrete proof without a new domain DB.
+7. PUBLICATION is read/check-only repository validation of Decision, plan,
+   prescription, and briefing proof. It performs no HTTP request.
+
+All eight phases must be represented. RECONCILIATION is the only current
+policy-skippable phase; ingestion with no files is a successful COMPLETED no-op.
+Whole-runtime COMPLETED requires every phase COMPLETED or policy-SKIPPED, no
+failure, resolvable Decision/plan/prescription provenance, briefing proof,
+successful publication, and a persisted UTC completion time.
+
+Resume never reruns a durable phase. It is supported before ASSESSMENT, after a
+durable briefing (publication remains), and after publication (only terminal
+audit remains). A crash after ASSESSMENT and before briefing is explicitly
+`phase_not_resumable`, because the frozen assessment is not persisted; a new
+attempt sharing the logical date key is required. Terminal COMPLETED, PARTIAL,
+and FAILED attempts do not mutate. This is bounded logical consistency across
+five stores, not a distributed transaction.
+
+The production-candidate command is:
+
+```bash
+python -m scripts.run_production_daily_runtime --date YYYY-MM-DD \
+  --health-db PATH --biomarkers-db PATH --decisions-db PATH \
+  --training-plan-db PATH --runtime-audit-db PATH --fit-source PATH
+```
+
+Without `--date`, Warsaw date is derived once. Output is bounded operational
+metadata; FAILED/PARTIAL exits non-zero without raw tracebacks. The existing
+`scripts.run_daily_decision_runtime` scheduler command and LaunchAgent remain
+unchanged pending Sprint 27.6 certification.
 
 ## Executable evidence
 

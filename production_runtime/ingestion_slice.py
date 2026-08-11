@@ -16,6 +16,7 @@ from application.standard_fit_ingestion import (
     StandardFitWorkoutIngestionService,
 )
 from production_runtime.clock import RuntimeClock, SystemUtcRuntimeClock
+from production_runtime.coordinator import RuntimeAttemptNotResumableError
 from production_runtime.models import (
     RUNTIME_CONTRACT_VERSION,
     PhaseStatus,
@@ -38,10 +39,6 @@ PHASE_INTERRUPTED = "phase_interrupted"
 
 
 class FitSourceUnavailableError(RuntimeError):
-    pass
-
-
-class RuntimeAttemptNotResumableError(RuntimeError):
     pass
 
 
@@ -213,7 +210,11 @@ class IngestionRuntimeSlice:
         self._audit.append(terminal, expected_revision=current.revision)
         return terminal
 
-    def _execute_ingestion(self) -> _IngestionOutcome:
+    @property
+    def source_directory(self) -> Path:
+        return self._discovery.source_directory
+
+    def execute_ingestion(self) -> _IngestionOutcome:
         started_at = self._clock.now_utc()
         snapshot = self._discovery.discover(started_at)
         persisted = 0
@@ -255,7 +256,11 @@ class IngestionRuntimeSlice:
             watermark=snapshot.watermark,
         )
 
-    def _execute_fact_synchronization(
+    def _execute_ingestion(self) -> _IngestionOutcome:
+        """Backward-compatible override point retained for the 27.3 slice."""
+        return self.execute_ingestion()
+
+    def execute_fact_synchronization(
         self,
         artifacts: tuple[Path, ...],
     ) -> _SynchronizationOutcome:
@@ -313,6 +318,13 @@ class IngestionRuntimeSlice:
             ),
             watermark=watermark,
         )
+
+    def _execute_fact_synchronization(
+        self,
+        artifacts: tuple[Path, ...],
+    ) -> _SynchronizationOutcome:
+        """Backward-compatible override point retained for the 27.3 slice."""
+        return self.execute_fact_synchronization(artifacts)
 
     def _terminate_from_exception(
         self,

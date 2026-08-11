@@ -208,7 +208,19 @@ class RuntimeOperationalStatusReader:
         if record.status in (RuntimeStatus.PARTIAL, RuntimeStatus.FAILED):
             return RuntimeResumability.START_NEW_ATTEMPT
         phases = tuple(item.phase for item in record.phases)
-        if phases in ((), (RuntimePhase.INGESTION,)):
+        safe_shapes = (
+            (),
+            (RuntimePhase.INGESTION,),
+            (RuntimePhase.INGESTION, RuntimePhase.ACTIVITY_FACT_SYNCHRONIZATION),
+            (
+                RuntimePhase.INGESTION,
+                RuntimePhase.ACTIVITY_FACT_SYNCHRONIZATION,
+                RuntimePhase.RECONCILIATION,
+            ),
+            tuple(RuntimePhase)[:-1],
+            tuple(RuntimePhase),
+        )
+        if phases in safe_shapes:
             return RuntimeResumability.RESUME_SAME_ATTEMPT
         return RuntimeResumability.NOT_SUPPORTED
 
