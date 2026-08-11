@@ -233,3 +233,6 @@ data/imports/
 data/reports/
 *.pdf.txt
 *.extracted.json
+
+# Nested local database backups
+data/database/**/*.duckdb
