@@ -1,8 +1,8 @@
 # Production Runtime and Reliability Contract
 
-Status: Stage 27.6 persistent assessment recovery and controlled certification,
-2026-08-11. The candidate is 90% through Stage 27; scheduler cutover remains
-explicitly deferred to Sprint 27.7.
+Status: Sprint 27.7 Gate A repository certification and cutover preparation,
+2026-08-11. Stage 27 remains 90%; manual Gate B LaunchAgent cutover and first
+live verification are required before closure.
 
 ## Conclusion and current topology
 
@@ -484,8 +484,10 @@ phase is triggered by diagnostics.
 5. Sprint 27.6: completed — persistent content-addressed assessment snapshot,
    same-attempt late-phase recovery, publication integrity, and isolated
    operational certification. Scheduler remains unchanged.
-6. Sprint 27.7: decide candidate CLI/LaunchAgent cutover, compatibility window,
-   operational rollout checks, and final Stage 27 closure.
+6. Sprint 27.7 Gate A: completed — deterministic scheduled-run policy,
+   read-only preflight, isolated legacy/candidate shadow certification,
+   production/rollback plist preparation, and operator runbook. Gate B remains
+   manual and Stage 27 remains 90%.
 7. Delete duplicate/legacy paths only after call-site, operations, and data
    migration verification.
 
@@ -610,9 +612,48 @@ certify complete execution, repeated logical-day idempotency, assessment restart
 missing snapshot, missing plan, resource closure, and final healthy/no-action
 diagnostics. No production store or FIT source is used.
 
-Stage 27 weighting is corrected: 27.5 = 80%, 27.6 = 90%, and 27.7 remains the
-required final 10%. The candidate CLI is unchanged and the LaunchAgent still
-runs the legacy coordinated daily Decision command.
+Stage 27 weighting is corrected: 27.5 = 80% and 27.6 = 90%. Sprint 27.7 Gate A
+does not increase the percentage: live Gate B evidence is still required.
+
+## Sprint 27.7 Gate A: scheduler cutover preparation
+
+The scheduler-safe mode is
+`python -m scripts.run_production_daily_runtime --scheduled`. It derives the
+Warsaw target date once, reads the latest attempt for that date, starts only
+when none exists, resumes a canonical RUNNING prefix, no-ops a COMPLETED day,
+and exits non-zero for PARTIAL, FAILED, unsupported/corrupt, or unavailable
+audit state. Manual `--new-attempt --date YYYY-MM-DD` and
+`--resume RUNTIME_ID --date YYYY-MM-DD` remain explicit operator actions.
+
+Offline shadow certification uses equivalent but isolated temporary store sets.
+The legacy adaptive coordinator and ProductionDailyRuntime receive identical
+briefing input, target instant, and Training Plan. Comparison covers target
+date, plan/session provenance, Decision context, policy result/recommendation,
+and prescription source/disposition/prescribed semantics. Operational IDs,
+runtime revisions/phases, assessment/briefing proofs, ingestion counters,
+timestamps allowed to differ, and runtime audit metadata are deliberately not
+compared. The semantic projections are equal and repeated candidate scheduling
+does not duplicate domain state.
+
+The repository LaunchAgent template now selects the scheduled production mode
+while preserving label, 07:00 cadence, RunAtLoad, interpreter strategy,
+WorkingDirectory, and stdout/stderr paths. A separate legacy template selected
+with installer `--legacy` provides deterministic rollback under the same label;
+the two commands can never coexist in one generated plist. No LaunchAgent was
+installed or loaded during Gate A.
+
+Read-only `scripts.production_runtime_preflight` checks resolved paths, FIT
+source, interpreter, command, domain database readability, applicable Training
+Plan, and runtime-audit usability without executing workflow or creating the
+runtime DB. Database-holder inspection, timestamped ignored backups, cutover,
+verification, explicit retry, rollback, compatibility window, and the empty
+Gate B evidence record are canonical in
+[macOS Production Runtime Operations](../operations/daily-runtime-macos.md).
+
+Gate B must later supply the real runtime ID/date/status/revision, eight phases,
+HEALTHY/NO_ACTION diagnostics, loaded new command, absence of concurrent legacy
+scheduling, and first-live logs. Until reviewed evidence exists, Stage 27 must
+not be described as closed or 100%.
 
 ## Executable evidence
 

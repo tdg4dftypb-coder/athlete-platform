@@ -125,6 +125,19 @@ def _print_snapshot(snapshot: RuntimeOperationalSnapshot) -> None:
         detail = f": {snapshot.failure.detail}" if snapshot.failure.detail else ""
         print(f"Failure     : {snapshot.failure.code}{phase}{detail}")
 
+    references = snapshot.artifact_references
+    assessment = next(
+        (phase.artifact_ids[0] for phase in snapshot.phases
+         if phase.phase.value == "assessment" and phase.artifact_ids),
+        None,
+    )
+    print("Artifacts")
+    print(f"  assessment_snapshot : {assessment or '-'}")
+    print(f"  decision_id         : {references.decision_id or '-'}")
+    print(f"  training_plan_id    : {references.training_plan_id or '-'}")
+    print(f"  prescription_id     : {references.prescription_id or '-'}")
+    print(f"  morning_briefing    : {'available' if references.morning_briefing_available else 'unavailable'}")
+
     counters = snapshot.counters
     print("Counters")
     print(f"  activities_discovered       : {_optional(counters.activities_discovered)}")

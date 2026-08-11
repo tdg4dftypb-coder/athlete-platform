@@ -10,6 +10,8 @@ from production_runtime.diagnostics import (
 from production_runtime.models import RuntimePhase, RuntimeStatus
 from production_runtime.persistence import DuckDbRuntimeAuditRepository
 from production_runtime.production_composition import create_production_daily_runtime
+from application.adaptive_daily_production_composition import create_production_adaptive_daily_runtime
+from scripts.run_daily_decision_runtime import run_daily_decision_runtime
 from training_plan.models import PlannedSession, PlannedSessionKind, TrainingPlan
 from training_plan.persistence.duckdb_repository import (
     DuckDbFinalSessionPrescriptionRepository,
@@ -23,6 +25,8 @@ NOW = datetime(2026, 8, 11, 10, tzinfo=timezone.utc)
 
 class RuntimeClock:
     def now_utc(self):
+        return NOW
+    def now(self):
         return NOW
 
 
@@ -159,3 +163,51 @@ def test_missing_snapshot_after_durable_assessment_is_integrity_failure(tmp_path
         result = container.runtime.resume_attempt("runtime-missing-snapshot")
     assert result.status is RuntimeStatus.PARTIAL
     assert result.failure.code == "assessment_snapshot_missing"
+
+
+def test_legacy_and_candidate_have_equivalent_decision_and_prescription_semantics(tmp_path):
+    legacy_root = tmp_path / "legacy"
+    candidate_root = tmp_path / "candidate"
+    legacy_root.mkdir()
+    candidate_root.mkdir()
+    legacy_plan = legacy_root / "training_plan.duckdb"
+    candidate_plan = candidate_root / "training_plan.duckdb"
+    seed_plan(legacy_plan)
+    seed_plan(candidate_plan)
+    legacy_provider = BriefingProvider()
+    with create_production_adaptive_daily_runtime(
+        health_db_path=legacy_root / "health.duckdb",
+        biomarkers_db_path=legacy_root / "biomarkers.duckdb",
+        decisions_db_path=legacy_root / "decisions.duckdb",
+        training_plan_db_path=legacy_plan,
+        clock=RuntimeClock(),
+        morning_briefing_provider=legacy_provider,
+    ) as legacy:
+        assert run_daily_decision_runtime(coordinator=legacy.coordinator) == 0
+        legacy_decision = legacy.audit_repository.list_records()[0]
+        legacy_rx = legacy.prescription_repository.list_records()[0]
+
+    candidate_provider = BriefingProvider()
+    options = fixture_options(candidate_root, candidate_provider)
+    options["runtime_id_factory"] = lambda: "runtime-shadow"
+    with create_production_daily_runtime(**options) as candidate:
+        result = candidate.runtime.run_new_attempt(TARGET)
+        assert result.status is RuntimeStatus.COMPLETED
+        candidate_decision = candidate.decision_repository.get_by_id(result.decision_id)
+    candidate_rx = DuckDbFinalSessionPrescriptionRepository(candidate_plan).list_records()[0]
+
+    assert legacy_decision.context == candidate_decision.context
+    assert legacy_decision.context.training.plan_id == "plan-cert"
+    assert legacy_decision.context.training.planned_session_id == "plan-cert:2026-08-11"
+    assert legacy_decision.policy_result == candidate_decision.policy_result
+    assert legacy_decision.recommendation_plan == candidate_decision.recommendation_plan
+    assert legacy_rx.plan_id == candidate_rx.plan_id == "plan-cert"
+    assert legacy_rx.source_session == candidate_rx.source_session
+    assert legacy_rx.disposition == candidate_rx.disposition
+    assert legacy_rx.prescribed_kind == candidate_rx.prescribed_kind
+    assert legacy_rx.prescribed_session_type == candidate_rx.prescribed_session_type
+    assert legacy_rx.prescribed_duration_minutes == candidate_rx.prescribed_duration_minutes
+    assert legacy_rx.prescribed_target_tss == candidate_rx.prescribed_target_tss
+    assert legacy_rx.prescribed_intensity == candidate_rx.prescribed_intensity
+    assert legacy_rx.reason_codes == candidate_rx.reason_codes
+    assert legacy_rx.reconciliation_policy_version == candidate_rx.reconciliation_policy_version

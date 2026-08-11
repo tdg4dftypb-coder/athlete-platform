@@ -10,6 +10,7 @@ DEFAULT_TIMEZONE="Europe/Warsaw"
 DEFAULT_TARGET_DIR="${HOME}/Library/LaunchAgents"
 DEFAULT_LOG_DIR="${HOME}/Library/Logs/AthletePlatform"
 DRY_RUN=0
+LEGACY=0
 
 HOUR="$DEFAULT_HOUR"
 MINUTE="$DEFAULT_MINUTE"
@@ -44,6 +45,10 @@ while [[ $# -gt 0 ]]; do
             DRY_RUN=1
             shift
             ;;
+        --legacy)
+            LEGACY=1
+            shift
+            ;;
         *)
             echo "Unknown argument: $1" >&2
             exit 2
@@ -67,8 +72,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 PYTHON_EXEC="$REPO_ROOT/.venv/bin/python"
-SCRIPT_TARGET="$REPO_ROOT/scripts/run_daily_decision_runtime.py"
-TEMPLATE_FILE="$REPO_ROOT/ops/macos/$LABEL.plist.template"
+if [ "$LEGACY" -eq 1 ]; then
+    SCRIPT_TARGET="$REPO_ROOT/scripts/run_daily_decision_runtime.py"
+    TEMPLATE_FILE="$REPO_ROOT/ops/macos/$LABEL.legacy.plist.template"
+    RUNTIME_MODE="legacy rollback"
+else
+    SCRIPT_TARGET="$REPO_ROOT/scripts/run_production_daily_runtime.py"
+    TEMPLATE_FILE="$REPO_ROOT/ops/macos/$LABEL.plist.template"
+    RUNTIME_MODE="production scheduled"
+fi
 
 # Validate Python environment & target script
 if [ ! -x "$PYTHON_EXEC" ]; then
@@ -107,6 +119,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
     echo "Python Executable : $PYTHON_EXEC"
     echo "Working Directory : $REPO_ROOT"
     echo "Schedule          : $HOUR:$MINUTE ($TIMEZONE)"
+    echo "Runtime Mode      : $RUNTIME_MODE"
     echo "Log Stdout        : $LOG_STDOUT"
     echo "Log Stderr        : $LOG_STDERR"
     echo ""

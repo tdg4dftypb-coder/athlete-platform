@@ -41,11 +41,26 @@ def test_dry_run_installer_renders_valid_plist():
     data = plistlib.loads(plist_xml.encode("utf-8"))
     assert data["Label"] == "com.athleteplatform.daily-decision-runtime"
     assert data["ProgramArguments"][0].endswith(".venv/bin/python")
-    assert data["ProgramArguments"][1:3] == ["-m", "scripts.run_daily_decision_runtime"]
+    assert data["ProgramArguments"][1:] == ["-m", "scripts.run_production_daily_runtime", "--scheduled"]
     assert data["StartCalendarInterval"]["Hour"] == 8
     assert data["StartCalendarInterval"]["Minute"] == 30
     assert data["RunAtLoad"] is True
     assert "KeepAlive" not in data
+
+
+def test_legacy_rollback_dry_run_selects_only_legacy_command():
+    result = subprocess.run(
+        [str(INSTALL_SCRIPT), "--dry-run", "--legacy"],
+        capture_output=True, text=True, check=True,
+    )
+    lines = result.stdout.splitlines()
+    plist_xml = "\n".join(
+        lines[lines.index("--- Rendered Content ---") + 1:lines.index("------------------------")]
+    )
+    data = plistlib.loads(plist_xml.encode("utf-8"))
+    assert data["ProgramArguments"][1:3] == ["-m", "scripts.run_daily_decision_runtime"]
+    assert "scripts.run_production_daily_runtime" not in data["ProgramArguments"]
+    assert data["StartCalendarInterval"] == {"Hour": 7, "Minute": 0}
 
 
 def test_installer_invalid_arguments_error_handling():

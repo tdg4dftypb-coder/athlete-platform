@@ -63,6 +63,7 @@ def create_production_adaptive_daily_runtime(
     clock: Optional[DecisionClock] = None,
     timezone_name: str = "Europe/Warsaw",
     lease_duration: timedelta = timedelta(minutes=15),
+    morning_briefing_provider=None,
 ) -> ProductionAdaptiveDailyRuntimeContainer:
     """Builds a ProductionAdaptiveDailyRuntimeContainer wired to canonical database paths."""
     target_decisions_path = get_default_decisions_db_path(decisions_db_path)
@@ -97,7 +98,7 @@ def create_production_adaptive_daily_runtime(
         biomarker_registry=bio_context.registry,
         clock=bio_context.clock,
     )
-    mb_provider = ProductionMorningBriefingInputProvider(
+    mb_provider = morning_briefing_provider or ProductionMorningBriefingInputProvider(
         morning_coach_use_case=morning_coach_use_case,
         biomarkers_dashboard_builder=bio_builder,
     )

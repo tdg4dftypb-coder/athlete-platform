@@ -14,6 +14,7 @@
 8. [Roadmapa](07-roadmap.md)
 9. [Glosariusz](08-glossary.md)
 10. [Production Runtime and Reliability Contract](09-production-runtime.md)
+    - [macOS Production Runtime Operations](../operations/daily-runtime-macos.md)
 11. [Prompty dla Codex](prompts/codex.md)
 12. [Prompty dla Antigravity](prompts/antigravity.md)
 13. [Prompty dla ChatGPT](prompts/chatgpt.md)
