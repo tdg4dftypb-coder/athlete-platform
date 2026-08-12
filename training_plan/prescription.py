@@ -19,7 +19,7 @@ class PrescriptionDisposition(Enum):
 
 @dataclass(frozen=True)
 class FinalSessionPrescription:
-    """Immutable daily training prescription overlay resulting from adaptive reconciliation."""
+    """Immutable prescription for one atomic source PlannedSession."""
 
     prescription_id: str
     plan_id: str

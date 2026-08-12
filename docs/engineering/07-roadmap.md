@@ -175,6 +175,22 @@ Wagi Stage 27 są kompletne: 27.1 = 15%, 27.2 = +20% (35%), 27.3 = +15%
 27.7 = +10% (100%). Zamrożony roadmap kończy się na Stage 27; dalszy rozwój
 produktu wymaga osobnej decyzji o nowym roadmapie / roadmap v2.
 
+## Current
+
+### Roadmap V2 — Stage 28: Multi-Session & Activity Semantics
+
+- **Multi-Session Domain Foundation (28.1 — completed):** `TrainingPlan`
+  supports multiple atomic `PlannedSession` objects on one local date, ordered
+  canonically by `(date, session_id)`. Every covered date is either exactly one
+  REST session or one-or-more TRAINING sessions; gaps and REST/TRAINING mixtures
+  remain invalid. `session_id` remains the stable identity and each
+  `FinalSessionPrescription` still targets one source session. The selector
+  exposes `get_all_for_date`; legacy `get_for_date` remains bounded and rejects
+  ambiguous multi-session dates. Persistence migration, activity matching,
+  reconciliation, execution outcomes, and live-data certification are deferred
+  to later Stage 28 sprints. Stage 28 is not closed; Sprint 28.1 contributes 4%
+  of Roadmap V2 (26.67% of Stage 28).
+
 ## Planned
 
 Poniższe obszary są udokumentowanym kierunkiem, ale nie są obecnie zaimplementowanymi modułami:

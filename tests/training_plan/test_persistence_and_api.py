@@ -80,6 +80,31 @@ def make_test_plan(plan_id="plan-test-01", start_d=date(2026, 8, 10), version=1)
     )
 
 
+def test_training_plan_codec_round_trips_canonical_multi_session_plan():
+    target = date(2026, 8, 16)
+    swim = PlannedSession(
+        "multi:swim", target, PlannedSessionKind.TRAINING, "SWIM", 45,
+        25.0, "EASY", 2, ("Technique",),
+    )
+    ride = PlannedSession(
+        "multi:ride", target, PlannedSessionKind.TRAINING, "ENDURANCE", 180,
+        130.0, "MODERATE", 4, ("Long ride",),
+    )
+    plan = TrainingPlan(
+        "multi", target, target, 1,
+        datetime(2026, 8, 12, 10, 0, tzinfo=timezone.utc),
+        (swim, ride),
+    )
+
+    decoded = TrainingPlanCodec().decode(TrainingPlanCodec().encode(plan))
+
+    assert decoded == plan
+    assert tuple(session.session_id for session in decoded.sessions) == (
+        "multi:ride",
+        "multi:swim",
+    )
+
+
 def make_test_decision_record(decision_id: str, action: DecisionAction) -> DecisionAuditRecord:
     rec_at = datetime(2026, 8, 10, 7, 0, tzinfo=timezone.utc)
     sig = DecisionPolicySignal("SIG_TEST", "test", DecisionSeverity.MEDIUM, "Summary")

@@ -47,6 +47,8 @@ def test_valid_as_planned_prescription():
     )
 
     assert rx.prescription_id == "s1:dec-123"
+    assert rx.source_session is src
+    assert rx.source_session.session_id == "s1"
     assert rx.date == date(2026, 8, 10)
     assert rx.disposition == PrescriptionDisposition.AS_PLANNED
     assert rx.prescribed_session_type == "VO2"

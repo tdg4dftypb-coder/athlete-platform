@@ -7,7 +7,10 @@ from training_plan.models import (
     PlannedSessionKind,
     TrainingPlan,
 )
-from training_plan.selector import TrainingPlanSessionSelector
+from training_plan.selector import (
+    MultiplePlannedSessionsError,
+    TrainingPlanSessionSelector,
+)
 from training_plan.ports import TrainingPlanProvider
 
 
@@ -126,18 +129,14 @@ def test_training_plan_invariants():
     with pytest.raises(ValueError, match="duplicate session_id"):
         TrainingPlan("p1", d1, d2, 1, datetime.now(timezone.utc), (s1, s2_dup_id))
 
-    # Duplicate date
+    # REST and TRAINING cannot coexist on one date
     s2_dup_date = PlannedSession("s2", d1, PlannedSessionKind.REST, None, 0, None, None, 1, ())
-    with pytest.raises(ValueError, match="duplicate date"):
+    with pytest.raises(ValueError, match="exactly one REST"):
         TrainingPlan("p1", d1, d2, 1, datetime.now(timezone.utc), (s1, s2_dup_date))
-
-    # Out of chronological order
-    with pytest.raises(ValueError, match="strict chronological order"):
-        TrainingPlan("p1", d1, d2, 1, datetime.now(timezone.utc), (s2, s1))
 
     # Missing date in range (gapless requirement)
     d3 = date(2026, 8, 9)
-    with pytest.raises(ValueError, match="requires exactly 3 sessions"):
+    with pytest.raises(ValueError, match="coverage for exactly 3 dates"):
         TrainingPlan("p1", d1, d3, 1, datetime.now(timezone.utc), (s1, s2))
 
     # Plan supersedes itself
@@ -172,6 +171,37 @@ def test_training_plan_session_selector():
     # Out of range date returns None
     assert selector.get_for_date(plan, date(2026, 8, 6)) is None
     assert selector.get_for_date(plan, date(2026, 8, 10)) is None
+
+
+def test_multi_session_plan_normalizes_order_and_selector_is_explicit():
+    target = date(2026, 8, 16)
+    later_id = PlannedSession(
+        "session-swim", target, PlannedSessionKind.TRAINING, "SWIM", 45,
+        25.0, "EASY", 2, ("Technique",),
+    )
+    earlier_id = PlannedSession(
+        "session-endurance", target, PlannedSessionKind.TRAINING, "ENDURANCE",
+        180, 130.0, "MODERATE", 4, ("Long ride",),
+    )
+    plan = TrainingPlan(
+        "multi-plan", target, target, 1, datetime.now(timezone.utc),
+        (later_id, earlier_id),
+    )
+    selector = TrainingPlanSessionSelector()
+
+    assert plan.sessions == (earlier_id, later_id)
+    assert selector.get_all_for_date(plan, target) == (earlier_id, later_id)
+    assert selector.get_all_for_date(plan, target - timedelta(days=1)) == ()
+    with pytest.raises(MultiplePlannedSessionsError, match="use get_all_for_date"):
+        selector.get_for_date(plan, target)
+
+
+def test_more_than_one_rest_session_on_same_date_is_invalid():
+    target = date(2026, 8, 16)
+    first = PlannedSession("rest-a", target, PlannedSessionKind.REST, None, 0, 0.0, None, 1, ())
+    second = PlannedSession("rest-b", target, PlannedSessionKind.REST, None, 0, 0.0, None, 1, ())
+    with pytest.raises(ValueError, match="exactly one REST"):
+        TrainingPlan("rest-plan", target, target, 1, datetime.now(timezone.utc), (first, second))
 
 
 def test_training_plan_dependency_boundary():

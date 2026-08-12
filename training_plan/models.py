@@ -95,7 +95,9 @@ class PlannedSession:
 class TrainingPlan:
     """Immutable multi-day baseline training calendar.
 
-    Guarantees complete, gapless, 1-slot-per-day calendar coverage for [start_date, end_date].
+    Guarantees intentional coverage for every date in [start_date, end_date].
+    A date contains exactly one REST session or one-or-more TRAINING sessions.
+    Sessions are canonically ordered by (date, session_id).
     """
 
     plan_id: str
@@ -132,15 +134,19 @@ class TrainingPlan:
             if self.supersedes_plan_id == self.plan_id:
                 raise ValueError("plan cannot supersede itself")
 
-        # Validate unique session IDs and valid session dates
-        seen_session_ids = set()
-        seen_dates = set()
-        prev_date: date | None = None
-
-        for idx, s in enumerate(self.sessions):
-            if not isinstance(s, PlannedSession):
+        for idx, session in enumerate(self.sessions):
+            if not isinstance(session, PlannedSession):
                 raise TypeError(f"item at index {idx} must be PlannedSession")
 
+        # Normalize independently constructed/decoded plans to canonical order.
+        canonical_sessions = tuple(sorted(self.sessions, key=lambda s: (s.date, s.session_id)))
+        object.__setattr__(self, "sessions", canonical_sessions)
+
+        # Validate unique session IDs, valid dates, and per-date semantics.
+        seen_session_ids = set()
+        sessions_by_date: dict[date, list[PlannedSession]] = {}
+
+        for idx, s in enumerate(self.sessions):
             if s.session_id in seen_session_ids:
                 raise ValueError(f"duplicate session_id '{s.session_id}' found in plan")
             seen_session_ids.add(s.session_id)
@@ -148,18 +154,20 @@ class TrainingPlan:
             if s.date < self.start_date or s.date > self.end_date:
                 raise ValueError(f"session date {s.date} lies outside plan range [{self.start_date}, {self.end_date}]")
 
-            if s.date in seen_dates:
-                raise ValueError(f"duplicate date {s.date} found in plan")
-            seen_dates.add(s.date)
+            sessions_by_date.setdefault(s.date, []).append(s)
 
-            if prev_date is not None and s.date <= prev_date:
-                raise ValueError("sessions must be in strict chronological order")
-            prev_date = s.date
+        for session_date, day_sessions in sessions_by_date.items():
+            rest_count = sum(s.kind is PlannedSessionKind.REST for s in day_sessions)
+            if rest_count and len(day_sessions) != 1:
+                raise ValueError(
+                    f"date {session_date} must contain exactly one REST session "
+                    "or one-or-more TRAINING sessions"
+                )
 
-        # Validate complete gapless calendar coverage
+        # Validate complete intentional calendar coverage.
         total_days = (self.end_date - self.start_date).days + 1
-        if len(self.sessions) != total_days:
+        if len(sessions_by_date) != total_days:
             raise ValueError(
-                f"plan range [{self.start_date}, {self.end_date}] requires exactly {total_days} sessions, "
-                f"but got {len(self.sessions)}"
+                f"plan range [{self.start_date}, {self.end_date}] requires intentional "
+                f"coverage for exactly {total_days} dates, but got {len(sessions_by_date)}"
             )

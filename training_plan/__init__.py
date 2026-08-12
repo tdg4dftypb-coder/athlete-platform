@@ -11,7 +11,7 @@ from training_plan.models import (
     TrainingPlan,
 )
 from training_plan.ports import TrainingPlanProvider
-from training_plan.selector import TrainingPlanSessionSelector
+from training_plan.selector import MultiplePlannedSessionsError, TrainingPlanSessionSelector
 
 from training_plan.prescription import (
     FinalSessionPrescription,
@@ -27,6 +27,7 @@ __all__ = [
     "TrainingPlan",
     "BaselineTrainingPlanBuilder",
     "TrainingPlanSessionSelector",
+    "MultiplePlannedSessionsError",
     "TrainingPlanProvider",
     "PrescriptionDisposition",
     "FinalSessionPrescription",
