@@ -200,6 +200,21 @@ produktu wymaga osobnej decyzji o nowym roadmapie / roadmap v2.
   Singular Decision/adaptive consumers remain deliberately bounded for a later
   sprint. Activity matching and execution outcomes are deferred to 28.3. Stage
   28 remains open at 53.33%; Roadmap V2 progress is 8%.
+- **Activity Matching & Reconciliation (28.3 — completed):** dedicated
+  `activity_reconciliation/` consumes only canonical `ACTIVITY_RECORDED` facts
+  and PlannedSession intent on the athlete-local date. Policy 1.0 uses explicit
+  sport compatibility and resolves only one-to-one candidate components;
+  many-candidate relationships remain AMBIGUOUS, and duration never chooses
+  identity. Matched duration at least 90% is COMPLETED, lower duration is
+  PARTIAL, and missing duration retains the match without inventing an outcome.
+  SKIPPED requires caller-supplied finalized state, REST has no execution
+  outcome, unmatched non-ambiguous activity is UNPLANNED, and REPLACED requires
+  explicit evidence. Immutable fingerprinted results are append-only in an
+  isolated DuckDB repository; `WORKOUT_COMPLETED` remains separate legacy
+  history. Runtime wiring and public outcome projection are deferred to 28.4.
+  Recommended integration is reconciling the previous closed local date during
+  today's existing runtime, avoiding false morning finalization and a second
+  scheduler. Stage 28 remains open at 86.67%; Roadmap V2 progress is 13%.
 
 ## Planned
 
