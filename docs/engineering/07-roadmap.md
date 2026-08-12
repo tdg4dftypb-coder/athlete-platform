@@ -215,6 +215,13 @@ produktu wymaga osobnej decyzji o nowym roadmapie / roadmap v2.
   Recommended integration is reconciling the previous closed local date during
   today's existing runtime, avoiding false morning finalization and a second
   scheduler. Stage 28 remains open at 86.67%; Roadmap V2 progress is 13%.
+- **Production Integration & Live Certification (28.4 — Gate A candidate):**
+  production composition now targets the previous closed local date through a
+  real reconciliation adapter backed by the dedicated reconciliation DuckDB.
+  Activity Calendar exposes the latest immutable reconciliation per day, while
+  the single scheduler and legacy calendar fields remain unchanged. Isolated
+  certification uses only temporary stores. Gate B live certification remains
+  operator-pending; Sprint 28.4 and Stage 28 are not formally closed.
 
 ## Planned
 

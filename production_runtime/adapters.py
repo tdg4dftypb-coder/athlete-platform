@@ -185,14 +185,34 @@ class PublicationValidationAdapter:
         plan_exists: Callable[[str], bool],
         prescription_exists: Callable[[str], bool],
         assessment_resolves: Callable[[str, str, object], bool] | None = None,
+        reconciliation_exists: Callable[[str], bool] | None = None,
     ) -> None:
         self._decision_exists = decision_exists
         self._plan_exists = plan_exists
         self._prescription_exists = prescription_exists
         self._assessment_resolves = assessment_resolves
+        self._reconciliation_exists = reconciliation_exists
 
     def execute(self, context: RuntimePhaseContext) -> RuntimePhaseOutcome:
         result = context.result
+        if self._reconciliation_exists is not None:
+            reconciliation_phases = [
+                phase for phase in result.phases
+                if phase.phase.value == "reconciliation"
+            ]
+            if not reconciliation_phases:
+                raise RuntimePhaseError("reconciliation_not_resolvable")
+            reconciliation_phase = reconciliation_phases[0]
+            if reconciliation_phase.status is PhaseStatus.COMPLETED:
+                if len(reconciliation_phase.artifact_ids) != 1:
+                    raise RuntimePhaseError("reconciliation_not_resolvable")
+                if not self._reconciliation_exists(
+                    reconciliation_phase.artifact_ids[0]
+                ):
+                    raise RuntimePhaseError("reconciliation_not_resolvable")
+            elif reconciliation_phase.status is PhaseStatus.SKIPPED:
+                if reconciliation_phase.artifact_ids:
+                    raise RuntimePhaseError("reconciliation_not_resolvable")
         if self._assessment_resolves is not None:
             assessment_phases = [p for p in result.phases if p.phase.value == "assessment"]
             if not assessment_phases or len(assessment_phases[0].artifact_ids) != 1:

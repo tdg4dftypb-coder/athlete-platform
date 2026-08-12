@@ -16,6 +16,7 @@ def fixture_paths(tmp_path, *, seed_plan=True):
         "decisions_db_path": tmp_path / "decisions.duckdb",
         "training_plan_db_path": tmp_path / "training_plan.duckdb",
         "runtime_audit_db_path": tmp_path / "runtime.duckdb",
+        "activity_reconciliation_db_path": tmp_path / "reconciliation.duckdb",
         "fit_source_path": tmp_path / "fits",
         "python_path": sys.executable,
         "working_directory": tmp_path,
@@ -37,6 +38,7 @@ def test_read_only_preflight_success_without_creating_runtime_database(tmp_path)
     checks = run_preflight_checks(TARGET, **paths)
     assert all(check.passed for check in checks), checks
     assert not paths["runtime_audit_db_path"].exists()
+    assert not paths["activity_reconciliation_db_path"].exists()
 
 
 def test_preflight_reports_missing_plan(tmp_path):

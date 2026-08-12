@@ -20,6 +20,7 @@ def run_production_daily_runtime(
     decisions_db_path: str | Path | None = None,
     training_plan_db_path: str | Path | None = None,
     runtime_audit_db_path: str | Path | None = None,
+    activity_reconciliation_db_path: str | Path | None = None,
     fit_source_path: str | Path | None = None,
     coordinator=None,
     clock=None,
@@ -59,6 +60,7 @@ def run_production_daily_runtime(
                 decisions_db_path=decisions_db_path,
                 training_plan_db_path=training_plan_db_path,
                 runtime_audit_db_path=runtime_audit_db_path,
+                activity_reconciliation_db_path=activity_reconciliation_db_path,
                 fit_source_path=fit_source_path,
                 clock=runtime_clock,
                 target_local_date=resolved_date,
@@ -125,6 +127,7 @@ def main() -> int:
     parser.add_argument("--decisions-db")
     parser.add_argument("--training-plan-db")
     parser.add_argument("--runtime-audit-db")
+    parser.add_argument("--activity-reconciliation-db")
     parser.add_argument("--fit-source")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--scheduled", action="store_true")
@@ -138,6 +141,7 @@ def main() -> int:
         decisions_db_path=args.decisions_db,
         training_plan_db_path=args.training_plan_db,
         runtime_audit_db_path=args.runtime_audit_db,
+        activity_reconciliation_db_path=args.activity_reconciliation_db,
         fit_source_path=args.fit_source,
         operation="scheduled" if args.scheduled else "new",
         resume_runtime_id=args.resume,

@@ -37,7 +37,10 @@ def test_get_decision_history_with_records(tmp_path):
     repo.save(rec1)
     repo.save(rec2)
 
-    app = create_production_dashboard_wsgi_app(decision_db_path=str(db_file))
+    app = create_production_dashboard_wsgi_app(
+        decision_db_path=str(db_file),
+        activity_reconciliation_db_path=tmp_path / "reconciliation.duckdb",
+    )
 
     status, headers, body = make_request(app, "GET", "/api/v1/decision-intelligence/history")
     assert status == 200

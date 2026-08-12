@@ -24,6 +24,7 @@ returns `503`.
   "days": [
     {
       "date": "2026-08-01",
+      "planned_sessions": [],
       "planned_session": {
         "session_id": "plan-id:2026-08-01",
         "kind": "TRAINING",
@@ -42,7 +43,8 @@ returns `503`.
           "completed": true,
           "status": "good"
         }
-      ]
+      ],
+      "reconciliation": null
     }
   ]
 }
@@ -52,6 +54,14 @@ returns `503`.
 activity values are JSON `null` when absent from the persisted event. Activities
 are ordered by athlete-local start time and stable `activity_id`; days are
 chronological.
+
+`reconciliation` is `null` when no persisted result exists. Otherwise it is the
+latest deterministic persisted snapshot for the date, including reconciliation
+identity, policy/version, plan identity/version, finalized state, evaluation
+time, input fingerprint, and item evidence (match status, planned/activity
+references, candidates, execution outcome, completion percentage, and reason or
+warning codes). Existing `planned_sessions`, `planned_session`, and `activities`
+contracts are unchanged.
 
 ## Sources and local-day semantics
 

@@ -15,6 +15,7 @@ def options(tmp_path):
         decisions_db_path=tmp_path / "decisions.duckdb",
         training_plan_db_path=tmp_path / "plan.duckdb",
         runtime_audit_db_path=tmp_path / "runtime.duckdb",
+        activity_reconciliation_db_path=tmp_path / "reconciliation.duckdb",
         fit_source_path=fit,
     )
 

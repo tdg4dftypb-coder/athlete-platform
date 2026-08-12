@@ -48,7 +48,10 @@ def test_full_pipeline_runner_db_get_integration(tmp_path):
     assert persisted_record is not None
 
     # 3. Production WSGI app opening the same test database
-    app = create_production_dashboard_wsgi_app(decision_db_path=str(db_file))
+    app = create_production_dashboard_wsgi_app(
+        decision_db_path=str(db_file),
+        activity_reconciliation_db_path=tmp_path / "reconciliation.duckdb",
+    )
 
     # 4. GET /api/v1/decision-intelligence/latest returns exact saved decision semantics
     status, headers, body = make_request(app, "GET", "/api/v1/decision-intelligence/latest")

@@ -33,13 +33,21 @@ matches, outcomes, candidates, reason/warning codes, replacement evidence,
 evaluation time, and a deterministic input fingerprint. The DuckDB repository
 stores one row per fingerprint: identical inputs are idempotent and changed
 activity, plan version, finalization, or replacement evidence appends a new
-snapshot. Sprint 28.4 should provision a dedicated
-`data/database/activity_reconciliation.duckdb`; Sprint 28.3 uses temporary test
-stores only.
+snapshot. The canonical dedicated store is
+`data/database/activity_reconciliation.duckdb`, with explicit path injection
+and `ACTIVITY_RECONCILIATION_DB_PATH` available for isolated composition.
 
-Production Runtime still uses `ReconciliationPolicySkipAdapter`. For 28.4, the
-recommended bounded operational model is to reconcile the previous closed
-Warsaw date during today's existing ProductionDailyRuntime. This preserves one
-authoritative scheduler and avoids declaring later current-day sessions skipped
-during a morning run. Runtime wiring, public outcome projection, and live-data
-certification remain deferred. Stage 28 is open at 86.67%; Roadmap V2 is 13%.
+Sprint 28.4 Gate A wires `ProductionReconciliationAdapter` into production
+composition while retaining `ReconciliationPolicySkipAdapter` for compatibility.
+For runtime target date D, the adapter loads a bounded activity window and
+reconciles D - 1 with `finalized=True`; it never finalizes the open current day.
+Missing previous-day plan context is a truthful
+`reconciliation_plan_unavailable` phase skip. Completed phases publish exactly
+one resolvable reconciliation artifact and append only when the semantic input
+fingerprint is new.
+
+Activity Calendar reads the latest persisted snapshot per date and exposes it
+as the nullable `reconciliation` projection without mutating planned sessions or
+activities. The existing single scheduler is unchanged. Gate B live production
+certification remains operator-pending, so Sprint 28.4 and Stage 28 are not yet
+formally closed.

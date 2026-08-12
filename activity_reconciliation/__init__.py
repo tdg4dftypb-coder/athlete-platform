@@ -8,9 +8,11 @@ from activity_reconciliation.models import (
     ReplacementEvidence,
 )
 from activity_reconciliation.service import ActivitySessionReconciler
+from activity_reconciliation.persistence import DuckDbReconciliationResultRepository
 
 __all__ = [
     "ActivityExecutionOutcome", "ActivityReference", "MatchStatus",
     "ReconciliationItem", "ReconciliationResult", "ReplacementEvidence",
     "ActivitySessionReconciler",
+    "DuckDbReconciliationResultRepository",
 ]

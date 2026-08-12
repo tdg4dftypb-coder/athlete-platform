@@ -7,6 +7,7 @@ from activity_reconciliation import (
     ReplacementEvidence,
 )
 from activity_reconciliation.persistence import DuckDbReconciliationResultRepository
+from activity_reconciliation.paths import get_default_activity_reconciliation_db_path
 from athlete.memory.models import AthleteMemoryEvent, AthleteMemoryEventType
 from training_plan.models import PlannedSession, PlannedSessionKind, TrainingPlan
 
@@ -172,13 +173,20 @@ def test_append_only_repository_is_idempotent_and_preserves_changed_inputs(tmp_p
     first = reconcile(training_plan, [activity("a")])
     same_input_later = reconcile(training_plan, [activity("a")], evaluated_at=NOW + timedelta(hours=1))
     changed_activity = reconcile(training_plan, [activity("b")])
-    changed_plan = reconcile(plan(session("s"), version=2), [activity("a")])
+    changed_plan = reconcile(
+        plan(session("s"), version=2), [activity("a")],
+        evaluated_at=NOW + timedelta(hours=2),
+    )
 
-    for result in (first, same_input_later, changed_activity, changed_plan):
-        repository.save(result)
+    assert repository.save(first) is True
+    assert repository.save(same_input_later) is False
+    assert repository.save(changed_activity) is True
+    assert repository.save(changed_plan) is True
 
     assert first.input_fingerprint == same_input_later.input_fingerprint
     assert repository.get_by_fingerprint(first.input_fingerprint) == first
+    assert repository.get_by_id(first.reconciliation_id) == first
+    assert repository.get_latest_for_date(TARGET) == changed_plan
     assert len(repository.list_for_date(TARGET)) == 3
 
 
@@ -230,3 +238,14 @@ def test_changed_session_semantics_append_separate_persisted_result(tmp_path):
     assert baseline.input_fingerprint == same_input_later.input_fingerprint
     assert changed.input_fingerprint != baseline.input_fingerprint
     assert len(repository.list_for_date(TARGET)) == 2
+
+
+def test_reconciliation_path_supports_explicit_and_environment_overrides(
+    tmp_path, monkeypatch
+):
+    explicit = tmp_path / "explicit.duckdb"
+    assert get_default_activity_reconciliation_db_path(explicit) == explicit
+    monkeypatch.setenv("ACTIVITY_RECONCILIATION_DB_PATH", "var/test-reconciliation.duckdb")
+    resolved = get_default_activity_reconciliation_db_path()
+    assert resolved.name == "test-reconciliation.duckdb"
+    assert resolved.is_absolute()

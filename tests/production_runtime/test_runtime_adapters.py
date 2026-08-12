@@ -76,6 +76,46 @@ def test_publication_validates_repositories_and_briefing_proof():
         )
 
 
+@pytest.mark.parametrize(
+    ("status", "artifact_ids", "resolves", "passes"),
+    [
+        (PhaseStatus.COMPLETED, ("reconciliation:1",), True, True),
+        (PhaseStatus.COMPLETED, (), True, False),
+        (PhaseStatus.COMPLETED, ("reconciliation:1", "reconciliation:2"), True, False),
+        (PhaseStatus.COMPLETED, ("reconciliation:1",), False, False),
+        (PhaseStatus.SKIPPED, (), False, True),
+        (PhaseStatus.SKIPPED, ("reconciliation:1",), True, False),
+    ],
+)
+def test_publication_validates_reconciliation_artifact_cardinality_and_resolution(
+    status, artifact_ids, resolves, passes
+):
+    now = datetime(2026, 8, 11, tzinfo=timezone.utc)
+    phases = (
+        RuntimePhaseResult(
+            RuntimePhase.RECONCILIATION, status, now, now,
+            status is PhaseStatus.COMPLETED, artifact_ids=artifact_ids,
+        ),
+        RuntimePhaseResult(
+            RuntimePhase.MORNING_BRIEFING, PhaseStatus.COMPLETED, now, now, False,
+            artifact_ids=("briefing:1",),
+        ),
+    )
+    result = running(
+        phases=phases, decision_id="d", training_plan_id="p",
+        prescription_id="r", morning_briefing_available=True,
+    )
+    adapter = PublicationValidationAdapter(
+        lambda _: True, lambda _: True, lambda _: True, None,
+        lambda _: resolves,
+    )
+    if passes:
+        assert adapter.execute(RuntimePhaseContext(result))
+    else:
+        with pytest.raises(RuntimePhaseError, match="reconciliation_not_resolvable"):
+            adapter.execute(RuntimePhaseContext(result))
+
+
 class Clock:
     def now_utc(self):
         return datetime(2026, 8, 11, 1, tzinfo=timezone.utc)

@@ -83,6 +83,7 @@ def test_decision_get_endpoints_are_strictly_read_only(tmp_path):
         health_db_path=health_db,
         biomarkers_db_path=bio_db,
         decision_db_path=dec_db,
+        activity_reconciliation_db_path=tmp_path / "reconciliation.duckdb",
     )
 
     repo = DuckDbDecisionAuditRecordRepository(db_path=str(dec_db))

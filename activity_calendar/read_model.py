@@ -10,6 +10,7 @@ from athlete.memory.models import AthleteMemoryEvent, AthleteMemoryEventType
 from training_plan.models import PlannedSession
 from training_plan.repository import TrainingPlanRepository
 from training_plan.selector import TrainingPlanSessionSelector
+from activity_reconciliation.models import ReconciliationResult
 
 
 MAX_CALENDAR_RANGE_DAYS = 62
@@ -29,6 +30,18 @@ class PlannedSessionProvider(Protocol):
         self, target_date: date
     ) -> tuple[PlannedSession, ...]:
         ...
+
+
+class ReconciliationResultProvider(Protocol):
+    def get_latest_for_date(
+        self, target_local_date: date
+    ) -> ReconciliationResult | None:
+        ...
+
+
+class EmptyReconciliationResultProvider:
+    def get_latest_for_date(self, target_local_date: date) -> None:
+        return None
 
 
 class RepositoryCalendarPlannedSessionProvider:
@@ -64,6 +77,7 @@ class CalendarDay:
     date: date
     planned_sessions: tuple[PlannedSession, ...]
     activities: tuple[CalendarActivity, ...]
+    reconciliation: ReconciliationResult | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.planned_sessions, tuple):
@@ -102,6 +116,7 @@ class ActivityCalendarBuilder:
         activity_provider: ActivityEventProvider,
         planned_session_provider: PlannedSessionProvider,
         timezone_name: str = "Europe/Warsaw",
+        reconciliation_provider: ReconciliationResultProvider | None = None,
     ) -> None:
         try:
             self._timezone = ZoneInfo(timezone_name)
@@ -110,6 +125,9 @@ class ActivityCalendarBuilder:
         self._timezone_name = timezone_name
         self._activity_provider = activity_provider
         self._planned_session_provider = planned_session_provider
+        self._reconciliation_provider = (
+            reconciliation_provider or EmptyReconciliationResultProvider()
+        )
 
     def build(self, start_date: date, end_date: date) -> ActivityCalendar:
         validate_calendar_range(start_date, end_date)
@@ -127,6 +145,12 @@ class ActivityCalendarBuilder:
             events = self._activity_provider.load_between(query_start, query_end)
             planned_by_date = {
                 current_date: self._planned_session_provider.get_planned_sessions(
+                    current_date
+                )
+                for current_date in _dates_inclusive(start_date, end_date)
+            }
+            reconciliation_by_date = {
+                current_date: self._reconciliation_provider.get_latest_for_date(
                     current_date
                 )
                 for current_date in _dates_inclusive(start_date, end_date)
@@ -164,6 +188,7 @@ class ActivityCalendarBuilder:
                         ),
                     )
                 ),
+                reconciliation=reconciliation_by_date[current_date],
             )
             for current_date in _dates_inclusive(start_date, end_date)
         )

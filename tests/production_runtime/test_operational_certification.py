@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import duckdb
 
 from morning_briefing.input_models import MorningBriefingInput, TrainingBriefingInput
@@ -17,6 +17,12 @@ from training_plan.persistence.duckdb_repository import (
     DuckDbFinalSessionPrescriptionRepository,
     DuckDbTrainingPlanRepository,
 )
+from activity_reconciliation import DuckDbReconciliationResultRepository
+from athlete.memory.models import AthleteMemoryEvent, AthleteMemoryEventType
+from athlete.memory.repository import AthleteMemoryRepository
+from core.database import Database
+from production_runtime.reconciliation import ProductionReconciliationAdapter
+from schema.athlete_memory_schema import AthleteMemorySchema
 
 
 TARGET = date(2026, 8, 11)
@@ -67,6 +73,7 @@ def fixture_options(tmp_path, provider):
         decisions_db_path=tmp_path / "decisions.duckdb",
         training_plan_db_path=tmp_path / "training_plan.duckdb",
         runtime_audit_db_path=tmp_path / "production_runtime.duckdb",
+        activity_reconciliation_db_path=tmp_path / "activity_reconciliation.duckdb",
         fit_source_path=fit,
         briefing_input_provider=provider,
         clock=RuntimeClock(),
@@ -80,6 +87,66 @@ def seed_plan(path):
     )
     plan = TrainingPlan("plan-cert", TARGET, TARGET, 1, NOW, (session,))
     DuckDbTrainingPlanRepository(path).save(plan)
+
+
+def seed_two_day_plan(path):
+    closed = TARGET - timedelta(days=1)
+    sessions = (
+        PlannedSession(
+            "plan-cert:closed-ride", closed, PlannedSessionKind.TRAINING,
+            "ENDURANCE", 60, 50.0, "MODERATE", 3, ("closed",),
+        ),
+        PlannedSession(
+            "plan-cert:today", TARGET, PlannedSessionKind.TRAINING,
+            "ENDURANCE", 60, 50.0, "MODERATE", 3, ("today",),
+        ),
+    )
+    DuckDbTrainingPlanRepository(path).save(TrainingPlan(
+        "plan-cert-two-day", closed, TARGET, 1, NOW, sessions,
+    ))
+
+
+def seed_closed_activity(path):
+    database = Database(path)
+    AthleteMemorySchema(database).create()
+    start = datetime(2026, 8, 10, 10)
+    AthleteMemoryRepository(database).append(AthleteMemoryEvent(
+        "closed-activity", start + timedelta(hours=1),
+        AthleteMemoryEventType.ACTIVITY_RECORDED, "fit_file", "sha256:closed", 1,
+        {"activity": {
+            "start": start.isoformat(), "sport": "cycling", "duration": 3600,
+        }},
+    ))
+    database.close()
+
+
+def test_full_isolated_composition_persists_previous_day_reconciliation(tmp_path):
+    provider = BriefingProvider()
+    options = fixture_options(tmp_path, provider)
+    seed_two_day_plan(options["training_plan_db_path"])
+    seed_closed_activity(options["health_db_path"])
+    options["runtime_id_factory"] = lambda: "runtime-reconciliation"
+
+    with create_production_daily_runtime(**options) as container:
+        assert isinstance(
+            container.runtime._adapters[RuntimePhase.RECONCILIATION],
+            ProductionReconciliationAdapter,
+        )
+        result = container.runtime.run_new_attempt(TARGET)
+
+    repository = DuckDbReconciliationResultRepository(
+        options["activity_reconciliation_db_path"]
+    )
+    persisted = repository.get_latest_for_date(TARGET - timedelta(days=1))
+    phase = next(item for item in result.phases if item.phase is RuntimePhase.RECONCILIATION)
+    assert result.status is RuntimeStatus.COMPLETED
+    assert result.reconciliations_created == 1
+    assert phase.status.value == "completed"
+    assert phase.artifact_ids == (persisted.reconciliation_id,)
+    assert phase.item_count == 1
+    assert phase.changed_state is True
+    assert persisted.finalized is True
+    assert persisted.items[0].execution_outcome.value == "COMPLETED"
 
 
 def test_full_isolated_candidate_and_second_attempt_are_idempotent(tmp_path):

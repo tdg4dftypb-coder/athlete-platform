@@ -113,7 +113,7 @@ class DuckDbReconciliationResultRepository:
             finally:
                 connection.close()
 
-    def save(self, result: ReconciliationResult) -> None:
+    def save(self, result: ReconciliationResult) -> bool:
         payload = self._codec.encode(result)
         with self._lock:
             connection = self._connect()
@@ -123,7 +123,7 @@ class DuckDbReconciliationResultRepository:
                     [result.input_fingerprint],
                 ).fetchone()
                 if row is not None:
-                    return
+                    return False
                 evaluated = result.evaluated_at
                 if evaluated.tzinfo is not None:
                     evaluated = evaluated.astimezone(timezone.utc).replace(tzinfo=None)
@@ -134,6 +134,7 @@ class DuckDbReconciliationResultRepository:
                      result.finalized, result.policy_version, evaluated,
                      self._codec.SCHEMA_VERSION, payload],
                 )
+                return True
             finally:
                 connection.close()
 
@@ -144,6 +145,33 @@ class DuckDbReconciliationResultRepository:
                 row = connection.execute(
                     "SELECT payload_json FROM activity_reconciliation_results WHERE input_fingerprint = ?",
                     [fingerprint],
+                ).fetchone()
+                return None if row is None else self._codec.decode(row[0])
+            finally:
+                connection.close()
+
+    def get_by_id(self, reconciliation_id: str) -> ReconciliationResult | None:
+        with self._lock:
+            connection = self._connect()
+            try:
+                row = connection.execute(
+                    "SELECT payload_json FROM activity_reconciliation_results WHERE reconciliation_id = ?",
+                    [reconciliation_id],
+                ).fetchone()
+                return None if row is None else self._codec.decode(row[0])
+            finally:
+                connection.close()
+
+    def get_latest_for_date(self, target_local_date: date) -> ReconciliationResult | None:
+        with self._lock:
+            connection = self._connect()
+            try:
+                row = connection.execute(
+                    """SELECT payload_json FROM activity_reconciliation_results
+                       WHERE target_local_date = ?
+                       ORDER BY evaluated_at_utc DESC, reconciliation_id DESC
+                       LIMIT 1""",
+                    [target_local_date],
                 ).fetchone()
                 return None if row is None else self._codec.decode(row[0])
             finally:

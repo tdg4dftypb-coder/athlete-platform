@@ -16,6 +16,9 @@ from application.standard_fit_ingestion import (
     StandardFitWorkoutIngestionService,
 )
 from application.training_plan_decision_context import TrainingPlanDecisionContextAdapter
+from activity_reconciliation.paths import get_default_activity_reconciliation_db_path
+from activity_reconciliation.persistence import DuckDbReconciliationResultRepository
+from activity_reconciliation.service import ActivitySessionReconciler
 from athlete.memory.activity_recorded import ActivityRecordedWriter
 from athlete.memory.repository import AthleteMemoryRepository
 from biomarkers.composition import BiomarkersApplicationContext
@@ -35,7 +38,6 @@ from production_runtime.adapters import (
     MorningBriefingProofAdapter,
     PersistedAssessmentSnapshotProvider,
     PublicationValidationAdapter,
-    ReconciliationPolicySkipAdapter,
 )
 from production_runtime.clock import RuntimeClock, SystemUtcRuntimeClock
 from production_runtime.coordinator import (
@@ -48,6 +50,7 @@ from production_runtime.ingestion_slice import FitArtifactDiscovery, IngestionRu
 from production_runtime.models import RuntimePhase
 from production_runtime.paths import get_default_fit_activity_source_path, get_default_health_db_path
 from production_runtime.paths import PROJECT_ROOT
+from production_runtime.reconciliation import ProductionReconciliationAdapter
 from production_runtime.persistence import (
     DuckDbAssessmentSnapshotRepository,
     DuckDbRuntimeAuditRepository,
@@ -119,13 +122,14 @@ def create_production_daily_runtime(
     decisions_db_path=None,
     training_plan_db_path=None,
     runtime_audit_db_path=None,
+    activity_reconciliation_db_path=None,
     fit_source_path=None,
     clock: RuntimeClock | None = None,
     runtime_id_factory=None,
     timezone_name: str = "Europe/Warsaw",
     briefing_input_provider=None,
 ) -> ProductionDailyRuntimeContainer:
-    """Construct all five stores explicitly; caller owns the returned container."""
+    """Construct the owned production resource graph; caller closes the container."""
     health = Database(get_default_health_db_path(health_db_path))
     bio = None
     daily_repo = decision_repo = decision_database = None
@@ -161,6 +165,11 @@ def create_production_daily_runtime(
         plan_path = get_default_training_plan_db_path(training_plan_db_path)
         plan_repo = DuckDbTrainingPlanRepository(plan_path)
         rx_repo = DuckDbFinalSessionPrescriptionRepository(plan_path)
+        reconciliation_repo = DuckDbReconciliationResultRepository(
+            get_default_activity_reconciliation_db_path(
+                activity_reconciliation_db_path
+            )
+        )
         plan_provider = RepositoryTrainingPlanProvider(plan_repo)
         training_adapter = TrainingPlanDecisionContextAdapter(
             plan_provider, frozen, timezone_name
@@ -247,7 +256,14 @@ def create_production_daily_runtime(
         adapters = {
             RuntimePhase.INGESTION: CallablePhaseAdapter(ingestion.ingestion),
             RuntimePhase.ACTIVITY_FACT_SYNCHRONIZATION: CallablePhaseAdapter(ingestion.facts),
-            RuntimePhase.RECONCILIATION: ReconciliationPolicySkipAdapter(),
+            RuntimePhase.RECONCILIATION: ProductionReconciliationAdapter(
+                plan_repo,
+                memory,
+                reconciliation_repo,
+                ActivitySessionReconciler(),
+                runtime_clock,
+                timezone_name,
+            ),
             RuntimePhase.ASSESSMENT: AssessmentSnapshotAdapter(frozen),
             RuntimePhase.DECISION: CallablePhaseAdapter(run_decision),
             RuntimePhase.PLAN_PRESCRIPTION: CallablePhaseAdapter(run_prescription),
@@ -257,6 +273,7 @@ def create_production_daily_runtime(
                 lambda item: plan_repo.get_by_id(item) is not None,
                 lambda item: rx_repo.get_by_id(item) is not None,
                 assessment_resolves,
+                lambda item: reconciliation_repo.get_by_id(item) is not None,
             ),
         }
         runtime = ProductionDailyRuntime(

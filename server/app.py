@@ -684,6 +684,7 @@ def create_production_dashboard_wsgi_app(
     biomarkers_db_path: Optional[Union[str, Path]] = None,
     health_db_path: Optional[Union[str, Path]] = None,
     training_plan_db_path: Optional[Union[str, Path]] = None,
+    activity_reconciliation_db_path: Optional[Union[str, Path]] = None,
 ) -> Callable[[dict, Callable], list[bytes]]:
     """Production composition root for WSGI app wiring real Athlete Platform sources, DuckDB Decision Repository, and Training Plan Repository."""
     from decision.persistence import DuckDbDecisionAuditRecordRepository
@@ -702,6 +703,8 @@ def create_production_dashboard_wsgi_app(
         DuckDbTrainingPlanRepository,
     )
     from training_plan.persistence.paths import get_default_training_plan_db_path
+    from activity_reconciliation.paths import get_default_activity_reconciliation_db_path
+    from activity_reconciliation.persistence import DuckDbReconciliationResultRepository
 
     # 1. Health DB & Morning Coach UseCase
     target_health_path = str(health_db_path) if health_db_path is not None else "data/database/health.duckdb"
@@ -739,6 +742,11 @@ def create_production_dashboard_wsgi_app(
     calendar_builder = ActivityCalendarBuilder(
         activity_provider=AthleteMemoryRepository(db),
         planned_session_provider=RepositoryCalendarPlannedSessionProvider(tp_repo),
+        reconciliation_provider=DuckDbReconciliationResultRepository(
+            get_default_activity_reconciliation_db_path(
+                activity_reconciliation_db_path
+            )
+        ),
     )
 
     return create_dashboard_wsgi_app(

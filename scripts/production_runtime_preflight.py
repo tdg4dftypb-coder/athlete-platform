@@ -14,6 +14,7 @@ def main() -> int:
     parser.add_argument("--decisions-db")
     parser.add_argument("--training-plan-db")
     parser.add_argument("--runtime-audit-db")
+    parser.add_argument("--activity-reconciliation-db")
     parser.add_argument("--fit-source")
     args = parser.parse_args()
     target = args.date or target_local_date_at(SystemUtcRuntimeClock().now_utc())
@@ -21,6 +22,7 @@ def main() -> int:
         target, health_db_path=args.health_db, biomarkers_db_path=args.biomarkers_db,
         decisions_db_path=args.decisions_db, training_plan_db_path=args.training_plan_db,
         runtime_audit_db_path=args.runtime_audit_db, fit_source_path=args.fit_source,
+        activity_reconciliation_db_path=args.activity_reconciliation_db,
     )
     print(f"Production Runtime Preflight — {target.isoformat()}")
     for check in checks:

@@ -13,6 +13,7 @@ from production_runtime.diagnostics_composition import create_runtime_operationa
 from production_runtime.paths import PROJECT_ROOT, get_default_fit_activity_source_path, get_default_health_db_path
 from decision.persistence.paths import get_default_decisions_db_path
 from training_plan.persistence.paths import get_default_training_plan_db_path
+from activity_reconciliation.paths import get_default_activity_reconciliation_db_path
 
 
 @dataclass(frozen=True)
@@ -30,6 +31,7 @@ def run_preflight_checks(
     decisions_db_path=None,
     training_plan_db_path=None,
     runtime_audit_db_path=None,
+    activity_reconciliation_db_path=None,
     fit_source_path=None,
     python_path=None,
     working_directory=None,
@@ -39,6 +41,9 @@ def run_preflight_checks(
     decisions = get_default_decisions_db_path(decisions_db_path)
     plans = get_default_training_plan_db_path(training_plan_db_path)
     runtime = get_default_runtime_audit_db_path(runtime_audit_db_path)
+    reconciliation = get_default_activity_reconciliation_db_path(
+        activity_reconciliation_db_path
+    )
     source = get_default_fit_activity_source_path(fit_source_path)
     python = Path(python_path) if python_path else PROJECT_ROOT / ".venv/bin/python"
     working = Path(working_directory) if working_directory else PROJECT_ROOT
@@ -51,6 +56,9 @@ def run_preflight_checks(
     for name, path in (("health_db", health), ("biomarkers_db", biomarkers), ("decisions_db", decisions), ("training_plan_db", plans)):
         checks.append(_readable_database(name, path))
     checks.append(_plan_check(plans, target_date))
+    checks.append(_existing_or_creatable_database(
+        "activity_reconciliation_db", reconciliation
+    ))
     if runtime.is_file():
         checks.append(_readable_database("runtime_audit_db", runtime))
         try:
@@ -83,6 +91,17 @@ def _readable_database(name, path):
         return PreflightCheck(name, True, str(path))
     except Exception as error:
         return PreflightCheck(name, False, f"unreadable: {type(error).__name__}")
+
+
+def _existing_or_creatable_database(name, path):
+    if path.is_file():
+        return _readable_database(name, path)
+    parent = path.parent
+    return PreflightCheck(
+        name,
+        parent.is_dir() and os.access(parent, os.W_OK),
+        f"new file under {parent}",
+    )
 
 
 def _plan_check(path, target_date):

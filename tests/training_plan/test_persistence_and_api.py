@@ -412,6 +412,7 @@ def test_production_read_composition_with_isolated_db(tmp_path):
         decision_db_path=tmp_path / "dec.duckdb",
         biomarkers_db_path=tmp_path / "bio.duckdb",
         health_db_path=tmp_path / "health.duckdb",
+        activity_reconciliation_db_path=tmp_path / "reconciliation.duckdb",
     )
 
     def request(path):

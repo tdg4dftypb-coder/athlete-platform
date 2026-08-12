@@ -3,9 +3,13 @@ from typing import Any
 
 from activity_calendar.read_model import ActivityCalendar, CalendarActivity, CalendarDay
 from training_plan.models import PlannedSession
+from activity_reconciliation.serialization import ReconciliationResultSerializer
 
 
 class ActivityCalendarSerializer:
+    def __init__(self) -> None:
+        self._reconciliation_serializer = ReconciliationResultSerializer()
+
     def serialize(self, calendar: ActivityCalendar) -> dict[str, Any]:
         return {
             "start_date": calendar.start_date.isoformat(),
@@ -25,6 +29,11 @@ class ActivityCalendarSerializer:
             "activities": [
                 self._serialize_activity(activity) for activity in day.activities
             ],
+            "reconciliation": (
+                None
+                if day.reconciliation is None
+                else self._reconciliation_serializer.serialize(day.reconciliation)
+            ),
         }
 
     @staticmethod

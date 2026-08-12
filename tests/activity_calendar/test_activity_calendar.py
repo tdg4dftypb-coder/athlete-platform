@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 import json
 
@@ -14,9 +15,18 @@ from athlete.memory.models import AthleteMemoryEvent, AthleteMemoryEventType
 from athlete.memory.repository import AthleteMemoryRepository
 from core.database import Database
 from schema.athlete_memory_schema import AthleteMemorySchema
-from server.app import create_dashboard_wsgi_app
+from server.app import create_dashboard_wsgi_app, create_production_dashboard_wsgi_app
 from training_plan.models import PlannedSession, PlannedSessionKind, TrainingPlan
 from training_plan.persistence.duckdb_repository import DuckDbTrainingPlanRepository
+from activity_reconciliation import (
+    ActivityExecutionOutcome,
+    ActivityReference,
+    DuckDbReconciliationResultRepository,
+    MatchStatus,
+    ReconciliationItem,
+    ReconciliationResult,
+    ReplacementEvidence,
+)
 
 
 class EventProvider:
@@ -97,6 +107,29 @@ def builder(events=(), sessions=()):
     )
 
 
+def reconciliation_result(target, match_status, outcome=None):
+    item = ReconciliationItem(
+        match_status=match_status,
+        planned_session_id="planned" if match_status is not MatchStatus.UNMATCHED_ACTIVITY else None,
+        activity=(
+            None if match_status is MatchStatus.UNMATCHED_PLANNED else
+            ActivityReference("activity", "fit_file", "sha256:activity")
+        ),
+        candidate_session_ids=("planned",) if match_status is MatchStatus.AMBIGUOUS else (),
+        candidate_activity_event_ids=("activity",) if match_status is MatchStatus.AMBIGUOUS else (),
+        execution_outcome=outcome,
+        completion_percent=50.0 if outcome is ActivityExecutionOutcome.PARTIAL else None,
+        reason_codes=("evidence",),
+        warning_codes=("warning",) if match_status is MatchStatus.AMBIGUOUS else (),
+    )
+    return ReconciliationResult(
+        f"reconciliation:{match_status.value}", f"fingerprint:{match_status.value}",
+        "1.0", target, "Europe/Warsaw", "plan", 2, True,
+        ("planned",), ("activity",), (item,), (),
+        datetime(2026, 8, 3, 5, tzinfo=timezone.utc),
+    )
+
+
 def test_valid_range_includes_every_ordered_day_and_uses_bounded_source_query():
     event_provider = EventProvider()
     calendar_builder = ActivityCalendarBuilder(event_provider, SessionProvider())
@@ -121,6 +154,109 @@ def test_empty_range_has_empty_activity_lists_and_missing_plans_are_null():
     assert [day["activities"] for day in payload["days"]] == [[], []]
     assert [day["planned_sessions"] for day in payload["days"]] == [[], []]
     assert [day["planned_session"] for day in payload["days"]] == [None, None]
+    assert [day["reconciliation"] for day in payload["days"]] == [None, None]
+
+
+@pytest.mark.parametrize(
+    ("match_status", "outcome"),
+    [
+        (MatchStatus.MATCHED, ActivityExecutionOutcome.COMPLETED),
+        (MatchStatus.MATCHED, ActivityExecutionOutcome.PARTIAL),
+        (MatchStatus.UNMATCHED_PLANNED, ActivityExecutionOutcome.SKIPPED),
+        (MatchStatus.UNMATCHED_ACTIVITY, ActivityExecutionOutcome.UNPLANNED),
+        (MatchStatus.AMBIGUOUS, None),
+    ],
+)
+def test_http_calendar_serializes_persisted_reconciliation_outcomes(
+    tmp_path, match_status, outcome
+):
+    target = date(2026, 8, 2)
+    repository = DuckDbReconciliationResultRepository(tmp_path / "reconciliation.duckdb")
+    persisted = reconciliation_result(target, match_status, outcome)
+    repository.save(persisted)
+    calendar_builder = ActivityCalendarBuilder(
+        EventProvider(), SessionProvider(), reconciliation_provider=repository
+    )
+    response = call_app(
+        create_dashboard_wsgi_app(activity_calendar_builder=calendar_builder),
+        "start_date=2026-08-02&end_date=2026-08-02",
+    )
+    projection = response["payload"]["days"][0]["reconciliation"]
+    item = projection["items"][0]
+    assert response["status"] == "200 OK"
+    assert projection["reconciliation_id"] == persisted.reconciliation_id
+    assert projection["policy_version"] == "1.0"
+    assert projection["target_local_date"] == "2026-08-02"
+    assert projection["finalized"] is True
+    assert projection["plan_id"] == "plan"
+    assert projection["plan_version"] == 2
+    assert projection["input_fingerprint"] == persisted.input_fingerprint
+    assert item["match_status"] == match_status.value
+    assert item["execution_outcome"] == (None if outcome is None else outcome.value)
+    assert set(item) == {
+        "match_status", "planned_session_id", "activity",
+        "candidate_session_ids", "candidate_activity_event_ids",
+        "execution_outcome", "completion_percent", "reason_codes",
+        "warning_codes",
+    }
+
+
+def test_production_server_composition_reads_reconciliation_repository(tmp_path):
+    target = date(2026, 8, 2)
+    health_path = tmp_path / "health.duckdb"
+    database = Database(health_path)
+    AthleteMemorySchema(database).create()
+    database.close()
+    reconciliation_path = tmp_path / "reconciliation.duckdb"
+    persisted = reconciliation_result(
+        target, MatchStatus.MATCHED, ActivityExecutionOutcome.COMPLETED
+    )
+    DuckDbReconciliationResultRepository(reconciliation_path).save(persisted)
+    app = create_production_dashboard_wsgi_app(
+        health_db_path=health_path,
+        biomarkers_db_path=tmp_path / "biomarkers.duckdb",
+        decision_db_path=tmp_path / "decisions.duckdb",
+        training_plan_db_path=tmp_path / "training_plan.duckdb",
+        activity_reconciliation_db_path=reconciliation_path,
+    )
+    response = call_app(
+        app, "start_date=2026-08-02&end_date=2026-08-02"
+    )
+    assert response["status"] == "200 OK"
+    assert response["payload"]["days"][0]["reconciliation"][
+        "reconciliation_id"
+    ] == persisted.reconciliation_id
+
+
+def test_reconciliation_serializer_preserves_replacement_evidence():
+    target = date(2026, 8, 2)
+    result = replace(
+        reconciliation_result(
+            target, MatchStatus.MATCHED, ActivityExecutionOutcome.REPLACED
+        ),
+        replacement_evidence=(ReplacementEvidence(
+            planned_session_id="planned",
+            activity_event_id="activity",
+            source="athlete_confirmation",
+            reason_code="manual_replacement",
+            schema_version="2.0",
+        ),),
+    )
+    class Provider:
+        def get_latest_for_date(self, target_date):
+            return result
+
+    calendar = ActivityCalendarBuilder(
+        EventProvider(), SessionProvider(), reconciliation_provider=Provider()
+    ).build(target, target)
+    payload = ActivityCalendarSerializer().serialize(calendar)
+    assert payload["days"][0]["reconciliation"]["replacement_evidence"] == [{
+        "planned_session_id": "planned",
+        "activity_event_id": "activity",
+        "source": "athlete_confirmation",
+        "reason_code": "manual_replacement",
+        "schema_version": "2.0",
+    }]
 
 
 def test_multiple_activities_are_grouped_by_day_and_ordered_by_start_then_id():
