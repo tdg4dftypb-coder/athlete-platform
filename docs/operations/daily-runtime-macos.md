@@ -1,10 +1,11 @@
 # Operations Manual — macOS Production Daily Runtime Cutover
 
-Gate A prepares this procedure but does not execute it. Gate B is manual.
-The single user LaunchAgent label is
-`com.athleteplatform.daily-decision-runtime`; cadence remains 07:00 local time
-with `RunAtLoad=true`, repository-root `WorkingDirectory`, `.venv/bin/python`,
-and logs under `~/Library/Logs/AthletePlatform`.
+Gate B scheduler activation is manual. LaunchAgent remains the preferred macOS
+backend. User cron is the supported fallback when managed-host permissions make
+`~/Library/LaunchAgents` unavailable. Exactly one backend may be active.
+LaunchAgent uses 07:00 local time with `RunAtLoad=true`; cron uses a preferred
+07:00 invocation plus hourly same-day catch-up through 23:00. Both use the
+repository environment and logs under `~/Library/Logs/AthletePlatform`.
 
 After cutover the only scheduled command is:
 
@@ -23,6 +24,7 @@ From the repository root:
 .venv/bin/python -m scripts.production_runtime_preflight
 .venv/bin/python -m scripts.runtime_status --date "$(TZ=Europe/Warsaw date +%F)"
 ./ops/macos/install_daily_runtime_launchagent.sh --dry-run
+./ops/macos/install_daily_runtime_cron.sh --dry-run
 ```
 
 Supply explicit path options to preflight when production uses overrides. It is
@@ -98,6 +100,8 @@ normal scheduler rollback.
 
 ## CUTOVER
 
+### Preferred LaunchAgent backend
+
 ```bash
 ./ops/macos/install_daily_runtime_launchagent.sh --dry-run
 ./ops/macos/install_daily_runtime_launchagent.sh
@@ -108,6 +112,38 @@ plutil -p "$HOME/Library/LaunchAgents/com.athleteplatform.daily-decision-runtime
 The installed arguments must contain
 `scripts.run_production_daily_runtime --scheduled` and must not contain the
 legacy module.
+
+### Managed-Mac user-cron fallback
+
+Use this only when the LaunchAgent is neither installed nor loaded. The host
+timezone must remain aligned with `Europe/Warsaw`; installation fails closed
+when the current abbreviation and UTC offset differ. Cron itself uses host-local
+time, while the runtime continues to derive its target date with Warsaw
+semantics.
+
+```bash
+./ops/macos/install_daily_runtime_cron.sh --dry-run
+./ops/macos/install_daily_runtime_cron.sh
+./ops/macos/status_daily_runtime_cron.sh
+```
+
+The installer owns only its clearly delimited block in the user crontab and
+preserves unrelated entries. Missing, duplicated, reversed, or otherwise
+malformed block markers fail closed without rewriting the crontab. A normal
+macOS “no crontab” result is treated as an empty initial state; any other read
+failure blocks installation and removal. Its exact cadence is `0 7-23 * * *`. Every line
+invokes the repository-owned `run_production_daily_runtime_cron.sh` wrapper,
+which changes to the repository root and executes only:
+
+```bash
+.venv/bin/python -m scripts.run_production_daily_runtime --scheduled
+```
+
+Output appends to `daily-runtime.log`; errors append to
+`daily-runtime-error.log`. Independent hourly invocations are intentional:
+after today's attempt is COMPLETED, scheduled policy returns an exit-0 no-op.
+PARTIAL, FAILED, unsupported, unavailable, and corrupt states still fail closed;
+cron does not add retries or create replacement attempts.
 
 ## VERIFY
 
@@ -123,6 +159,8 @@ Record target date, runtime ID, COMPLETED revision, all eight phases,
 Decision/plan/prescription IDs, briefing proof/availability, PUBLICATION,
 HEALTHY, and NO_ACTION. The repeated scheduled command must be an exit-0 no-op.
 Verify the loaded plist again to prove legacy is not concurrent.
+For cron, use `status_daily_runtime_cron.sh` to prove the managed block is
+present and no LaunchAgent or unmanaged production/legacy cron line conflicts.
 
 ## DIAGNOSTICS AND RETRY
 
@@ -138,8 +176,8 @@ new physical attempt without changing terminal history:
 
 ## ROLLBACK
 
-Rollback changes only the one LaunchAgent configuration and retains database
-history:
+LaunchAgent rollback changes only the shared LaunchAgent configuration and
+retains database history:
 
 ```bash
 ./ops/macos/install_daily_runtime_launchagent.sh --dry-run --legacy
@@ -152,6 +190,18 @@ tail -n 100 "$HOME/Library/Logs/AthletePlatform/daily-runtime.log"
 The plist must contain only `scripts.run_daily_decision_runtime`, not the new
 module. Only the shared label may be loaded.
 
+Cron rollback removes only the managed Athlete Platform block and never
+schedules the legacy runtime:
+
+```bash
+./ops/macos/install_daily_runtime_cron.sh --dry-run --remove
+./ops/macos/install_daily_runtime_cron.sh --remove
+./ops/macos/status_daily_runtime_cron.sh
+```
+
+If legacy rollback is required, use the existing LaunchAgent rollback path
+only after confirming the cron block is absent.
+
 ## COMPATIBILITY WINDOW
 
 Keep the legacy CLI and rollback template through the first verified live run
@@ -160,7 +210,8 @@ legacy and production schedules concurrently.
 
 ## FINAL CLOSURE EVIDENCE
 
-Gate A leaves Stage 27 at 90%. Gate B must record the first live runtime ID,
-Warsaw date, COMPLETED revision, eight phases, HEALTHY/NO_ACTION diagnostics,
-new loaded command, no concurrent legacy schedule, rollback availability, and
-the green suite. Only then may the roadmap state 100% CLOSED.
+Stage 27 remains at 90% until durable scheduler evidence is reviewed. Closure
+must record the active backend, Warsaw date, COMPLETED revision, eight phases,
+HEALTHY/NO_ACTION diagnostics, effective scheduled command, no concurrent
+backend or legacy schedule, rollback availability, and the green suite. Only
+then may the roadmap state 100% CLOSED.

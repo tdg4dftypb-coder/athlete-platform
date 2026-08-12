@@ -174,7 +174,8 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 
 ### Stage 27 — Production Runtime & Reliability
 
-- Sprint 27.7 Gate B: ręczny cutover LaunchAgent, pierwszy live runtime,
+- Sprint 27.7 Gate B: ręczny cutover trwałego backendu schedulera (preferowany
+  LaunchAgent, user cron jako fallback dla zarządzanego Maca), pierwszy live runtime,
   weryfikacja HEALTHY/NO_ACTION i dopiero wtedy decyzja o 100% CLOSED.
 
 

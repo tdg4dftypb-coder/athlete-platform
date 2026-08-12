@@ -1,7 +1,7 @@
 # Production Runtime and Reliability Contract
 
 Status: Sprint 27.7 Gate A repository certification and cutover preparation,
-2026-08-11. Stage 27 remains 90%; manual Gate B LaunchAgent cutover and first
+2026-08-11. Stage 27 remains 90%; manual Gate B durable scheduler cutover and first
 live verification are required before closure.
 
 ## Conclusion and current topology
@@ -677,6 +677,14 @@ different-payload conflict behavior, and no Decision, prescription, briefing,
 runtime audit, FIT, scheduler, or LaunchAgent operation is reachable from this
 command. The real specification remains private and outside source control.
 Stage 27 remains 90% with live Gate B pending.
+
+LaunchAgent remains the preferred durable macOS scheduler. On managed hosts
+where its user directory is not writable, the supported user-cron fallback
+invokes the same scheduled production command through a repository wrapper at
+`0 7-23 * * *`. The hourly window provides bounded same-day catch-up; runtime
+scheduled-state policy remains the sole idempotency and recovery authority.
+Installation fails closed on host/Warsaw timezone mismatch, an installed or
+loaded LaunchAgent, or unmanaged production/legacy runtime cron entries.
 
 ## Executable evidence
 
