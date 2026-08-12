@@ -17,6 +17,10 @@ class ActivityCalendarSerializer:
     def _serialize_day(self, day: CalendarDay) -> dict[str, Any]:
         return {
             "date": day.date.isoformat(),
+            "planned_sessions": [
+                self._serialize_planned_session(session)
+                for session in day.planned_sessions
+            ],
             "planned_session": self._serialize_planned_session(day.planned_session),
             "activities": [
                 self._serialize_activity(activity) for activity in day.activities

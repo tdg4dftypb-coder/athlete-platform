@@ -190,6 +190,16 @@ produktu wymaga osobnej decyzji o nowym roadmapie / roadmap v2.
   reconciliation, execution outcomes, and live-data certification are deferred
   to later Stage 28 sprints. Stage 28 is not closed; Sprint 28.1 contributes 4%
   of Roadmap V2 (26.67% of Stage 28).
+- **Persistence & Read Contracts (28.2 — completed):** payload-based Training
+  Plan persistence is certified with isolated DuckDB for same-date sessions,
+  including append-only/idempotent and conflict behavior, without a schema
+  migration. `TrainingPlanProvider.get_planned_sessions()` is the canonical
+  plural contract. Activity Calendar carries immutable `planned_sessions` and
+  publishes that array in canonical `(date, session_id)` order; legacy
+  `planned_session` remains `null`/one/`null` for zero/one/many sessions.
+  Singular Decision/adaptive consumers remain deliberately bounded for a later
+  sprint. Activity matching and execution outcomes are deferred to 28.3. Stage
+  28 remains open at 53.33%; Roadmap V2 progress is 8%.
 
 ## Planned
 

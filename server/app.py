@@ -103,8 +103,8 @@ class EmptyActivityEventProvider:
 
 
 class EmptyPlannedSessionProvider:
-    def get_planned_session(self, target_date):
-        return None
+    def get_planned_sessions(self, target_date):
+        return ()
 
 
 def create_dashboard_wsgi_app(

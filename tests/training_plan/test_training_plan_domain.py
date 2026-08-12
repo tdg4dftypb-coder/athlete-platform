@@ -225,6 +225,9 @@ def test_training_plan_provider_protocol_contract():
         def get_plan_for_date(self, target_date: date) -> TrainingPlan | None:
             return None
 
+        def get_planned_sessions(self, target_date: date) -> tuple[PlannedSession, ...]:
+            return ()
+
         def get_planned_session(self, target_date: date) -> PlannedSession | None:
             return None
 

@@ -25,8 +25,8 @@ from repositories.workout_repository import WorkoutRepository
 
 
 class EmptyPlanProvider:
-    def get_planned_session(self, target_date):
-        return None
+    def get_planned_sessions(self, target_date):
+        return ()
 
 
 def facts(**overrides):

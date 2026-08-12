@@ -31,10 +31,13 @@ class EventProvider:
 
 class SessionProvider:
     def __init__(self, sessions=()):
-        self.sessions = {session.date: session for session in sessions}
+        self.sessions = tuple(sessions)
 
-    def get_planned_session(self, target_date):
-        return self.sessions.get(target_date)
+    def get_planned_sessions(self, target_date):
+        return tuple(sorted(
+            (session for session in self.sessions if session.date == target_date),
+            key=lambda session: (session.date, session.session_id),
+        ))
 
 
 def activity_event(
@@ -116,6 +119,7 @@ def test_empty_range_has_empty_activity_lists_and_missing_plans_are_null():
     )
 
     assert [day["activities"] for day in payload["days"]] == [[], []]
+    assert [day["planned_sessions"] for day in payload["days"]] == [[], []]
     assert [day["planned_session"] for day in payload["days"]] == [None, None]
 
 
@@ -228,6 +232,22 @@ def test_planned_session_is_a_concise_existing_plan_projection():
         "duration_minutes": 60,
         "target_tss": 50.0,
     }
+    assert payload["days"][0]["planned_sessions"] == [
+        payload["days"][0]["planned_session"]
+    ]
+
+
+def test_calendar_day_carries_one_rest_session_as_an_immutable_tuple():
+    target = date(2026, 8, 2)
+    rest = PlannedSession(
+        "plan:rest", target, PlannedSessionKind.REST, None, 0, 0.0, None, 1,
+        ("Recovery",),
+    )
+
+    day = builder(sessions=(rest,)).build(target, target).days[0]
+
+    assert day.planned_sessions == (rest,)
+    assert day.planned_session == rest
 
 
 def test_calendar_reads_the_production_training_plan_repository(tmp_path):
@@ -249,7 +269,30 @@ def test_calendar_reads_the_production_training_plan_repository(tmp_path):
         EventProvider(), RepositoryCalendarPlannedSessionProvider(repository)
     ).build(target_date, target_date)
 
+    assert calendar.days[0].planned_sessions == (session,)
     assert calendar.days[0].planned_session == session
+
+
+def test_multi_session_calendar_and_serialization_preserve_canonical_order():
+    target_date = date(2026, 8, 2)
+    swim = PlannedSession(
+        "plan:swim", target_date, PlannedSessionKind.TRAINING, "SWIM", 45,
+        25.0, "EASY", 2, ("Technique",),
+    )
+    ride = PlannedSession(
+        "plan:ride", target_date, PlannedSessionKind.TRAINING, "ENDURANCE", 180,
+        130.0, "MODERATE", 4, ("Long ride",),
+    )
+    calendar = builder(sessions=(swim, ride)).build(target_date, target_date)
+    payload = ActivityCalendarSerializer().serialize(calendar)
+
+    assert calendar.days[0].planned_sessions == (ride, swim)
+    assert calendar.days[0].planned_session is None
+    assert [item["session_id"] for item in payload["days"][0]["planned_sessions"]] == [
+        "plan:ride",
+        "plan:swim",
+    ]
+    assert payload["days"][0]["planned_session"] is None
 
 
 def test_missing_optional_activity_fields_serialize_as_null_without_fabrication():
@@ -329,7 +372,7 @@ def test_provider_failure_has_a_specific_read_model_error():
 
 def test_planning_provider_failure_has_a_specific_read_model_error():
     class FailingSessionProvider:
-        def get_planned_session(self, target_date):
+        def get_planned_sessions(self, target_date):
             raise RuntimeError("training plan database unavailable")
 
     calendar_builder = ActivityCalendarBuilder(
@@ -376,6 +419,31 @@ def test_http_contract_returns_bounded_calendar_payload():
     }
     assert response["payload"]["timezone"] == "Europe/Warsaw"
     assert len(response["payload"]["days"]) == 3
+
+
+def test_http_contract_returns_multi_session_day_without_ambiguity():
+    target = date(2026, 8, 2)
+    swim = PlannedSession(
+        "plan:swim", target, PlannedSessionKind.TRAINING, "SWIM", 45,
+        25.0, "EASY", 2, (),
+    )
+    ride = PlannedSession(
+        "plan:ride", target, PlannedSessionKind.TRAINING, "ENDURANCE", 180,
+        130.0, "MODERATE", 4, (),
+    )
+    app = create_dashboard_wsgi_app(
+        activity_calendar_builder=builder(sessions=(swim, ride))
+    )
+
+    response = call_app(app, "start_date=2026-08-02&end_date=2026-08-02")
+
+    assert response["status"] == "200 OK"
+    day = response["payload"]["days"][0]
+    assert [item["session_id"] for item in day["planned_sessions"]] == [
+        "plan:ride",
+        "plan:swim",
+    ]
+    assert day["planned_session"] is None
 
 
 @pytest.mark.parametrize(

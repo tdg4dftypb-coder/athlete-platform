@@ -1,5 +1,5 @@
 """Unit tests for Stage 26.4 persistence, repositories, provider, codecs, serializers, and WSGI endpoints."""
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import json
 from pathlib import Path
 
@@ -60,6 +60,7 @@ from training_plan.repository import (
     TrainingPlanConflictError,
     TrainingPlanDataError,
 )
+from training_plan.selector import MultiplePlannedSessionsError
 from training_plan.serializers import (
     FinalSessionPrescriptionSerializer,
     TrainingPlanSerializer,
@@ -161,6 +162,37 @@ def test_training_plan_duckdb_repository_crud(tmp_path):
     assert len(repo.list_records()) == 1
 
 
+def test_multi_session_plan_is_fully_persisted_and_remains_append_only(tmp_path):
+    target = date(2026, 8, 16)
+    ride = PlannedSession(
+        "multi:ride", target, PlannedSessionKind.TRAINING, "ENDURANCE", 180,
+        130.0, "MODERATE", 4, ("Long ride",),
+    )
+    swim = PlannedSession(
+        "multi:swim", target, PlannedSessionKind.TRAINING, "SWIM", 45,
+        25.0, "EASY", 2, ("Technique",),
+    )
+    plan = TrainingPlan(
+        "multi", target, target, 1,
+        datetime(2026, 8, 12, 10, 0, tzinfo=timezone.utc),
+        (swim, ride),
+    )
+    repository = DuckDbTrainingPlanRepository(tmp_path / "multi.duckdb")
+
+    repository.save(plan)
+    repository.save(plan)
+
+    assert repository.get_by_id("multi") == plan
+    assert repository.get_for_date(target) == plan
+    assert repository.get_latest() == plan
+    assert repository.list_records() == (plan,)
+    conflicting = TrainingPlan(
+        "multi", target, target, 2, plan.generated_at, (ride, swim)
+    )
+    with pytest.raises(TrainingPlanConflictError):
+        repository.save(conflicting)
+
+
 def test_prescription_duckdb_repository_crud(tmp_path):
     db_file = tmp_path / "tp.duckdb"
     tp_repo = DuckDbTrainingPlanRepository(db_path=db_file)
@@ -208,6 +240,29 @@ def test_repository_training_plan_provider(tmp_path):
 
     # Date with no plan returns None
     assert provider.get_planned_session(date(2026, 8, 15)) is None
+
+
+def test_repository_provider_plural_contract_and_bounded_compatibility(tmp_path):
+    target = date(2026, 8, 16)
+    ride = PlannedSession(
+        "multi:ride", target, PlannedSessionKind.TRAINING, "ENDURANCE", 180,
+        130.0, "MODERATE", 4, (),
+    )
+    swim = PlannedSession(
+        "multi:swim", target, PlannedSessionKind.TRAINING, "SWIM", 45,
+        25.0, "EASY", 2, (),
+    )
+    plan = TrainingPlan(
+        "multi", target, target, 1, datetime.now(timezone.utc), (swim, ride)
+    )
+    repository = DuckDbTrainingPlanRepository(tmp_path / "provider.duckdb")
+    repository.save(plan)
+    provider = RepositoryTrainingPlanProvider(repository)
+
+    assert provider.get_planned_sessions(target) == (ride, swim)
+    assert provider.get_planned_sessions(target + timedelta(days=1)) == ()
+    with pytest.raises(MultiplePlannedSessionsError):
+        provider.get_planned_session(target)
 
 
 def test_wsgi_read_endpoints_and_empty_states(tmp_path):
@@ -333,7 +388,18 @@ def test_production_read_composition_with_isolated_db(tmp_path):
     tp_repo = DuckDbTrainingPlanRepository(db_path=db_file)
     rx_repo = DuckDbFinalSessionPrescriptionRepository(db_path=db_file)
 
-    plan = make_test_plan("prod-plan", start_d=date(2026, 8, 10))
+    target = date(2026, 8, 10)
+    ride = PlannedSession(
+        "prod-plan:ride", target, PlannedSessionKind.TRAINING, "ENDURANCE",
+        180, 130.0, "MODERATE", 4, (),
+    )
+    swim = PlannedSession(
+        "prod-plan:swim", target, PlannedSessionKind.TRAINING, "SWIM", 45,
+        25.0, "EASY", 2, (),
+    )
+    plan = TrainingPlan(
+        "prod-plan", target, target, 1, datetime.now(timezone.utc), (swim, ride)
+    )
     tp_repo.save(plan)
 
     dec_rec = make_test_decision_record("dec-prod-1", DecisionAction.PROCEED)
@@ -364,6 +430,17 @@ def test_production_read_composition_with_isolated_db(tmp_path):
     res_plan = request("/api/v1/training-plan/latest")
     assert res_plan["status"] == "200 OK"
     assert res_plan["json"]["plan"]["plan_id"] == "prod-plan"
+    assert [item["session_id"] for item in res_plan["json"]["plan"]["sessions"]] == [
+        "prod-plan:ride",
+        "prod-plan:swim",
+    ]
+
+    res_history = request("/api/v1/training-plan/history")
+    assert res_history["status"] == "200 OK"
+    assert [
+        item["session_id"]
+        for item in res_history["json"]["history"]["records"][0]["sessions"]
+    ] == ["prod-plan:ride", "prod-plan:swim"]
 
     # Verify latest prescription returned via HTTP
     res_rx = request("/api/v1/training-plan/prescriptions/latest")

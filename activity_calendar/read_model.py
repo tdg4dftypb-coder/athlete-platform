@@ -25,7 +25,9 @@ class ActivityEventProvider(Protocol):
 
 
 class PlannedSessionProvider(Protocol):
-    def get_planned_session(self, target_date: date) -> PlannedSession | None:
+    def get_planned_sessions(
+        self, target_date: date
+    ) -> tuple[PlannedSession, ...]:
         ...
 
 
@@ -36,11 +38,13 @@ class RepositoryCalendarPlannedSessionProvider:
         self._repository = repository
         self._selector = TrainingPlanSessionSelector()
 
-    def get_planned_session(self, target_date: date) -> PlannedSession | None:
+    def get_planned_sessions(
+        self, target_date: date
+    ) -> tuple[PlannedSession, ...]:
         plan = self._repository.get_for_date(target_date)
         if plan is None:
-            return None
-        return self._selector.get_for_date(plan, target_date)
+            return ()
+        return self._selector.get_all_for_date(plan, target_date)
 
 
 @dataclass(frozen=True)
@@ -58,8 +62,17 @@ class CalendarActivity:
 @dataclass(frozen=True)
 class CalendarDay:
     date: date
-    planned_session: PlannedSession | None
+    planned_sessions: tuple[PlannedSession, ...]
     activities: tuple[CalendarActivity, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.planned_sessions, tuple):
+            raise TypeError("planned_sessions must be tuple")
+
+    @property
+    def planned_session(self) -> PlannedSession | None:
+        """Legacy singular projection; ambiguous multi-session dates return None."""
+        return self.planned_sessions[0] if len(self.planned_sessions) == 1 else None
 
 
 @dataclass(frozen=True)
@@ -113,7 +126,7 @@ class ActivityCalendarBuilder:
         try:
             events = self._activity_provider.load_between(query_start, query_end)
             planned_by_date = {
-                current_date: self._planned_session_provider.get_planned_session(
+                current_date: self._planned_session_provider.get_planned_sessions(
                     current_date
                 )
                 for current_date in _dates_inclusive(start_date, end_date)
@@ -141,7 +154,7 @@ class ActivityCalendarBuilder:
         days = tuple(
             CalendarDay(
                 date=current_date,
-                planned_session=planned_by_date[current_date],
+                planned_sessions=planned_by_date[current_date],
                 activities=tuple(
                     sorted(
                         activities_by_date[current_date],
