@@ -132,12 +132,20 @@ preserves unrelated entries. Missing, duplicated, reversed, or otherwise
 malformed block markers fail closed without rewriting the crontab. A normal
 macOS “no crontab” result is treated as an empty initial state; any other read
 failure blocks installation and removal. Its exact cadence is `0 7-23 * * *`. Every line
-invokes the repository-owned `run_production_daily_runtime_cron.sh` wrapper,
-which changes to the repository root and executes only:
+uses cron's own shell to change to the repository root, set `TZ=Europe/Warsaw`,
+and invoke the absolute virtualenv Python directly:
 
 ```bash
 .venv/bin/python -m scripts.run_production_daily_runtime --scheduled
 ```
+
+This direct topology replaces the initial repository shell-wrapper design. In
+live Gate B evidence on 2026-08-12, cron fired naturally at 14:00 Warsaw time,
+but macOS rejected direct execution of the wrapper from the Documents tree with
+`Operation not permitted`. The runtime remained at its existing COMPLETED
+revision with no new attempt or other domain mutation. The revised cron line
+does not execute a repository shell file; it uses the already verified absolute
+virtualenv Python path through cron's shell.
 
 Output appends to `daily-runtime.log`; errors append to
 `daily-runtime-error.log`. Independent hourly invocations are intentional:

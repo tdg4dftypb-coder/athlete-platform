@@ -10,7 +10,7 @@ LAUNCHAGENT_DIR="${ATHLETE_PLATFORM_LAUNCHAGENT_DIR:-${HOME}/Library/LaunchAgent
 LOG_DIR="${ATHLETE_PLATFORM_LOG_DIR:-${HOME}/Library/Logs/AthletePlatform}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-WRAPPER="$REPO_ROOT/ops/macos/run_production_daily_runtime_cron.sh"
+PYTHON_EXEC="$REPO_ROOT/.venv/bin/python"
 SERVICE="gui/$(id -u)/$LABEL"
 
 CURRENT_FILE="$(mktemp "${TMPDIR:-/tmp}/athlete-platform-status-crontab.XXXXXX")"
@@ -63,7 +63,7 @@ if [[ "$MANAGED_STATE" == "present" ]]; then
 else
     cp "$CURRENT_FILE" "$CLEAN_FILE"
 fi
-UNMANAGED_CONFLICTS="$(grep -E "^[[:space:]]*[^#].*(scripts\\.run_production_daily_runtime|scripts\\.run_daily_decision_runtime|run_production_daily_runtime_cron\\.sh|${WRAPPER//\//\\/})" "$CLEAN_FILE" || true)"
+UNMANAGED_CONFLICTS="$(grep -E '^[[:space:]]*[^#].*(scripts\.run_production_daily_runtime|scripts\.run_daily_decision_runtime|run_production_daily_runtime_cron\.sh)' "$CLEAN_FILE" || true)"
 LOADED=0
 if [[ -x "$LAUNCHCTL_COMMAND" ]] && "$LAUNCHCTL_COMMAND" print "$SERVICE" >/dev/null 2>&1; then
     LOADED=1
@@ -72,7 +72,9 @@ fi
 echo "Crontab read       : $READ_STATE"
 echo "Managed cron block : $MANAGED_STATE"
 echo "Managed schedule   : $([[ "$MANAGED_STATE" == present ]] && echo "$MANAGED_LINE" || echo none)"
-echo "Wrapper            : $WRAPPER"
+echo "Repository         : $REPO_ROOT"
+echo "Python             : $PYTHON_EXEC"
+echo "Canonical command  : cd '$REPO_ROOT' && TZ=Europe/Warsaw '$PYTHON_EXEC' -m scripts.run_production_daily_runtime --scheduled"
 echo "Log stdout         : $LOG_DIR/daily-runtime.log"
 echo "Log stderr         : $LOG_DIR/daily-runtime-error.log"
 echo "LaunchAgent loaded : $([[ "$LOADED" -eq 1 ]] && echo conflict || echo no)"

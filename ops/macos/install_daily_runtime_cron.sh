@@ -23,14 +23,14 @@ done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-WRAPPER="$REPO_ROOT/ops/macos/run_production_daily_runtime_cron.sh"
+PYTHON_EXEC="$REPO_ROOT/.venv/bin/python"
 STDOUT_LOG="$LOG_DIR/daily-runtime.log"
 STDERR_LOG="$LOG_DIR/daily-runtime-error.log"
 PLIST="$LAUNCHAGENT_DIR/$LABEL.plist"
 SERVICE="gui/$(id -u)/$LABEL"
 
-if [[ ! -x "$WRAPPER" ]]; then
-    echo "Error: cron wrapper is missing or not executable: $WRAPPER" >&2
+if [[ ! -x "$PYTHON_EXEC" ]]; then
+    echo "Error: Python executable is missing or not executable: $PYTHON_EXEC" >&2
     exit 1
 fi
 if [[ ! -x "$CRONTAB_COMMAND" ]]; then
@@ -81,7 +81,7 @@ else
     cp "$CURRENT_FILE" "$CLEAN_FILE"
 fi
 
-UNMANAGED_CONFLICTS="$(grep -E "^[[:space:]]*[^#].*(scripts\\.run_production_daily_runtime|scripts\\.run_daily_decision_runtime|run_production_daily_runtime_cron\\.sh|${WRAPPER//\//\\/})" "$CLEAN_FILE" || true)"
+UNMANAGED_CONFLICTS="$(grep -E '^[[:space:]]*[^#].*(scripts\.run_production_daily_runtime|scripts\.run_daily_decision_runtime|run_production_daily_runtime_cron\.sh)' "$CLEAN_FILE" || true)"
 LOADED_CONFLICT=0
 if [[ -x "$LAUNCHCTL_COMMAND" ]] && "$LAUNCHCTL_COMMAND" print "$SERVICE" >/dev/null 2>&1; then
     LOADED_CONFLICT=1
@@ -101,7 +101,7 @@ TIMEZONE_ALIGNED=0
 [[ "$HOST_TZ" == "$EXPECTED_TZ" ]] && TIMEZONE_ALIGNED=1
 
 BLOCK="$BEGIN_MARKER
-$SCHEDULE '$WRAPPER' >> '$STDOUT_LOG' 2>> '$STDERR_LOG'
+$SCHEDULE (cd '$REPO_ROOT' && TZ=$EXPECTED_TIMEZONE '$PYTHON_EXEC' -m scripts.run_production_daily_runtime --scheduled) >> '$STDOUT_LOG' 2>> '$STDERR_LOG'
 $END_MARKER"
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -110,7 +110,9 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
     echo "Crontab read       : $READ_STATE"
     echo "Managed cron block : $MANAGED_STATE"
     echo "Schedule           : $SCHEDULE"
-    echo "Wrapper            : $WRAPPER"
+    echo "Repository         : $REPO_ROOT"
+    echo "Python             : $PYTHON_EXEC"
+    echo "Canonical command  : cd '$REPO_ROOT' && TZ=$EXPECTED_TIMEZONE '$PYTHON_EXEC' -m scripts.run_production_daily_runtime --scheduled"
     echo "Log stdout         : $STDOUT_LOG"
     echo "Log stderr         : $STDERR_LOG"
     echo "Timezone expected  : $EXPECTED_TZ ($EXPECTED_TIMEZONE)"

@@ -680,11 +680,19 @@ Stage 27 remains 90% with live Gate B pending.
 
 LaunchAgent remains the preferred durable macOS scheduler. On managed hosts
 where its user directory is not writable, the supported user-cron fallback
-invokes the same scheduled production command through a repository wrapper at
+invokes the same scheduled production command through cron's shell at
 `0 7-23 * * *`. The hourly window provides bounded same-day catch-up; runtime
 scheduled-state policy remains the sole idempotency and recovery authority.
 Installation fails closed on host/Warsaw timezone mismatch, an installed or
 loaded LaunchAgent, or unmanaged production/legacy runtime cron entries.
+
+The first installed cron topology fired naturally at 14:00 Europe/Warsaw on
+2026-08-12, but macOS denied direct execution of its repository shell wrapper
+from the Documents tree (`Operation not permitted`). No runtime or domain state
+changed. The fallback therefore renders a grouped POSIX cron command that
+changes to the repository root, sets `TZ=Europe/Warsaw`, and invokes the
+absolute `.venv/bin/python` directly. Gate B remains pending and Stage 27
+remains 90% until this topology has durable live evidence.
 
 ## Executable evidence
 

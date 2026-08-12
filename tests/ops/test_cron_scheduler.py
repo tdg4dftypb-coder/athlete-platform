@@ -9,7 +9,8 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 INSTALLER = PROJECT_ROOT / "ops/macos/install_daily_runtime_cron.sh"
 STATUS = PROJECT_ROOT / "ops/macos/status_daily_runtime_cron.sh"
-WRAPPER = PROJECT_ROOT / "ops/macos/run_production_daily_runtime_cron.sh"
+PYTHON_EXEC = PROJECT_ROOT / ".venv/bin/python"
+OLD_WRAPPER = PROJECT_ROOT / "ops/macos/run_production_daily_runtime_cron.sh"
 BEGIN = "# BEGIN ATHLETE PLATFORM PRODUCTION DAILY RUNTIME"
 END = "# END ATHLETE PLATFORM PRODUCTION DAILY RUNTIME"
 
@@ -65,13 +66,8 @@ def run_installer(env, *arguments):
     )
 
 
-def test_wrapper_resolves_repo_and_executes_only_canonical_scheduled_command():
-    content = WRAPPER.read_text()
-    assert 'REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"' in content
-    assert 'exec "$PYTHON_EXEC" -m scripts.run_production_daily_runtime --scheduled' in content
-    assert "scripts.run_daily_decision_runtime" not in content
-    assert "launchctl" not in content
-    assert "crontab" not in content
+def test_obsolete_repository_wrapper_is_removed():
+    assert not OLD_WRAPPER.exists()
 
 
 def test_dry_run_is_read_only_and_reports_canonical_configuration(cron_environment):
@@ -79,7 +75,9 @@ def test_dry_run_is_read_only_and_reports_canonical_configuration(cron_environme
     result = run_installer(env, "--dry-run")
     assert result.returncode == 0
     assert "Schedule           : 0 7-23 * * *" in result.stdout
-    assert str(WRAPPER) in result.stdout
+    assert f"Repository         : {PROJECT_ROOT}" in result.stdout
+    assert f"Python             : {PYTHON_EXEC}" in result.stdout
+    assert "TZ=Europe/Warsaw" in result.stdout
     assert str(home / "Library/Logs/AthletePlatform/daily-runtime.log") in result.stdout
     assert str(home / "Library/Logs/AthletePlatform/daily-runtime-error.log") in result.stdout
     assert "Timezone aligned   : yes" in result.stdout
@@ -95,9 +93,12 @@ def test_clean_install_has_exact_managed_block_and_logs(cron_environment):
     assert content.count(BEGIN) == content.count(END) == 1
     line = next(line for line in content.splitlines() if line.startswith("0 "))
     assert line.startswith("0 7-23 * * * ")
-    assert f"'{WRAPPER}'" in line
+    assert f"(cd '{PROJECT_ROOT}' &&" in line
+    assert f"'{PYTHON_EXEC}'" in line
+    assert "TZ=Europe/Warsaw" in line
     assert "scripts.run_daily_decision_runtime" not in content
-    assert "scripts.run_production_daily_runtime" not in content
+    assert "-m scripts.run_production_daily_runtime --scheduled" in line
+    assert "run_production_daily_runtime_cron.sh" not in line
     assert str(home / "Library/Logs/AthletePlatform/daily-runtime.log") in line
     assert str(home / "Library/Logs/AthletePlatform/daily-runtime-error.log") in line
     assert mutations.read_text().splitlines() == ["mutation"]
@@ -132,7 +133,7 @@ def test_unrelated_entries_around_valid_block_survive_install_and_remove(cron_en
     state.write_text(
         before
         + BEGIN
-        + f"\n0 7-23 * * * '{WRAPPER}' >> '/tmp/out' 2>> '/tmp/err'\n"
+        + f"\n0 7-23 * * * (cd '{PROJECT_ROOT}' && TZ=Europe/Warsaw '{PYTHON_EXEC}' -m scripts.run_production_daily_runtime --scheduled) >> '/tmp/out' 2>> '/tmp/err'\n"
         + END
         + "\n"
         + after
@@ -240,7 +241,7 @@ def test_scheduler_conflicts_fail_closed(cron_environment, setup, expected):
     elif setup == "wrapper-name":
         state.write_text("0 7 * * * run_production_daily_runtime_cron.sh\n")
     else:
-        state.write_text(f"0 7 * * * {WRAPPER}\n")
+        state.write_text(f"0 7 * * * {OLD_WRAPPER}\n")
     result = run_installer(env)
     assert result.returncode == 1
     assert expected in result.stderr
@@ -267,9 +268,9 @@ def test_invalid_option_is_bounded_and_nonzero(cron_environment):
     assert not mutations.exists()
 
 
-def test_commented_wrapper_line_is_not_an_active_conflict(cron_environment):
+def test_commented_old_wrapper_line_is_not_an_active_conflict(cron_environment):
     env, state, _, _ = cron_environment
-    comment = f"# 0 7 * * * {WRAPPER}\n"
+    comment = f"# 0 7 * * * {OLD_WRAPPER}\n"
     state.write_text(comment)
     result = run_installer(env)
     assert result.returncode == 0, result.stderr
@@ -289,7 +290,7 @@ def test_remove_dry_run_reports_resulting_intent_without_install_block(cron_envi
 def test_status_is_read_only_and_reports_conflicts(cron_environment):
     env, state, mutations, home = cron_environment
     state.write_text(
-        f"{BEGIN}\n0 7-23 * * * '{WRAPPER}' >> '/tmp/out' 2>> '/tmp/err'\n{END}\n"
+        f"{BEGIN}\n0 7-23 * * * (cd '{PROJECT_ROOT}' && TZ=Europe/Warsaw '{PYTHON_EXEC}' -m scripts.run_production_daily_runtime --scheduled) >> '/tmp/out' 2>> '/tmp/err'\n{END}\n"
         "0 8 * * * python -m scripts.run_daily_decision_runtime\n"
     )
     plist = home / "Library/LaunchAgents/com.athleteplatform.daily-decision-runtime.plist"
@@ -299,6 +300,12 @@ def test_status_is_read_only_and_reports_conflicts(cron_environment):
     assert result.returncode == 0
     assert "Managed cron block : present" in result.stdout
     assert "0 7-23 * * *" in result.stdout
+    assert f"Repository         : {PROJECT_ROOT}" in result.stdout
+    assert f"Python             : {PYTHON_EXEC}" in result.stdout
+    assert "Canonical command  : cd" in result.stdout
+    assert "TZ=Europe/Warsaw" in result.stdout
+    assert "-m scripts.run_production_daily_runtime --scheduled" in result.stdout
+    assert "Wrapper" not in result.stdout
     assert "LaunchAgent plist  : conflict" in result.stdout
     assert "Unmanaged runtime  : conflict" in result.stdout
     assert not mutations.exists()
