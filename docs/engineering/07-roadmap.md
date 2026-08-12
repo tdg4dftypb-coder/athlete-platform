@@ -175,9 +175,9 @@ Wagi Stage 27 są kompletne: 27.1 = 15%, 27.2 = +20% (35%), 27.3 = +15%
 27.7 = +10% (100%). Zamrożony roadmap kończy się na Stage 27; dalszy rozwój
 produktu wymaga osobnej decyzji o nowym roadmapie / roadmap v2.
 
-## Current
+## Completed
 
-### Roadmap V2 — Stage 28: Multi-Session & Activity Semantics
+### Roadmap V2 — Stage 28: Multi-Session & Activity Semantics — CLOSED
 
 - **Multi-Session Domain Foundation (28.1 — completed):** `TrainingPlan`
   supports multiple atomic `PlannedSession` objects on one local date, ordered
@@ -214,14 +214,31 @@ produktu wymaga osobnej decyzji o nowym roadmapie / roadmap v2.
   history. Runtime wiring and public outcome projection are deferred to 28.4.
   Recommended integration is reconciling the previous closed local date during
   today's existing runtime, avoiding false morning finalization and a second
-  scheduler. Stage 28 remains open at 86.67%; Roadmap V2 progress is 13%.
-- **Production Integration & Live Certification (28.4 — Gate A candidate):**
+  scheduler. At the 28.3 checkpoint, Stage 28 was 86.67% complete and Roadmap
+  V2 progress was 13%.
+- **Production Integration & Live Certification (28.4 — completed):**
   production composition now targets the previous closed local date through a
   real reconciliation adapter backed by the dedicated reconciliation DuckDB.
   Activity Calendar exposes the latest immutable reconciliation per day, while
-  the single scheduler and legacy calendar fields remain unchanged. Isolated
-  certification uses only temporary stores. Gate B live certification remains
-  operator-pending; Sprint 28.4 and Stage 28 are not formally closed.
+  the single scheduler and legacy calendar fields remain unchanged. Gate B live
+  certification completed successfully on 2026-08-12: runtime
+  `runtime-4752ac5c-8cad-451b-abcc-15c61ccd3c72` completed at revision 10 and
+  reconciled the previous closed date, 2026-08-11. The finalized policy 1.0
+  snapshot was persisted and resolved through Activity Calendar with truthful
+  `UNMATCHED_PLANNED` / `SKIPPED` semantics. No scheduler cutover was required.
+
+Stage 28 is **CLOSED at 100%**. Roadmap V2 progress is **15%**. Completed Stage
+28 capabilities are: multiple planned sessions per local date; stable session
+identity; plural persistence and read contracts; factual activity identity and
+provenance; deterministic conservative activity-to-session matching with
+explicit unresolved ambiguity; COMPLETED, PARTIAL, SKIPPED, REPLACED, and
+UNPLANNED semantics; immutable append-only reconciliation snapshots; semantic
+fingerprint idempotency; production reconciliation of the previous closed local
+date; Activity Calendar reconciliation projection; live production
+certification; backward compatibility; and preservation of the existing single
+scheduler.
+
+Stage 29 is the next roadmap stage. It has not been started by this closure.
 
 ## Planned
 

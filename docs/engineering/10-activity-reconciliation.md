@@ -37,7 +37,7 @@ snapshot. The canonical dedicated store is
 `data/database/activity_reconciliation.duckdb`, with explicit path injection
 and `ACTIVITY_RECONCILIATION_DB_PATH` available for isolated composition.
 
-Sprint 28.4 Gate A wires `ProductionReconciliationAdapter` into production
+Sprint 28.4 wires `ProductionReconciliationAdapter` into production
 composition while retaining `ReconciliationPolicySkipAdapter` for compatibility.
 For runtime target date D, the adapter loads a bounded activity window and
 reconciles D - 1 with `finalized=True`; it never finalizes the open current day.
@@ -48,6 +48,42 @@ fingerprint is new.
 
 Activity Calendar reads the latest persisted snapshot per date and exposes it
 as the nullable `reconciliation` projection without mutating planned sessions or
-activities. The existing single scheduler is unchanged. Gate B live production
-certification remains operator-pending, so Sprint 28.4 and Stage 28 are not yet
-formally closed.
+activities. The projection preserves existing `planned_sessions`, legacy
+`planned_session`, and `activities` contracts, and includes replacement evidence.
+
+## Gate B production certification
+
+Gate B completed successfully on 2026-08-12. The controlled production runtime
+`runtime-4752ac5c-8cad-451b-abcc-15c61ccd3c72`, targeting 2026-08-12, exited 0
+with status COMPLETED at revision 10. Its reconciliation phase completed with
+`reconciliations_created=1` and no warning or failure codes.
+
+The runtime reconciled the previous closed local date, 2026-08-11, and created:
+
+- reconciliation ID:
+  `reconciliation:sha256:953b8b7deb06cb85f82a332b8926efed296dbea3dea3db3598892d9d4b40ec07`;
+- input fingerprint:
+  `sha256:953b8b7deb06cb85f82a332b8926efed296dbea3dea3db3598892d9d4b40ec07`;
+- `finalized=true`, policy version `1.0`;
+- plan `plan-baseline-2026-08-10-v1`, version 1;
+- planned VO2 session of 60 minutes;
+- no canonical factual activity input;
+- `UNMATCHED_PLANNED` with execution outcome `SKIPPED` and reason
+  `planned_session_unmatched`.
+
+Live `GET /api/v1/activity-calendar` returned HTTP 200 for 2026-08-11 and
+resolved the same reconciliation ID. It exposed `finalized=true` and the
+`UNMATCHED_PLANNED` / `SKIPPED` result truthfully while preserving
+`planned_sessions`, legacy `planned_session`, and `activities`; the
+`replacement_evidence` contract was present.
+
+The controlled runtime created the canonical dedicated database at
+`data/database/activity_reconciliation.duckdb`; it did not exist before Gate B.
+The pre-certification backup is
+`data/database/backups/stage28-gateb-20260812-173604/`. The existing single cron
+scheduler remains unchanged and requires no cutover. The D-1 model was certified
+without falsely finalizing the open current day. The Git working tree remained
+clean after live certification, and no DuckDB handles remained open.
+
+Sprint 28.4 is completed. Stage 28 is closed at 100%, and Roadmap V2 progress is
+15%. Stage 29 is the next roadmap stage and has not been started.
