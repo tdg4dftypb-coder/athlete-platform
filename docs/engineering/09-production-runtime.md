@@ -1,8 +1,8 @@
 # Production Runtime and Reliability Contract
 
-Status: Sprint 27.7 Gate A repository certification and cutover preparation,
-2026-08-11. Stage 27 remains 90%; manual Gate B durable scheduler cutover and first
-live verification are required before closure.
+Status: **Stage 27 — 100% CLOSED**. Sprint 27.7 Gate B passed on 2026-08-12
+after live ProductionDailyRuntime certification and a natural invocation from
+the durable managed user-cron backend.
 
 ## Conclusion and current topology
 
@@ -488,10 +488,11 @@ phase is triggered by diagnostics.
 5. Sprint 27.6: completed — persistent content-addressed assessment snapshot,
    same-attempt late-phase recovery, publication integrity, and isolated
    operational certification. Scheduler remains unchanged.
-6. Sprint 27.7 Gate A: completed — deterministic scheduled-run policy,
+6. Sprint 27.7: completed — deterministic scheduled-run policy,
    read-only preflight, isolated legacy/candidate shadow certification,
-   production/rollback plist preparation, and operator runbook. Gate B remains
-   manual and Stage 27 remains 90%.
+   production/rollback plist preparation, operator runbook, live runtime
+   certification, and durable scheduler certification. Gate B passed and Stage
+   27 is 100% CLOSED.
 7. Delete duplicate/legacy paths only after call-site, operations, and data
    migration verification.
 
@@ -616,8 +617,9 @@ certify complete execution, repeated logical-day idempotency, assessment restart
 missing snapshot, missing plan, resource closure, and final healthy/no-action
 diagnostics. No production store or FIT source is used.
 
-Stage 27 weighting is corrected: 27.5 = 80% and 27.6 = 90%. Sprint 27.7 Gate A
-does not increase the percentage: live Gate B evidence is still required.
+Stage 27 weights are complete: 27.1 = 15%, 27.2 = +20% (35%), 27.3 = +15%
+(50%), 27.4 = +15% (65%), 27.5 = +15% (80%), 27.6 = +10% (90%), and
+27.7 = +10% (100%).
 
 ## Sprint 27.7 Gate A: scheduler cutover preparation
 
@@ -650,14 +652,14 @@ Read-only `scripts.production_runtime_preflight` checks resolved paths, FIT
 source, interpreter, command, domain database readability, applicable Training
 Plan, and runtime-audit usability without executing workflow or creating the
 runtime DB. Database-holder inspection, timestamped ignored backups, cutover,
-verification, explicit retry, rollback, compatibility window, and the empty
-Gate B evidence record are canonical in
+verification, explicit retry, rollback, compatibility window, and the
+then-empty Gate B evidence template are canonical in
 [macOS Production Runtime Operations](../operations/daily-runtime-macos.md).
 
-Gate B must later supply the real runtime ID/date/status/revision, eight phases,
-HEALTHY/NO_ACTION diagnostics, loaded new command, absence of concurrent legacy
-scheduling, and first-live logs. Until reviewed evidence exists, Stage 27 must
-not be described as closed or 100%.
+Gate B supplied the real runtime identity/date/status/revision, eight phases,
+HEALTHY/NO_ACTION diagnostics, direct scheduled command, absence of concurrent
+legacy scheduling, and natural cron-originated logs. The evidence is recorded
+below and in the operations runbook.
 
 ### Initial Training Plan bootstrap prerequisite
 
@@ -676,7 +678,8 @@ owns REST/TRAINING invariants, the repository owns identical-no-op and
 different-payload conflict behavior, and no Decision, prescription, briefing,
 runtime audit, FIT, scheduler, or LaunchAgent operation is reachable from this
 command. The real specification remains private and outside source control.
-Stage 27 remains 90% with live Gate B pending.
+The bootstrap prerequisite was satisfied before live certification; Stage 27
+is 100% CLOSED.
 
 LaunchAgent remains the preferred durable macOS scheduler. On managed hosts
 where its user directory is not writable, the supported user-cron fallback
@@ -691,8 +694,48 @@ The first installed cron topology fired naturally at 14:00 Europe/Warsaw on
 from the Documents tree (`Operation not permitted`). No runtime or domain state
 changed. The fallback therefore renders a grouped POSIX cron command that
 changes to the repository root, sets `TZ=Europe/Warsaw`, and invokes the
-absolute `.venv/bin/python` directly. Gate B remains pending and Stage 27
-remains 90% until this topology has durable live evidence.
+absolute `.venv/bin/python` directly. That topology received durable live
+evidence at 15:00 and completed Gate B.
+
+## Sprint 27.7 Gate B: final live certification
+
+Gate B **PASSED** on 2026-08-12 in `Europe/Warsaw`. The active scheduler on the
+managed primary Mac is user cron because `~/Library/LaunchAgents` was not
+writable. LaunchAgent remains the preferred generic macOS backend. Exactly one
+backend is active: the managed cron block is present at `0 7-23 * * *`, while
+the LaunchAgent is neither installed nor loaded and no unmanaged production or
+legacy runtime line exists.
+
+The runtime itself had already completed live under runtime ID
+`runtime-6ec22727-8633-40b0-9c75-8e8b6d18db40`, logical key `2026-08-12:1.0`,
+revision 10. Its final state is COMPLETED, HEALTHY, NO_ACTION, not stale, with
+no failure. INGESTION, ACTIVITY_FACT_SYNCHRONIZATION, ASSESSMENT, DECISION,
+PLAN_PRESCRIPTION, MORNING_BRIEFING, and PUBLICATION completed;
+RECONCILIATION was correctly skipped as `reconciliation_not_applicable`.
+
+The first cron topology fired naturally at 14:00 but failed closed when macOS
+rejected the Documents-resident wrapper with `Operation not permitted`. It did
+not change runtime or domain state. After commit
+`33a25117cda3bb5e24af962e70e4ae20cb15cb08` replaced that topology, cron fired
+naturally at 15:00:01 CEST through its own shell using repository `cd`, explicit
+`TZ=Europe/Warsaw`, and absolute virtualenv Python. It returned the existing
+runtime as `completed`, revision 10, action `no-op (already completed)`. The
+stdout log was updated at 15:00:01; stderr retained its 14:00 timestamp and
+received no new content. All-attempts diagnostics still contained only the same
+authoritative runtime, proving that no new physical attempt was created.
+
+The certified artifacts are assessment snapshot
+`assessment:sha256:ff9b9ce4434da42cca16b7698640ac4d2e0559a3a543e0118daef65983d156f4`,
+Decision `decision-7da6621b-6ada-479f-9923-229cb3b41e08`, Training Plan
+`plan-baseline-2026-08-10-v1`, prescription
+`plan-baseline-2026-08-10-v1:2026-08-12:decision-7da6621b-6ada-479f-9923-229cb3b41e08`,
+and an available Morning Briefing. Pre-cutover validation was 27 focused cron
+tests, 141 ops/runtime regressions, 1,682 full-suite tests, and clean
+`git diff --check`.
+
+Stage 27 — Production Runtime & Reliability is therefore **100% CLOSED**. The
+frozen roadmap ends at Stage 27; any further product development requires an
+explicit new roadmap / roadmap v2 decision. No Stage 28 scope is defined here.
 
 ## Executable evidence
 

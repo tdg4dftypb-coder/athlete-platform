@@ -1,6 +1,6 @@
 # Operations Manual — macOS Production Daily Runtime Cutover
 
-Gate B scheduler activation is manual. LaunchAgent remains the preferred macOS
+Sprint 27.7 Gate B passed on 2026-08-12. LaunchAgent remains the preferred macOS
 backend. User cron is the supported fallback when managed-host permissions make
 `~/Library/LaunchAgents` unavailable. Exactly one backend may be active.
 LaunchAgent uses 07:00 local time with `RunAtLoad=true`; cron uses a preferred
@@ -218,8 +218,40 @@ legacy and production schedules concurrently.
 
 ## FINAL CLOSURE EVIDENCE
 
-Stage 27 remains at 90% until durable scheduler evidence is reviewed. Closure
-must record the active backend, Warsaw date, COMPLETED revision, eight phases,
-HEALTHY/NO_ACTION diagnostics, effective scheduled command, no concurrent
-backend or legacy schedule, rollback availability, and the green suite. Only
-then may the roadmap state 100% CLOSED.
+Sprint 27.7 Gate B **PASSED** on 2026-08-12. The active durable backend on this
+managed Mac is user cron; LaunchAgent remains the preferred generic macOS
+backend but could not be installed because `~/Library/LaunchAgents` was not
+writable. Status showed an existing crontab, one present managed block, no
+loaded or installed LaunchAgent, and no unmanaged runtime scheduler. Exactly
+one production scheduler backend is active.
+
+The installed schedule is:
+
+```cron
+0 7-23 * * * (cd '/Users/marsm0wa/Documents/athlete-platform' && TZ=Europe/Warsaw '/Users/marsm0wa/Documents/athlete-platform/.venv/bin/python' -m scripts.run_production_daily_runtime --scheduled) >> '/Users/marsm0wa/Library/Logs/AthletePlatform/daily-runtime.log' 2>> '/Users/marsm0wa/Library/Logs/AthletePlatform/daily-runtime-error.log'
+```
+
+Both natural scheduler observations remain part of the record. At 14:00 cron
+fired, but macOS rejected direct execution of the repository wrapper with
+`Operation not permitted`; this was fail-closed and produced no runtime or
+domain mutation. Commit `33a25117cda3bb5e24af962e70e4ae20cb15cb08`
+replaced the wrapper with direct absolute virtualenv Python execution through
+cron's shell.
+
+At 15:00:01 CEST the corrected topology fired naturally. The stdout log was
+updated and reported target 2026-08-12, runtime
+`runtime-6ec22727-8633-40b0-9c75-8e8b6d18db40`, COMPLETED revision 10, and
+`no-op (already completed)`. The stderr log retained its 14:00 timestamp, so the
+successful invocation produced no new error output. All-attempts diagnostics
+still showed only the same physical runtime.
+
+Final diagnostics were HEALTHY, NO_ACTION, not stale, and failure-free. All
+eight canonical phases were represented: seven COMPLETED and RECONCILIATION
+correctly SKIPPED as `reconciliation_not_applicable`. Assessment snapshot,
+Decision, Training Plan, prescription, Morning Briefing, and publication all
+resolved. Pre-cutover repository evidence was 27 focused cron tests, 141
+ops/runtime tests, 1,682 full-suite tests, and passing `git diff --check`.
+
+Stage 27 — Production Runtime & Reliability is **100% CLOSED**. The frozen
+roadmap ends at Stage 27; further product work requires a separately approved
+new roadmap / roadmap v2.

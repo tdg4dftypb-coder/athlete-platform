@@ -168,16 +168,14 @@ Historyczny [Project Roadmap](../roadmap.md) opisuje wcześniejszą wizję wersj
 - **Runtime State, Health & Diagnostics (27.4):** dodano wyłącznie odczytowy `RuntimeOperationalStatusReader` i operator-friendly snapshot bez kopiowania kontraktu persistence, klasyfikacje health/stale/resumability, kanonicznie uporządkowane diagnostyki faz z uczciwym `NOT RUN`, ostatni trwały postęp oraz wszystkie istniejące warnings, failures, watermarks, counters i references. Repozytorium audytu otrzymało jawny tryb DuckDB `read_only`, a `python -m scripts.runtime_status` obsługuje latest/date/all-attempts/runtime-id bez tworzenia bazy lub rewizji. HTTP został świadomie odroczony; Stage 27 = 65%.
 - **Authoritative Daily Runtime Coordinator (27.5):** wdrożono cienki `ProductionDailyRuntime` z ośmioma adapterami faz, rewizją po każdej trwałej granicy, ścisłym inwariantem COMPLETED i ograniczonym resume. Assessment, Decision i dowód Morning Briefing współdzielą jeden zamrożony snapshot; publikacja wyłącznie waliduje repozytoria. Brak planu jest stabilnym błędem, reconciliation nie interpretuje faktów jako wykonania, a nowy CLI pozostaje kandydatem. Scheduler i LaunchAgent nie zostały przełączone; Stage 27 = 80%.
 - **Persistent Assessment Snapshot & Recovery Certification (27.6):** minimalny `MorningBriefingInput` używany przez runtime jest utrwalany append-only w `production_runtime.duckdb` jako `assessment:sha256:<digest>`, z kanonicznym kodekiem, kontrolą integralności i idempotentnym odtworzeniem providera. Resume obejmuje wszystkie późne granice faz, publikacja weryfikuje snapshot, a izolowane fixtures certyfikują pełny cykl, brak duplikatów i missing-plan. Scheduler pozostaje bez zmian; Stage 27 = 90%.
-- **Production Cutover Preparation (27.7 Gate A):** przygotowano deterministyczny tryb scheduler, read-only preflight, izolowaną certyfikację legacy-vs-candidate, produkcyjny i rollbackowy szablon LaunchAgent oraz runbook Gate B. Gate B nie został wykonany; Stage 27 pozostaje 90% i nie jest zamknięty.
+- **Production Cutover & Live Scheduler Certification (27.7):** Gate A przygotował deterministyczny tryb scheduler, read-only preflight, izolowaną certyfikację legacy-vs-candidate, szablony LaunchAgent i runbook. Gate B potwierdził realny COMPLETED runtime oraz naturalne wywołanie przez trwały backend user cron na zarządzanym Macu. Po historycznym, fail-closed odrzuceniu wrappera o 14:00 poprawiona topologia bezpośredniego wywołania `.venv/bin/python` wykonała o 15:00 idempotentny no-op dla tej samej ukończonej próby. Aktywny jest dokładnie jeden backend, bez LaunchAgenta i bez niezarządzanego schedulera. Sprint 27.7 = +10%; Stage 27 = **100% CLOSED**.
+
+Wagi Stage 27 są kompletne: 27.1 = 15%, 27.2 = +20% (35%), 27.3 = +15%
+(50%), 27.4 = +15% (65%), 27.5 = +15% (80%), 27.6 = +10% (90%) i
+27.7 = +10% (100%). Zamrożony roadmap kończy się na Stage 27; dalszy rozwój
+produktu wymaga osobnej decyzji o nowym roadmapie / roadmap v2.
 
 ## Planned
-
-### Stage 27 — Production Runtime & Reliability
-
-- Sprint 27.7 Gate B: ręczny cutover trwałego backendu schedulera (preferowany
-  LaunchAgent, user cron jako fallback dla zarządzanego Maca), pierwszy live runtime,
-  weryfikacja HEALTHY/NO_ACTION i dopiero wtedy decyzja o 100% CLOSED.
-
 
 Poniższe obszary są udokumentowanym kierunkiem, ale nie są obecnie zaimplementowanymi modułami:
 
