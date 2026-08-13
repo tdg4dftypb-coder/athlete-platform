@@ -238,7 +238,30 @@ date; Activity Calendar reconciliation projection; live production
 certification; backward compatibility; and preservation of the existing single
 scheduler.
 
-Stage 29 is the next roadmap stage. It has not been started by this closure.
+### Roadmap V2 — Stage 29: Adaptive Training Plan v2 — IN PROGRESS
+
+- **Adaptive Planning Domain Contract (29.1 — completed):** a dedicated,
+  immutable `plan_adaptation/` bounded context defines the canonical D-7...D
+  context window, future-only D+1...D+7 mutation window, typed v1 actions and
+  reason codes, source-independent session-change validation, explicit
+  `NO_CHANGE` / `CHANGE_PROPOSED` evaluations, and proposal-before-mutation
+  semantics. Stable session identity supports independent same-day changes.
+  There is no automatic make-up training and no automatic `MOVE`, `ADD`, or
+  `DUPLICATE`. Policy evaluation, evidence loading, source-plan validation,
+  plan mutation/version persistence, runtime integration, and production writes
+  remain deferred to later Stage 29 sprints. Stage 29 is not closed.
+- **Evidence & Adaptation Context (29.2 — completed):**
+  `AdaptationContextBuilder` now assembles an immutable, fingerprinted policy
+  input snapshot from canonical TrainingPlan sessions, Stage 28 reconciliation
+  and execution outcomes, existing AthleteAssessment, explicit training-load
+  evidence, athlete constraints, and weekly rhythm. It preserves all eight
+  D-7...D historical dates, all D+1...D+7 future sessions, multi-session
+  identity, CrossFit and unplanned evidence, ambiguity, unknown outcomes, and
+  typed missing/partial-source warnings. Missing evidence remains explicit;
+  only absence of a source plan covering the complete mutation window prevents
+  construction. No adaptation policy, proposal generation, persistence,
+  runtime integration, or production operation is included. Stage 29 remains
+  open.
 
 ## Planned
 
