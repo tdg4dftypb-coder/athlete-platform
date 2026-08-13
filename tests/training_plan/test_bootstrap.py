@@ -9,7 +9,6 @@ from training_plan.bootstrap import (
     parse_bootstrap_specification,
 )
 from training_plan.persistence.duckdb_repository import DuckDbTrainingPlanRepository
-from scripts.import_training_plan_continuation import run_import
 
 
 WEEKDAYS = ("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY")
@@ -64,21 +63,6 @@ def test_bootstrap_losslessly_adapts_single_weekly_slots_to_continuation():
     assert continuation.plan_id==bootstrap.plan_id and continuation.extension_days==28
     assert all(len(day.slots)==1 for day in continuation.weekdays)
     assert continuation.weekdays[0].slots[0].session_type==bootstrap.intent.weekly_sessions[0].session_type
-
-
-def test_continuation_import_is_dry_run_first_and_explicit(tmp_path):
-    source=write_spec(tmp_path); database=tmp_path/"plans.duckdb"
-    assert run_import(source,specification_id="continuation-synthetic",version=1,target_horizon_days=28,extension_days=28,
-                      created_at=parse_bootstrap_specification(json.dumps(specification())).generated_at_utc,
-                      training_plan_db_path=database)==0
-    assert not database.exists()
-    assert run_import(source,specification_id="continuation-synthetic",version=1,target_horizon_days=28,extension_days=28,
-                      created_at=parse_bootstrap_specification(json.dumps(specification())).generated_at_utc,
-                      apply=True,training_plan_db_path=database)==0
-    assert DuckDbTrainingPlanRepository(database).get_latest_continuation_specification_for_plan("plan-synthetic") is not None
-    assert run_import(source,specification_id="continuation-synthetic",version=1,target_horizon_days=28,extension_days=28,
-                      created_at=parse_bootstrap_specification(json.dumps(specification())).generated_at_utc,
-                      apply=True,training_plan_db_path=database)==0
 
 
 @pytest.mark.parametrize("mutation", ("missing", "duplicate"))

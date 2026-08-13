@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "plan_id": "example-plan",
+  "specification_id": "example-continuation-v1",
+  "specification_version": 1,
+  "target_horizon_days": 28,
+  "extension_days": 28,
+  "created_at": "2026-01-01T00:00:00Z",
+  "weekdays": [
+    {"weekday": "MONDAY", "kind": "REST"},
+    {"weekday": "TUESDAY", "kind": "TRAINING", "slots": [
+      {"slot_id": "run", "session_type": "RUNNING", "duration_minutes": 45, "target_tss": 40.0, "intensity": "MODERATE", "priority": 2, "rationale": ["Synthetic example"]}
+    ]},
+    {"weekday": "WEDNESDAY", "kind": "TRAINING", "slots": [
+      {"slot_id": "endurance", "session_type": "ENDURANCE", "duration_minutes": 60, "target_tss": 50.0, "intensity": "MODERATE", "priority": 2, "rationale": ["Synthetic example"]}
+    ]},
+    {"weekday": "THURSDAY", "kind": "REST"},
+    {"weekday": "FRIDAY", "kind": "TRAINING", "slots": [
+      {"slot_id": "quality", "session_type": "VO2", "duration_minutes": 50, "target_tss": 65.0, "intensity": "HARD", "priority": 1, "rationale": ["Synthetic example"]}
+    ]},
+    {"weekday": "SATURDAY", "kind": "TRAINING", "slots": [
+      {"slot_id": "swim", "session_type": "SWIM", "duration_minutes": 40, "target_tss": 25.0, "intensity": "EASY", "priority": 2, "rationale": ["Synthetic example"]},
+      {"slot_id": "bike", "session_type": "ENDURANCE", "duration_minutes": 90, "target_tss": 65.0, "intensity": "MODERATE", "priority": 2, "rationale": ["Synthetic multi-session example"]}
+    ]},
+    {"weekday": "SUNDAY", "kind": "REST"}
+  ]
+}

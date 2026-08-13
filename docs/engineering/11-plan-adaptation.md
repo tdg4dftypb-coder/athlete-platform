@@ -405,8 +405,23 @@ N+1 and may independently produce N+2.
 An explicit logical-intent transition `plan-A -> plan-B` remains outside v1.
 Continuity refuses a specification for a different plan ID and never joins two
 logical plans into one context. The operator-only continuation import is
-dry-run-first and converts an explicit existing bootstrap specification; it
-never infers private weekly intent from persisted sessions.
+dry-run-first and consumes a native `schema_version=1.0` JSON contract containing
+plan/specification identity, independent target and extension horizons, UTC
+audit time, exactly seven weekday definitions, and every explicit training
+`slot_id`. A REST weekday has no `slots`; a TRAINING weekday has one-or-more
+slots and therefore supports multi-session days without an arbitrary limit.
+Session types remain open and normalized by the domain. The input is the single
+source of semantic truth: the CLI accepts only `--input`, optional
+`--training-plan-db`, and explicit `--apply`, with no metadata overrides. It
+prints the canonical fingerprint plus a seven-day/slot preview and never infers
+private weekly intent from persisted sessions.
+
+Dry-run performs validation only and cannot open or create the target database.
+Apply registers only the continuation specification: it neither extends a plan
+nor runs adaptation/runtime. Reapplying identical semantics is a no-op even if
+`created_at` differs; the same specification ID/version with changed semantics
+is a hard conflict. The repository contains only the synthetic format example
+`docs/examples/training-plan-continuation.example.json`, not production intent.
 
 Phase A performs only temporary-database automated certification. Registration
 of the real specification, backups, live runtime, and post-run read-only

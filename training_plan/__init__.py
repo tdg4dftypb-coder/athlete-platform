@@ -17,6 +17,11 @@ from training_plan.continuity import (
     HorizonExtensionStatus, TrainingPlanContinuationSpecification,
     TrainingPlanHorizonExtensionService,
 )
+from training_plan.continuation_input import (
+    CONTINUATION_INPUT_SCHEMA_VERSION,
+    TrainingPlanContinuationInputError,
+    parse_continuation_specification,
+)
 
 from training_plan.prescription import (
     FinalSessionPrescription,
@@ -39,4 +44,6 @@ __all__ = [
     "ContinuationSessionSlot", "ContinuationWeekday", "HorizonExtensionResult",
     "HorizonExtensionStatus", "TrainingPlanContinuationSpecification",
     "TrainingPlanHorizonExtensionService",
+    "CONTINUATION_INPUT_SCHEMA_VERSION", "TrainingPlanContinuationInputError",
+    "parse_continuation_specification",
 ]

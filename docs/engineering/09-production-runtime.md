@@ -689,12 +689,15 @@ adaptation when `D + target_horizon_days` exceeds persisted coverage.
 controls full-chunk growth; adaptation itself still requires only D+7.
 Configuration is an explicit, versioned,
 multi-session `TrainingPlanContinuationSpecification` stored with TrainingPlan
-data. The dry-run-first
-`python -m scripts.import_training_plan_continuation --input PATH ...` command
-losslessly maps the existing single-slot bootstrap input into that richer
-contract; `--apply` is required for persistence. Runtime never reconstructs a
-weekly schedule from plan sessions. Routine extension uses the same plan ID and
-the existing revision CAS; new logical plan lineage remains operator-owned.
+data. The dry-run-first native command
+`python -m scripts.import_training_plan_continuation --input PATH` reads all
+semantic metadata and all explicit slot IDs from its versioned JSON input;
+`--apply` is required for persistence. It does not consume the historical
+bootstrap contract, accept semantic CLI overrides, or infer a weekly schedule
+from persisted plan sessions. A safe synthetic schema example is available at
+`docs/examples/training-plan-continuation.example.json`. Routine extension uses
+the same plan ID and the existing revision CAS; new logical plan lineage remains
+operator-owned.
 
 LaunchAgent remains the preferred durable macOS scheduler. On managed hosts
 where its user directory is not writable, the supported user-cron fallback
