@@ -69,7 +69,7 @@ def test_success_has_revision_per_phase_plus_initial_and_terminal(tmp_path):
     runtime, repo = build(tmp_path)
     result = runtime.run_new_attempt(date(2026, 8, 11))
     assert result.status is RuntimeStatus.COMPLETED
-    assert result.revision == 10
+    assert result.revision == 11
     assert tuple(p.phase for p in result.phases) == tuple(RuntimePhase)
     assert result.decision_id == "decision-1"
     assert result.training_plan_id == "plan-1"

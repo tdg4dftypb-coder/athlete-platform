@@ -17,6 +17,7 @@ from production_runtime import (
     logical_execution_key,
     target_local_date_at,
 )
+from production_runtime.persistence.codec import RuntimeAuditCodec
 
 
 START = datetime(2026, 8, 10, 22, 30, tzinfo=timezone.utc)
@@ -45,6 +46,20 @@ def test_runtime_contract_is_frozen_and_keeps_target_date_independent_of_start()
     assert result.started_at_utc == START
     with pytest.raises(FrozenInstanceError):
         result.status = RuntimeStatus.COMPLETED
+
+
+def test_historical_completed_record_without_plan_adaptation_remains_readable() -> None:
+    historical_phases = tuple(
+        RuntimePhaseResult(phase, PhaseStatus.COMPLETED, START, START, False)
+        for phase in RuntimePhase if phase is not RuntimePhase.PLAN_ADAPTATION
+    )
+    historical = running_result(
+        revision=10, status=RuntimeStatus.COMPLETED,
+        completed_at_utc=START, phases=historical_phases,
+    )
+    decoded = RuntimeAuditCodec().decode(RuntimeAuditCodec().encode(historical))
+    assert decoded == historical
+    assert RuntimePhase.PLAN_ADAPTATION not in tuple(item.phase for item in decoded.phases)
 
 
 def test_logical_execution_key_is_stable_and_validated() -> None:

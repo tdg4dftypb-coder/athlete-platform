@@ -40,6 +40,7 @@ from plan_adaptation.persistence import (
     PlanRevisionStatus,
 )
 from plan_adaptation.paths import get_default_plan_adaptation_db_path
+from plan_adaptation.runtime import PlanAdaptationRuntimeAdapter
 
 __all__ = [
     "AdaptationAction",
@@ -76,4 +77,5 @@ __all__ = [
     "PlanRevisionRecord",
     "PlanRevisionStatus",
     "get_default_plan_adaptation_db_path",
+    "PlanAdaptationRuntimeAdapter",
 ]

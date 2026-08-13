@@ -289,3 +289,71 @@ reference against canonical TrainingPlan persistence and raises explicit data
 corruption when it cannot resolve; raw audit records never manufacture a result.
 REJECTED retains only a typed validation failure and never catches programmer,
 database, or unexpected exceptions as normal domain rejection.
+
+## Stage 29.6 — Production Runtime Integration
+
+The authoritative daily runtime now contains `plan_adaptation` immediately
+after `plan_prescription` and before `morning_briefing`. It consumes the latest
+logical TrainingPlan, the already persisted attempt-bound assessment snapshot,
+latest reconciliation results for D-7...D, and the snapshot's canonical recent
+training load. Constraint and weekly-rhythm providers are not yet canonical in
+production composition, so both are passed as unavailable and remain explicit
+warnings. No raw biomarker rule or new threshold is introduced.
+
+The phase targets D+1...D+7 only. A plan without that complete future horizon
+returns `SKIPPED`, `changed_state=false`, and
+`adaptation_insufficient_plan_horizon`; it neither extends nor replaces the
+plan. NO_CHANGE persists exactly one evaluation and completes unchanged.
+CHANGE_PROPOSED persists evaluation and proposal, validates and materializes
+N+1, appends the canonical plan revision, verifies it is resolvable, and then
+persists APPLIED. Typed proposal validation writes REJECTED and completes with
+`changed_state=false`; storage conflicts, missing required artifacts, and
+unresolvable APPLIED history fail the runtime phase.
+
+Runtime artifacts list deterministic evaluation, proposal, revision-record,
+and (for APPLIED) result-plan references. Publication remains after morning
+briefing and runtime completion requires the new phase for new attempts. Older
+audit payloads remain readable because phase tuples are decoded as recorded;
+the stricter completeness invariant applies only while executing a current
+attempt, not when reading historical terminal records.
+
+Retry/cascade protection uses a small append-only runtime guard in the
+adaptation audit database. Its policy-trigger key hashes the local evaluation
+date, policy version, and only AthleteAssessment fields interpreted by policy
+v1: status, fatigue status, and LOW_RECOVERY/HIGH_FATIGUE reasons. Audit time,
+runtime ID, plan version, training load, and reconciliation are deliberately
+excluded. The complete AdaptationContext fingerprint still includes all
+canonical evidence, but a reconciliation-only/context-only change cannot reset
+an unchanged recovery-protection trigger.
+
+Before applying a genuinely changed same-day trigger, runtime also checks
+APPLIED history by evaluation date, policy version, stable session ID, and
+action. The same session cannot receive the same SHORTEN protection twice on
+one evaluation date, while a different session remains eligible. The guard is
+date-scoped, so the next day may legally adapt a different future session.
+
+The guard is written after the deterministic evaluation and before proposal or
+plan writes. It is resolved before context reconstruction or policy evaluation.
+Resume reconstructs a missing deterministic proposal, completes a
+missing plan revision, or recognizes an already persisted matching N+1 and
+finishes its APPLIED record. Existing NO_CHANGE and REJECTED outcomes are
+returned without duplication. A mismatching competing N+1, stale/missing source,
+guard without evaluation, or unresolvable APPLIED reference is corruption or a
+conflict and fails rather than being guessed around.
+
+Production composition injects the TrainingPlan repository, reconciliation
+repository, attempt snapshot repository, dedicated adaptation audit repository,
+runtime clock, context builder, deterministic policy, proposal builder,
+revision service, persistence coordinator, and history reader. Open session
+types including RUNNING pass unchanged; stable session IDs and the policy's
+canonical priority selection retain multi-session behavior, and no brick
+relationship is inferred.
+
+The adaptation DuckDB repository initializes lazily. Importing modules,
+resolving the canonical path, read-only preflight inspection, and constructing
+the production resource graph do not create `plan_adaptation.duckdb`; schema
+creation begins only when the adaptation phase accesses its store.
+
+Stage 29.6 changes neither scheduler cadence nor the runtime entrypoint. It adds
+no HTTP endpoint and performs no Gate B/live run. Production activation and
+later adaptive-planning capabilities remain outside this sprint and Stage 29.7.

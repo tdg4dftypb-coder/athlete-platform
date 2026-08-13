@@ -154,24 +154,29 @@ class AdaptationAuditCodec:
 
 class DuckDbPlanAdaptationRepository:
     def __init__(self, db_path):
-        self._path=str(db_path); self._lock=threading.Lock(); self._codec=AdaptationAuditCodec(); self._ensure()
+        self._path=str(db_path); self._lock=threading.Lock(); self._codec=AdaptationAuditCodec(); self._initialized=False
     def _connect(self):
         if self._path != ":memory:": Path(self._path).parent.mkdir(parents=True,exist_ok=True)
         return duckdb.connect(self._path)
     def _ensure(self):
         with self._lock:
+            if self._initialized:return
             c=self._connect()
             try:
                 c.execute("CREATE TABLE IF NOT EXISTS adaptation_evaluations (adaptation_id VARCHAR PRIMARY KEY,evaluation_date DATE,evaluated_at TIMESTAMP,payload_json VARCHAR NOT NULL)")
                 c.execute("CREATE TABLE IF NOT EXISTS plan_revision_proposals (proposal_id VARCHAR PRIMARY KEY,adaptation_id VARCHAR UNIQUE NOT NULL,payload_json VARCHAR NOT NULL)")
                 c.execute("CREATE TABLE IF NOT EXISTS plan_revision_records (revision_id VARCHAR PRIMARY KEY,proposal_id VARCHAR UNIQUE NOT NULL,adaptation_id VARCHAR UNIQUE NOT NULL,applied_at TIMESTAMP,payload_json VARCHAR NOT NULL)")
+                c.execute("CREATE TABLE IF NOT EXISTS adaptation_runtime_guards (external_key VARCHAR PRIMARY KEY,adaptation_id VARCHAR NOT NULL)")
             finally:c.close()
+            self._initialized=True
+    def _ready(self): self._ensure()
     @staticmethod
     def _semantic_payload(payload, audit_fields):
         data=json.loads(payload)
         for field in audit_fields:data.pop(field,None)
         return json.dumps(data,sort_keys=True)
     def _save(self,table,key_col,key,payload,columns=(),values=(),audit_fields=()):
+        self._ready()
         with self._lock:
             c=self._connect()
             try:
@@ -187,6 +192,7 @@ class DuckDbPlanAdaptationRepository:
     def save_proposal(self,adaptation_id,v): return self._save("plan_revision_proposals","proposal_id",v.proposal_id,self._codec.encode_proposal(v),("adaptation_id",),(adaptation_id,),("evaluated_at",))
     def save_revision(self,v): return self._save("plan_revision_records","revision_id",v.revision_id,self._codec.encode_revision(v),("proposal_id","adaptation_id","applied_at"),(v.proposal_id,v.adaptation_id,v.applied_at),("applied_at",))
     def _get(self,table,col,key,decode):
+        self._ready()
         with self._lock:
             c=self._connect()
             try:
@@ -196,9 +202,29 @@ class DuckDbPlanAdaptationRepository:
     def get_proposal_by_id(self,key): return self._get("plan_revision_proposals","proposal_id",key,self._codec.decode_proposal)
     def get_revision_by_id(self,key): return self._get("plan_revision_records","revision_id",key,self._codec.decode_revision)
     def get_revision_for_adaptation(self,key): return self._get("plan_revision_records","adaptation_id",key,self._codec.decode_revision)
+    def save_runtime_guard(self, external_key, adaptation_id):
+        self._ready()
+        with self._lock:
+            c=self._connect()
+            try:
+                row=c.execute("SELECT adaptation_id FROM adaptation_runtime_guards WHERE external_key=?",[external_key]).fetchone()
+                if row is not None:
+                    if row[0] != adaptation_id: raise AdaptationPersistenceConflictError("runtime guard collision")
+                    return False
+                c.execute("INSERT INTO adaptation_runtime_guards VALUES (?,?)",[external_key,adaptation_id]); return True
+            finally:c.close()
+    def get_runtime_guard(self, external_key):
+        self._ready()
+        with self._lock:
+            c=self._connect()
+            try:
+                row=c.execute("SELECT adaptation_id FROM adaptation_runtime_guards WHERE external_key=?",[external_key]).fetchone()
+                return None if row is None else row[0]
+            finally:c.close()
     def get_latest_evaluation(self): return self._latest(None)
     def get_latest_evaluation_for_date(self,d): return self._latest(d)
     def _latest(self,d):
+        self._ready()
         with self._lock:
             c=self._connect()
             try:
@@ -207,6 +233,7 @@ class DuckDbPlanAdaptationRepository:
                 return None if row is None else self._codec.decode_evaluation(row[0])
             finally:c.close()
     def get_evaluation_history(self):
+        self._ready()
         with self._lock:
             c=self._connect()
             try:return tuple(self._codec.decode_evaluation(x[0]) for x in c.execute("SELECT payload_json FROM adaptation_evaluations ORDER BY evaluation_date,evaluated_at,adaptation_id").fetchall())
@@ -220,6 +247,18 @@ class DuckDbPlanAdaptationRepository:
                 row=c.execute("SELECT payload_json FROM plan_revision_proposals WHERE adaptation_id=?",[adaptation_id]).fetchone(); p=None if row is None else self._codec.decode_proposal(row[0])
             finally:c.close()
         return AdaptationHistoryEntry(e,p,self.get_revision_for_adaptation(adaptation_id))
+
+    def get_applied_for_session(self, evaluation_date, policy_version, session_id, action):
+        """Return the first same-day APPLIED intervention for one stable session."""
+        for evaluation in self.get_evaluation_history():
+            if evaluation.evaluation_date != evaluation_date or evaluation.policy_version != policy_version:
+                continue
+            if not any(change.session_id == session_id and change.action is action for change in evaluation.proposed_changes):
+                continue
+            entry=self.get_history_entry(evaluation.adaptation_id)
+            if entry is not None and entry.revision is not None and entry.revision.status is PlanRevisionStatus.APPLIED:
+                return entry
+        return None
 
 
 class AdaptationPersistenceCoordinator:

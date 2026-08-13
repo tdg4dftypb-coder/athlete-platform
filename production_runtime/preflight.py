@@ -14,6 +14,7 @@ from production_runtime.paths import PROJECT_ROOT, get_default_fit_activity_sour
 from decision.persistence.paths import get_default_decisions_db_path
 from training_plan.persistence.paths import get_default_training_plan_db_path
 from activity_reconciliation.paths import get_default_activity_reconciliation_db_path
+from plan_adaptation.paths import get_default_plan_adaptation_db_path
 
 
 @dataclass(frozen=True)
@@ -32,6 +33,7 @@ def run_preflight_checks(
     training_plan_db_path=None,
     runtime_audit_db_path=None,
     activity_reconciliation_db_path=None,
+    plan_adaptation_db_path=None,
     fit_source_path=None,
     python_path=None,
     working_directory=None,
@@ -44,6 +46,7 @@ def run_preflight_checks(
     reconciliation = get_default_activity_reconciliation_db_path(
         activity_reconciliation_db_path
     )
+    adaptation = get_default_plan_adaptation_db_path(plan_adaptation_db_path)
     source = get_default_fit_activity_source_path(fit_source_path)
     python = Path(python_path) if python_path else PROJECT_ROOT / ".venv/bin/python"
     working = Path(working_directory) if working_directory else PROJECT_ROOT
@@ -59,6 +62,7 @@ def run_preflight_checks(
     checks.append(_existing_or_creatable_database(
         "activity_reconciliation_db", reconciliation
     ))
+    checks.append(_existing_or_creatable_database("plan_adaptation_db", adaptation))
     if runtime.is_file():
         checks.append(_readable_database("runtime_audit_db", runtime))
         try:

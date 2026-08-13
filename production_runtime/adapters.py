@@ -186,15 +186,21 @@ class PublicationValidationAdapter:
         prescription_exists: Callable[[str], bool],
         assessment_resolves: Callable[[str, str, object], bool] | None = None,
         reconciliation_exists: Callable[[str], bool] | None = None,
+        adaptation_resolves: Callable[[object], bool] | None = None,
     ) -> None:
         self._decision_exists = decision_exists
         self._plan_exists = plan_exists
         self._prescription_exists = prescription_exists
         self._assessment_resolves = assessment_resolves
         self._reconciliation_exists = reconciliation_exists
+        self._adaptation_resolves = adaptation_resolves
 
     def execute(self, context: RuntimePhaseContext) -> RuntimePhaseOutcome:
         result = context.result
+        if self._adaptation_resolves is not None:
+            phases = [p for p in result.phases if p.phase.value == "plan_adaptation"]
+            if len(phases) != 1 or not self._adaptation_resolves(phases[0]):
+                raise RuntimePhaseError("plan_adaptation_not_resolvable")
         if self._reconciliation_exists is not None:
             reconciliation_phases = [
                 phase for phase in result.phases

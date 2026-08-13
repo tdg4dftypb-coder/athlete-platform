@@ -74,6 +74,7 @@ def fixture_options(tmp_path, provider):
         training_plan_db_path=tmp_path / "training_plan.duckdb",
         runtime_audit_db_path=tmp_path / "production_runtime.duckdb",
         activity_reconciliation_db_path=tmp_path / "activity_reconciliation.duckdb",
+        plan_adaptation_db_path=tmp_path / "plan_adaptation.duckdb",
         fit_source_path=fit,
         briefing_input_provider=provider,
         clock=RuntimeClock(),

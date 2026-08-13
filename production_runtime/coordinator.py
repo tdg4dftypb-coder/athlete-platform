@@ -237,7 +237,7 @@ class ProductionDailyRuntime:
             and all(item.status in (PhaseStatus.COMPLETED, PhaseStatus.SKIPPED) for item in phases.values())
             and all(
                 item.status is not PhaseStatus.SKIPPED
-                or item.phase is RuntimePhase.RECONCILIATION
+                or item.phase in (RuntimePhase.RECONCILIATION, RuntimePhase.PLAN_ADAPTATION)
                 for item in phases.values()
             )
             and result.decision_id is not None

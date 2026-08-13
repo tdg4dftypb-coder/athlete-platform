@@ -23,6 +23,7 @@ class RuntimePhase(str, Enum):
     ASSESSMENT = "assessment"
     DECISION = "decision"
     PLAN_PRESCRIPTION = "plan_prescription"
+    PLAN_ADAPTATION = "plan_adaptation"
     MORNING_BRIEFING = "morning_briefing"
     PUBLICATION = "publication"
 

@@ -31,6 +31,11 @@ from decision.persistence.paths import get_default_decisions_db_path
 from decision.runtime_persistence_composition import create_persisted_decision_runtime_application
 from morning_briefing.production_provider import ProductionMorningBriefingInputProvider
 from performance_lab.provider import EmptyPerformanceTestHistoryProvider
+from plan_adaptation.paths import get_default_plan_adaptation_db_path
+from plan_adaptation.persistence import (
+    AdaptationHistoryReader, DuckDbPlanAdaptationRepository, PlanRevisionStatus,
+)
+from plan_adaptation.runtime import PlanAdaptationRuntimeAdapter
 from production_runtime.adapters import (
     AssessmentSnapshotAdapter,
     CallablePhaseAdapter,
@@ -123,6 +128,7 @@ def create_production_daily_runtime(
     training_plan_db_path=None,
     runtime_audit_db_path=None,
     activity_reconciliation_db_path=None,
+    plan_adaptation_db_path=None,
     fit_source_path=None,
     clock: RuntimeClock | None = None,
     runtime_id_factory=None,
@@ -170,6 +176,10 @@ def create_production_daily_runtime(
                 activity_reconciliation_db_path
             )
         )
+        adaptation_repo = DuckDbPlanAdaptationRepository(
+            get_default_plan_adaptation_db_path(plan_adaptation_db_path)
+        )
+        adaptation_history = AdaptationHistoryReader(adaptation_repo, plan_repo)
         plan_provider = RepositoryTrainingPlanProvider(plan_repo)
         training_adapter = TrainingPlanDecisionContextAdapter(
             plan_provider, frozen, timezone_name
@@ -253,6 +263,23 @@ def create_production_daily_runtime(
                 raise RuntimePhaseError("assessment_snapshot_corrupt")
             return True
 
+        def adaptation_resolves(phase):
+            if phase.status.value == "skipped":
+                return not phase.artifact_ids
+            if not phase.artifact_ids:
+                return False
+            entry = adaptation_history.get_entry(phase.artifact_ids[0])
+            if entry is None:
+                return False
+            expected = [entry.evaluation.adaptation_id]
+            if entry.proposal is not None:
+                expected.append(entry.proposal.proposal_id)
+            if entry.revision is not None:
+                expected.append(entry.revision.revision_id)
+                if entry.revision.status is PlanRevisionStatus.APPLIED:
+                    expected.append(entry.revision.result_plan_id)
+            return tuple(expected) == phase.artifact_ids
+
         adapters = {
             RuntimePhase.INGESTION: CallablePhaseAdapter(ingestion.ingestion),
             RuntimePhase.ACTIVITY_FACT_SYNCHRONIZATION: CallablePhaseAdapter(ingestion.facts),
@@ -267,6 +294,9 @@ def create_production_daily_runtime(
             RuntimePhase.ASSESSMENT: AssessmentSnapshotAdapter(frozen),
             RuntimePhase.DECISION: CallablePhaseAdapter(run_decision),
             RuntimePhase.PLAN_PRESCRIPTION: CallablePhaseAdapter(run_prescription),
+            RuntimePhase.PLAN_ADAPTATION: PlanAdaptationRuntimeAdapter(
+                plan_repo, reconciliation_repo, snapshots, adaptation_repo, runtime_clock
+            ),
             RuntimePhase.MORNING_BRIEFING: MorningBriefingProofAdapter(frozen),
             RuntimePhase.PUBLICATION: PublicationValidationAdapter(
                 lambda item: decision_repo.get_by_id(item) is not None,
@@ -274,6 +304,7 @@ def create_production_daily_runtime(
                 lambda item: rx_repo.get_by_id(item) is not None,
                 assessment_resolves,
                 lambda item: reconciliation_repo.get_by_id(item) is not None,
+                adaptation_resolves,
             ),
         }
         runtime = ProductionDailyRuntime(

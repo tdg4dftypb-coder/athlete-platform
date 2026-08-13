@@ -298,6 +298,20 @@ scheduler.
   partial writes and no cross-database ACID claim. Production runtime, HTTP,
   scheduler integration, and live data operations remain deferred. Stage 29
   remains open.
+- **Production Runtime Integration (29.6 — implemented, Gate A):** the
+  authoritative daily runtime executes a typed `plan_adaptation` phase after
+  today's prescription and before morning briefing. It uses the persisted
+  assessment snapshot, latest logical plan, D-7...D reconciliation evidence,
+  and existing Stage 29 policy/revision/persistence services. NO_CHANGE,
+  APPLIED, REJECTED, and insufficient-horizon SKIPPED outcomes have explicit
+  status, change, warning, and artifact semantics. An external-evidence guard
+  plus deterministic artifacts resumes partial writes and prevents a
+  self-produced vN+1 from cascading to vN+2. The guard follows policy-driving
+  assessment semantics rather than unrelated context changes and is
+  session-aware within a day, while allowing later genuinely new evidence and
+  next-day adaptations. Historical runtime reads remain compatible. No scheduler, cron,
+  HTTP, live-runtime, or production database operation is included; Stage 29
+  remains open.
 
 ## Planned
 
