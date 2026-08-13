@@ -275,6 +275,17 @@ scheduler.
   are preserved. CTL/ATL/TSB thresholds, intensity ordering, downgrade maps,
   proposal construction, plan versioning, persistence, and runtime integration
   remain deferred. Stage 29 remains open.
+- **Proposal Validation & Plan Versioning (29.4 — completed):** deterministic
+  proposal construction maps NO_CHANGE to no proposal and CHANGE_PROPOSED to an
+  immutable, content-addressed proposal. Typed source-aware validation protects
+  plan identity/version, stable session identity, mutation dates, legal source
+  kind, canonical SHORTEN targets, all-or-nothing application, semantic diff,
+  and stale re-application. The in-memory revision service materializes only
+  canonical SHORTEN, proportionally reducing target TSS with the shared v1
+  contract, preserving untouched same-day and open-sport sessions, retaining
+  plan_id, and producing version N+1 with explicit generated_at. Intensity
+  reduction, downgrade, skip, persistence, runtime integration, and production
+  writes remain deferred. Stage 29 remains open.
 
 ## Planned
 

@@ -166,3 +166,66 @@ grouping semantics.
 Stage 29.3 stops at `PlanAdaptationEvaluation`. Proposal construction,
 cross-check validation, TrainingPlan version N+1, persistence, and runtime
 integration belong to Stage 29.4 or later.
+
+## Stage 29.4 — Proposal Validation and Plan Versioning
+
+`PlanRevisionProposalBuilder` maps `NO_CHANGE` to `None` and maps
+`CHANGE_PROPOSED` to an immutable `PlanRevisionProposal`. Callers cannot replace
+semantic evaluation fields. Proposal identity is `proposal:sha256:<digest>` over
+policy version, evaluation date, source plan identity/version, windows, changes,
+reasons, warnings, and evidence fingerprint. The explicit evaluation audit time
+is preserved but excluded from identity.
+
+`PlanRevisionValidator` validates the entire proposal against one concrete
+source `TrainingPlan` before materialization. Typed failure codes distinguish
+wrong plan identity, stale or future source version, unknown session identity,
+date mismatch, outside-window targets, illegal source kind, non-reduction,
+unsupported actions, and no semantic change. A proposal for version N cannot be
+applied to N+1. Validation and materialization are side-effect free and atomic:
+one invalid change rejects the whole proposal.
+
+Stage 29.4 materializes only `SHORTEN`. The source must be TRAINING and the
+target must satisfy `0 < target < source duration` and equal the canonical v1
+duration reduction. The shared helper retains established truncation semantics,
+for example 60 -> 42 and 90 -> 62. The latter is intentionally compatibility
+behavior: binary floating-point represents `90 * 0.70` just below 63 and the
+historical contract applies `int(...)` truncation. Existing Stage 26 tests
+explicitly certify 90 -> 62, so Stage 29.4 does not silently change it. A
+one-minute session cannot be shortened.
+The session retains `session_id`, date, kind, type, intensity, priority, and
+rationale. `target_tss`, when present, is proportionally reduced by the same
+shared 0.70 contract already used by daily reconciliation; missing TSS remains
+missing and zero remains `0.0`. The factor is prescription-reduction semantics,
+not the ratio of integer-materialized minutes: therefore 90 -> 62 minutes and
+100 -> 70 TSS are canonical together. Invalid boolean, negative, NaN, and
+infinite TSS inputs are rejected by the shared primitive. This avoids a
+shortened session retaining an unreduced load target and does not introduce a
+new TSS formula.
+
+The validator remains policy-agnostic about *why* a reduction is requested, but
+Stage 29.4 materialization v1 supports only the shared 0.70 reduction contract.
+Thus policy chooses whether and which session to shorten; the revision layer
+checks general source legality plus whether the requested target is supported by
+the currently available materializer. Arbitrary shorter targets remain valid at
+the Stage 29.1 shape level but are rejected as unsupported materialization until
+a canonical target-TSS semantic for arbitrary durations exists.
+
+`REDUCE_INTENSITY` is rejected because intensity remains an unordered string.
+`DOWNGRADE` is rejected because there is no canonical session-type mapping.
+`SKIP` is rejected because TrainingPlan has no canonical skip materialization
+that safely preserves coverage and multi-session semantics. `KEEP` is not a
+semantic mutation and cannot independently produce a proposal or version.
+
+`TrainingPlanRevisionService` validates first, constructs candidate sessions in
+memory, verifies a real session-level semantic diff, and returns the same
+`plan_id` with `version = source.version + 1`. Date range, supersession metadata,
+untouched sessions, and all stable session identities are preserved. The new
+`generated_at` is explicit audit input and cannot determine legality. Same-date
+siblings and open types such as RUNNING remain independent; no sport conversion
+or brick relationship is inferred.
+
+The certified in-memory vertical slice is context -> deterministic policy ->
+evaluation -> proposal -> validated TrainingPlan N+1. Healthy context follows
+NO_CHANGE -> no proposal -> no new version. Stage 29.4 adds no persistence,
+repository, DuckDB, API, or production runtime integration; those boundaries
+remain Stage 29.5 or later.

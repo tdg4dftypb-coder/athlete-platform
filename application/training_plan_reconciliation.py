@@ -8,7 +8,11 @@ from training_plan.prescription import (
     FinalSessionPrescription,
     PrescriptionDisposition,
 )
-from training_plan.reduction import DURATION_REDUCTION_FACTOR_V1
+from training_plan.reduction import (
+    DURATION_REDUCTION_FACTOR_V1,
+    reduced_duration_minutes_v1,
+    reduced_target_tss_v1,
+)
 
 
 class DailyTrainingReconciler:
@@ -110,12 +114,8 @@ class DailyTrainingReconciler:
             )
 
         if action == DecisionAction.REDUCE:
-            reduced_duration = max(1, int(planned_session.duration_minutes * self.REDUCTION_FACTOR))
-            reduced_tss = (
-                planned_session.target_tss * self.REDUCTION_FACTOR
-                if planned_session.target_tss is not None
-                else None
-            )
+            reduced_duration = reduced_duration_minutes_v1(planned_session.duration_minutes)
+            reduced_tss = reduced_target_tss_v1(planned_session.target_tss)
             return FinalSessionPrescription(
                 prescription_id=prescription_id,
                 plan_id=plan_id,

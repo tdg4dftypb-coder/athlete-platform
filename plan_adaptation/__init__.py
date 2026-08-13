@@ -22,6 +22,13 @@ from plan_adaptation.context import (
 )
 from plan_adaptation.builder import AdaptationContextBuildError, AdaptationContextBuilder
 from plan_adaptation.policy import DeterministicAdaptationPolicy
+from plan_adaptation.revision import (
+    PlanRevisionProposalBuilder,
+    PlanRevisionValidationCode,
+    PlanRevisionValidationError,
+    PlanRevisionValidator,
+    TrainingPlanRevisionService,
+)
 
 __all__ = [
     "AdaptationAction",
@@ -44,4 +51,9 @@ __all__ = [
     "WeeklyRhythmDay",
     "WeeklyRhythmSlot",
     "DeterministicAdaptationPolicy",
+    "PlanRevisionProposalBuilder",
+    "PlanRevisionValidationCode",
+    "PlanRevisionValidationError",
+    "PlanRevisionValidator",
+    "TrainingPlanRevisionService",
 ]

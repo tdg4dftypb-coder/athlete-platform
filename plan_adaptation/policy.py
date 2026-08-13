@@ -9,7 +9,10 @@ from application.athlete_assessment import (
     FatigueStatus,
 )
 from training_plan.models import PlannedSessionKind
-from training_plan.reduction import DURATION_REDUCTION_FACTOR_V1
+from training_plan.reduction import (
+    DURATION_REDUCTION_FACTOR_V1,
+    reduced_duration_minutes_v1,
+)
 
 from plan_adaptation.context import AdaptationContext
 from plan_adaptation.models import (
@@ -97,7 +100,7 @@ class DeterministicAdaptationPolicy:
         eligible = []
         for session in context.future_sessions:
             if session.kind is PlannedSessionKind.TRAINING:
-                target_duration = max(1, int(session.duration_minutes * self.REDUCTION_FACTOR))
+                target_duration = reduced_duration_minutes_v1(session.duration_minutes)
                 if target_duration < session.duration_minutes:
                     eligible.append((session, target_duration))
         if not eligible:
