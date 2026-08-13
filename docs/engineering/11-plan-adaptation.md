@@ -100,3 +100,69 @@ that bounded context requires it; Stage 29.2 neither invents nor interprets it.
 
 Stage 29.2 adds no evidence repositories, policy rules, plan mutation,
 persistence, API, runtime wiring, scheduler work, or production operations.
+
+## Stage 29.3 — Deterministic Adaptation Policy
+
+`DeterministicAdaptationPolicy` v1.0 maps one immutable `AdaptationContext` to
+one immutable `PlanAdaptationEvaluation`. It has no repository, clock, random
+identity, I/O, or global state. `evaluated_at` is explicit audit metadata;
+`adaptation_id` is derived from policy version and the context fingerprint.
+The evaluation retains `context.input_fingerprint` unchanged and propagates
+context completeness warnings without turning them into adverse reasons.
+
+The default is to preserve the plan. Policy v1 has one narrow safety rule:
+
+```text
+AthleteAssessment CAUTION
++ explicit LOW_RECOVERY or HIGH_FATIGUE canonical signal
+-> SHORTEN the nearest eligible future TRAINING session to 70% duration
+-> recovery_protection
+```
+
+The shared `training_plan.reduction.DURATION_REDUCTION_FACTOR_V1` owns the 0.70
+duration-reduction contract. `DailyTrainingReconciler.REDUCTION_FACTOR` remains
+a compatibility alias and both daily reconciliation and Stage 29.3 consume the
+neutral contract; `plan_adaptation` does not depend on the application service.
+Stage 29.3 introduces no new load or biomarker threshold. Source-aware
+validation requires the target duration to be positive and strictly shorter;
+an unshortenable one-minute session is ignored. REST is skipped during
+selection.
+
+Target selection is semantic: choose the nearest date with legally shortenable
+TRAINING sessions, then the unique lowest numeric `PlannedSession.priority`
+(priority 1 is least important and priority 5 most important). `session_id`
+remains identity and canonical ordering, never training priority. If multiple
+same-date candidates share the lowest priority, policy v1 emits no change and
+adds `AMBIGUOUS_ADAPTATION_TARGET`; it does not choose arbitrarily by ID. Thus
+at most one session changes and the full week is never rewritten.
+
+Semantic precedence remains safety/recovery, explicit constraints, excess
+stress, protected recovery, actual performed load, weekly structure, then plan
+preservation. Only the safety rule is implemented in v1, so no competing action
+rules exist yet. Future conflicts must emit at most one action per `session_id`,
+use protective precedence (`SKIP > DOWNGRADE > REDUCE_INTENSITY > SHORTEN`), and
+retain all applicable typed reasons when those actions have safe source-aware
+targets.
+
+COMPLETED preserves the plan. PARTIAL, SKIPPED, REPLACED, and UNPLANNED alone
+also preserve it: they do not create training debt, make-up work, load guesses,
+or new sessions. Missing assessment is not adverse evidence. Missing load does
+not block an independent assessment safety signal, but policy v1 does not
+interpret recent load, CTL, ATL, or TSB because the repository has no canonical
+threshold contract for them.
+
+Policy v1 emits `SHORTEN` only. It deliberately does not emit
+`REDUCE_INTENSITY` because intensity is an unordered string, `DOWNGRADE` because
+there is no canonical session-type mapping, or `SKIP` because the existing
+assessment semantics support reduction rather than automatic cancellation.
+It never emits KEEP entries, MOVE, ADD, DUPLICATE, or sport conversion.
+
+Open session types such as RUNNING remain supported without a whitelist.
+CrossFit and every other planned training type are treated as ordinary source
+sessions; no discipline-specific fatigue heuristic is applied. Same-date BIKE
+and RUN sessions remain independent because TrainingPlan still has no brick or
+grouping semantics.
+
+Stage 29.3 stops at `PlanAdaptationEvaluation`. Proposal construction,
+cross-check validation, TrainingPlan version N+1, persistence, and runtime
+integration belong to Stage 29.4 or later.

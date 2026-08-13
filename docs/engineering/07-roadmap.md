@@ -262,6 +262,19 @@ scheduler.
   construction. No adaptation policy, proposal generation, persistence,
   runtime integration, or production operation is included. Stage 29 remains
   open.
+- **Deterministic Adaptation Policy (29.3 — completed):** policy v1.0 maps an
+  immutable AdaptationContext to PlanAdaptationEvaluation with deterministic
+  identity and explicit audit time. Its conservative safety rule reuses the
+  canonical AthleteAssessment CAUTION recovery/fatigue signals and the existing
+  shared 0.70 duration-reduction contract to SHORTEN only the unique
+  lowest-priority candidate on the nearest eligible future date; equal-priority
+  ambiguity preserves the plan with a typed warning. Healthy, incomplete,
+  COMPLETED, PARTIAL, SKIPPED, REPLACED,
+  and UNPLANNED evidence does not independently trigger replanning or make-up.
+  REST, stable session identity, multi-session and open multi-sport semantics
+  are preserved. CTL/ATL/TSB thresholds, intensity ordering, downgrade maps,
+  proposal construction, plan versioning, persistence, and runtime integration
+  remain deferred. Stage 29 remains open.
 
 ## Planned
 

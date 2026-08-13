@@ -21,6 +21,7 @@ from plan_adaptation.context import (
     WeeklyRhythmSlot,
 )
 from plan_adaptation.builder import AdaptationContextBuildError, AdaptationContextBuilder
+from plan_adaptation.policy import DeterministicAdaptationPolicy
 
 __all__ = [
     "AdaptationAction",
@@ -42,4 +43,5 @@ __all__ = [
     "WeeklyRhythm",
     "WeeklyRhythmDay",
     "WeeklyRhythmSlot",
+    "DeterministicAdaptationPolicy",
 ]

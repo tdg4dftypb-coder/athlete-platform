@@ -37,6 +37,7 @@ class AdaptationWarningCode(Enum):
     TRAINING_LOAD_PARTIAL = "training_load_partial"
     WEEKLY_RHYTHM_UNAVAILABLE = "weekly_rhythm_unavailable"
     ATHLETE_CONSTRAINTS_UNAVAILABLE = "athlete_constraints_unavailable"
+    AMBIGUOUS_ADAPTATION_TARGET = "ambiguous_adaptation_target"
 
 
 class AdaptationEvaluationStatus(Enum):

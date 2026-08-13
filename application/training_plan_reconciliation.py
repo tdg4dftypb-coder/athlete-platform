@@ -8,12 +8,13 @@ from training_plan.prescription import (
     FinalSessionPrescription,
     PrescriptionDisposition,
 )
+from training_plan.reduction import DURATION_REDUCTION_FACTOR_V1
 
 
 class DailyTrainingReconciler:
     """Stateless reconciler mapping DecisionAuditRecord action to FinalSessionPrescription overlay."""
 
-    REDUCTION_FACTOR: float = 0.70
+    REDUCTION_FACTOR: float = DURATION_REDUCTION_FACTOR_V1
     POLICY_VERSION: str = "1.0"
 
     def reconcile(
