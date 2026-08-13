@@ -56,6 +56,17 @@ class DuckDbTrainingPlanRepository(TrainingPlanRepository):
                         payload_json VARCHAR NOT NULL
                     )
                 """)
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS training_plan_revisions (
+                        plan_id VARCHAR NOT NULL,
+                        version INTEGER NOT NULL,
+                        generated_at TIMESTAMP NOT NULL,
+                        expected_source_version INTEGER NOT NULL,
+                        record_schema_version VARCHAR NOT NULL,
+                        payload_json VARCHAR NOT NULL,
+                        PRIMARY KEY (plan_id, version)
+                    )
+                """)
             finally:
                 conn.close()
 
@@ -135,7 +146,81 @@ class DuckDbTrainingPlanRepository(TrainingPlanRepository):
         with self._lock:
             conn = self._get_connection()
             try:
-                return self._get_by_id_unlocked(conn, plan_id)
+                row = conn.execute(
+                    """SELECT payload_json FROM (
+                           SELECT version, payload_json FROM training_plans WHERE plan_id = ?
+                           UNION ALL
+                           SELECT version, payload_json FROM training_plan_revisions WHERE plan_id = ?
+                       ) ORDER BY version DESC LIMIT 1""",
+                    [plan_id, plan_id],
+                ).fetchone()
+                return None if row is None else self._codec.decode(row[0])
+            finally:
+                conn.close()
+
+    def get_by_id_version(self, plan_id: str, version: int) -> TrainingPlan | None:
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                row = conn.execute(
+                    """SELECT payload_json FROM (
+                           SELECT payload_json FROM training_plans WHERE plan_id = ? AND version = ?
+                           UNION ALL
+                           SELECT payload_json FROM training_plan_revisions WHERE plan_id = ? AND version = ?
+                       ) LIMIT 1""",
+                    [plan_id, version, plan_id, version],
+                ).fetchone()
+                return None if row is None else self._codec.decode(row[0])
+            finally:
+                conn.close()
+
+    def append_revision(self, expected_source_version: int, plan: TrainingPlan) -> bool:
+        """Append N+1 iff latest is N; identical retry is an idempotent no-op."""
+        if plan.version != expected_source_version + 1:
+            raise TrainingPlanConflictError("revised plan version must equal expected source version + 1")
+        payload = self._codec.encode(plan)
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                conn.execute("BEGIN TRANSACTION")
+                existing = conn.execute(
+                    """SELECT payload_json FROM (
+                           SELECT payload_json FROM training_plans WHERE plan_id = ? AND version = ?
+                           UNION ALL
+                           SELECT payload_json FROM training_plan_revisions WHERE plan_id = ? AND version = ?
+                       ) LIMIT 1""",
+                    [plan.plan_id, plan.version, plan.plan_id, plan.version],
+                ).fetchone()
+                if existing is not None:
+                    conn.execute("ROLLBACK")
+                    if existing[0] == payload:
+                        return False
+                    raise TrainingPlanConflictError("different revision already exists for plan/version")
+                latest = conn.execute(
+                    """SELECT MAX(version) FROM (
+                           SELECT version FROM training_plans WHERE plan_id = ?
+                           UNION ALL SELECT version FROM training_plan_revisions WHERE plan_id = ?
+                       )""",
+                    [plan.plan_id, plan.plan_id],
+                ).fetchone()[0]
+                if latest != expected_source_version:
+                    conn.execute("ROLLBACK")
+                    raise TrainingPlanConflictError("latest plan version does not match expected source version")
+                generated = plan.generated_at.astimezone(timezone.utc).replace(tzinfo=None)
+                conn.execute(
+                    "INSERT INTO training_plan_revisions VALUES (?, ?, ?, ?, ?, ?)",
+                    [plan.plan_id, plan.version, generated, expected_source_version, self._codec.SCHEMA_VERSION, payload],
+                )
+                conn.execute("COMMIT")
+                return True
+            except TrainingPlanConflictError:
+                raise
+            except Exception as e:
+                try:
+                    conn.execute("ROLLBACK")
+                except Exception:
+                    pass
+                raise TrainingPlanRepositoryError(f"Failed to append TrainingPlan revision: {e}") from e
             finally:
                 conn.close()
 
@@ -144,8 +229,10 @@ class DuckDbTrainingPlanRepository(TrainingPlanRepository):
             conn = self._get_connection()
             try:
                 row = conn.execute("""
-                    SELECT payload_json FROM training_plans
-                    ORDER BY generated_at DESC, version DESC, plan_id DESC
+                    SELECT payload_json FROM (
+                        SELECT plan_id, version, generated_at, payload_json FROM training_plans
+                        UNION ALL SELECT plan_id, version, generated_at, payload_json FROM training_plan_revisions
+                    ) ORDER BY generated_at DESC, version DESC, plan_id DESC
                     LIMIT 1
                 """).fetchone()
 
@@ -164,8 +251,14 @@ class DuckDbTrainingPlanRepository(TrainingPlanRepository):
             try:
                 row = conn.execute(
                     """
-                    SELECT payload_json FROM training_plans
-                    WHERE start_date <= ? AND end_date >= ?
+                    SELECT payload_json FROM (
+                        SELECT plan_id, version, generated_at, start_date, end_date, payload_json FROM training_plans
+                        UNION ALL
+                        SELECT plan_id, version, generated_at,
+                               CAST(json_extract_string(payload_json, '$.start_date') AS DATE) AS start_date,
+                               CAST(json_extract_string(payload_json, '$.end_date') AS DATE) AS end_date,
+                               payload_json FROM training_plan_revisions
+                    ) WHERE start_date <= ? AND end_date >= ?
                     ORDER BY generated_at DESC, version DESC, plan_id DESC
                     LIMIT 1
                     """,
@@ -183,8 +276,11 @@ class DuckDbTrainingPlanRepository(TrainingPlanRepository):
             conn = self._get_connection()
             try:
                 rows = conn.execute("""
-                    SELECT payload_json FROM training_plans
-                    ORDER BY generated_at ASC, version ASC, plan_id ASC
+                    SELECT payload_json FROM (
+                        SELECT plan_id, version, generated_at, payload_json FROM training_plans
+                        UNION ALL
+                        SELECT plan_id, version, generated_at, payload_json FROM training_plan_revisions
+                    ) ORDER BY generated_at ASC, version ASC, plan_id ASC
                 """).fetchall()
 
                 return tuple(self._codec.decode(r[0]) for r in rows)

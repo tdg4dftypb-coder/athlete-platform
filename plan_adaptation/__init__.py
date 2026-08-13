@@ -29,6 +29,17 @@ from plan_adaptation.revision import (
     PlanRevisionValidator,
     TrainingPlanRevisionService,
 )
+from plan_adaptation.persistence import (
+    AdaptationHistoryEntry,
+    AdaptationHistoryReader,
+    AdaptationPersistenceConflictError,
+    AdaptationPersistenceDataError,
+    AdaptationPersistenceCoordinator,
+    DuckDbPlanAdaptationRepository,
+    PlanRevisionRecord,
+    PlanRevisionStatus,
+)
+from plan_adaptation.paths import get_default_plan_adaptation_db_path
 
 __all__ = [
     "AdaptationAction",
@@ -56,4 +67,13 @@ __all__ = [
     "PlanRevisionValidationError",
     "PlanRevisionValidator",
     "TrainingPlanRevisionService",
+    "AdaptationHistoryEntry",
+    "AdaptationHistoryReader",
+    "AdaptationPersistenceConflictError",
+    "AdaptationPersistenceDataError",
+    "AdaptationPersistenceCoordinator",
+    "DuckDbPlanAdaptationRepository",
+    "PlanRevisionRecord",
+    "PlanRevisionStatus",
+    "get_default_plan_adaptation_db_path",
 ]

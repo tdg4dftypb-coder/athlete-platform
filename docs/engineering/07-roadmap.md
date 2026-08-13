@@ -286,6 +286,18 @@ scheduler.
   plan_id, and producing version N+1 with explicit generated_at. Intensity
   reduction, downgrade, skip, persistence, runtime integration, and production
   writes remain deferred. Stage 29 remains open.
+- **Persistence, History & Read Contracts (29.5 — completed):** a dedicated
+  append-only adaptation audit store persists NO_CHANGE/CHANGE_PROPOSED
+  evaluations, linked proposals, and deterministic APPLIED/REJECTED revision
+  records with typed failures, collision protection, chronological/latest reads,
+  and immutable history entries. Canonical TrainingPlan ownership remains in
+  `training_plan`; its repository now appends version N+1 under expected-version
+  optimistic concurrency while retaining N and preserving legacy base-plan save
+  semantics. Ordered cross-store persistence publishes APPLIED only after the
+  exact result plan is resolvable, with deterministic idempotent retry for
+  partial writes and no cross-database ACID claim. Production runtime, HTTP,
+  scheduler integration, and live data operations remain deferred. Stage 29
+  remains open.
 
 ## Planned
 

@@ -229,3 +229,63 @@ evaluation -> proposal -> validated TrainingPlan N+1. Healthy context follows
 NO_CHANGE -> no proposal -> no new version. Stage 29.4 adds no persistence,
 repository, DuckDB, API, or production runtime integration; those boundaries
 remain Stage 29.5 or later.
+
+## Stage 29.5 — Persistence, History and Read Contracts
+
+Plan-adaptation audit is append-only in the dedicated
+`plan_adaptation.duckdb`, resolved by `PLAN_ADAPTATION_DB_PATH` or an explicit
+path. Its three tables store immutable evaluations, proposals linked to
+`adaptation_id`, and revision records linked to both proposal and evaluation.
+Payloads use schema version 1.0 and lossless canonical JSON; unknown enum or
+schema values fail decoding rather than becoming defaults.
+
+`PlanRevisionRecord` represents `APPLIED` with a result plan reference or
+`REJECTED` with a typed Stage 29.4 failure code. NO_CHANGE is stored as an
+evaluation only: it creates neither proposal, revision record, nor plan version.
+Revision IDs are deterministic over proposal and applied/rejected semantics;
+audit timestamps do not define identity or collision semantics. A retry with the
+same semantic evaluation/proposal/revision and a different `evaluated_at` or
+`applied_at` returns `False` and preserves the timestamp of the first append.
+Semantic fields such as changes, source version, status, result reference, or
+failure code still participate in collision comparison; changing one under the
+same ID raises a hard collision.
+
+TrainingPlan remains canonically owned by `training_plan`. Existing base-plan
+`save()` semantics and the legacy `training_plans` table are unchanged. The
+same repository owns an append-only `training_plan_revisions` table and exposes
+`append_revision(expected_source_version=N, plan=N+1)`. It accepts an identical
+retry, rejects a different competing N+1, and requires the persisted latest
+version to remain N. Both N and N+1 remain addressable by `(plan_id, version)`;
+latest and history reads include revisions.
+Together the base and revision tables form one logical `(plan_id, version)`
+stream. Exact-version lookup and duplicate checks query both physical stores;
+an identical tuple across either table is an idempotent existing record and a
+different payload is a conflict. `get_by_id(plan_id)` now means the latest
+logical version, matching provider/latest-plan usage, while
+`get_by_id_version` is the explicit historical read.
+
+`AdaptationPersistenceCoordinator` persists precomputed artifacts only. For an
+applied result it writes evaluation, proposal, canonical plan N+1, verifies the
+exact result reference is readable, then writes APPLIED. Rejected attempts write
+evaluation, proposal, and typed REJECTED without a result plan. There is no
+cross-database ACID claim. Deterministic IDs, collision checks, ordered writes,
+and idempotent retry allow recovery from a plan-written/audit-missing partial
+state without creating N+2. An APPLIED row is never emitted before its canonical
+result plan resolves.
+
+Read contracts include evaluation/proposal/revision by ID, revision by
+adaptation, global latest evaluation, latest for local evaluation date,
+chronological evaluation history, and a consistent `AdaptationHistoryEntry`.
+Ordering is `(evaluation_date, evaluated_at, adaptation_id)` with the reverse
+ordering for latest. The read aggregate rejects NO_CHANGE with proposal/revision
+and revision without proposal. No HTTP, policy execution, context loading,
+production runtime, or scheduler integration is included; those remain Stage
+29.6 or later.
+
+A persisted CHANGE_PROPOSED evaluation plus proposal and no revision is a
+truthful partial-write/unprocessed state, not APPLIED or REJECTED. The
+cross-store `AdaptationHistoryReader` additionally verifies every APPLIED result
+reference against canonical TrainingPlan persistence and raises explicit data
+corruption when it cannot resolve; raw audit records never manufacture a result.
+REJECTED retains only a typed validation failure and never catches programmer,
+database, or unexpected exceptions as normal domain rejection.
