@@ -3,6 +3,7 @@ from datetime import date
 from typing import Protocol, runtime_checkable
 
 from training_plan.models import TrainingPlan
+from training_plan.continuity import TrainingPlanContinuationSpecification
 from training_plan.prescription import FinalSessionPrescription
 
 
@@ -41,6 +42,16 @@ class TrainingPlanRepository(Protocol):
     def list_records(self) -> tuple[TrainingPlan, ...]:
         """Lists all TrainingPlan instances ordered by generated_at asc, version asc, plan_id asc."""
         ...
+
+    def save_continuation_specification(self, value: TrainingPlanContinuationSpecification) -> bool: ...
+
+    def get_continuation_specification(
+        self, specification_id: str, version: int,
+    ) -> TrainingPlanContinuationSpecification | None: ...
+
+    def get_latest_continuation_specification_for_plan(
+        self, plan_id: str,
+    ) -> TrainingPlanContinuationSpecification | None: ...
 
 
 @runtime_checkable

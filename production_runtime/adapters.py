@@ -187,6 +187,7 @@ class PublicationValidationAdapter:
         assessment_resolves: Callable[[str, str, object], bool] | None = None,
         reconciliation_exists: Callable[[str], bool] | None = None,
         adaptation_resolves: Callable[[object], bool] | None = None,
+        continuity_resolves: Callable[[object], bool] | None = None,
     ) -> None:
         self._decision_exists = decision_exists
         self._plan_exists = plan_exists
@@ -194,9 +195,14 @@ class PublicationValidationAdapter:
         self._assessment_resolves = assessment_resolves
         self._reconciliation_exists = reconciliation_exists
         self._adaptation_resolves = adaptation_resolves
+        self._continuity_resolves = continuity_resolves
 
     def execute(self, context: RuntimePhaseContext) -> RuntimePhaseOutcome:
         result = context.result
+        if self._continuity_resolves is not None:
+            phases=[p for p in result.phases if p.phase.value=="plan_horizon_continuity"]
+            if len(phases)!=1 or not self._continuity_resolves(phases[0]):
+                raise RuntimePhaseError("plan_horizon_continuity_not_resolvable")
         if self._adaptation_resolves is not None:
             phases = [p for p in result.phases if p.phase.value == "plan_adaptation"]
             if len(phases) != 1 or not self._adaptation_resolves(phases[0]):

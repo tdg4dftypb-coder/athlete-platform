@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 import os
+import json
 
 import duckdb
 
@@ -59,6 +60,7 @@ def run_preflight_checks(
     for name, path in (("health_db", health), ("biomarkers_db", biomarkers), ("decisions_db", decisions), ("training_plan_db", plans)):
         checks.append(_readable_database(name, path))
     checks.append(_plan_check(plans, target_date))
+    checks.append(_continuation_specification_check(plans, target_date))
     checks.append(_existing_or_creatable_database(
         "activity_reconciliation_db", reconciliation
     ))
@@ -113,10 +115,20 @@ def _plan_check(path, target_date):
         return PreflightCheck("applicable_training_plan", False, "training plan database missing")
     try:
         connection = duckdb.connect(str(path), read_only=True)
-        row = connection.execute(
-            "SELECT plan_id FROM training_plans WHERE start_date <= ? AND end_date >= ? LIMIT 1",
-            [target_date, target_date],
-        ).fetchone()
+        tables={x[0] for x in connection.execute("SHOW TABLES").fetchall()}
+        if "training_plan_revisions" in tables:
+            row=connection.execute("""SELECT plan_id FROM (
+                SELECT plan_id,version,start_date,end_date FROM training_plans
+                UNION ALL SELECT plan_id,version,
+                CAST(json_extract_string(payload_json,'$.start_date') AS DATE),
+                CAST(json_extract_string(payload_json,'$.end_date') AS DATE) FROM training_plan_revisions
+                ) WHERE start_date<=? AND end_date>=? ORDER BY version DESC,plan_id DESC LIMIT 1""",
+                [target_date,target_date]).fetchone()
+        else:
+            row = connection.execute(
+                "SELECT plan_id FROM training_plans WHERE start_date <= ? AND end_date >= ? LIMIT 1",
+                [target_date, target_date],
+            ).fetchone()
         connection.close()
         return PreflightCheck(
             "applicable_training_plan", row is not None,
@@ -124,3 +136,37 @@ def _plan_check(path, target_date):
         )
     except Exception as error:
         return PreflightCheck("applicable_training_plan", False, f"unreadable: {type(error).__name__}")
+
+
+def _continuation_specification_check(path, target_date):
+    if not path.is_file(): return PreflightCheck("continuation_specification",False,"training plan database missing")
+    try:
+        connection=duckdb.connect(str(path),read_only=True)
+        tables={x[0] for x in connection.execute("SHOW TABLES").fetchall()}
+        revisions="training_plan_revisions" in tables
+        query=("""SELECT plan_id,end_date FROM (
+            SELECT plan_id,version,start_date,end_date FROM training_plans
+            UNION ALL SELECT plan_id,version,
+            CAST(json_extract_string(payload_json,'$.start_date') AS DATE),
+            CAST(json_extract_string(payload_json,'$.end_date') AS DATE) FROM training_plan_revisions
+            ) WHERE start_date<=? AND end_date>=? ORDER BY version DESC,plan_id DESC LIMIT 1"""
+            if revisions else "SELECT plan_id,end_date FROM training_plans WHERE start_date<=? AND end_date>=? LIMIT 1")
+        plan=connection.execute(query,[target_date,target_date]).fetchone()
+        if plan is None:
+            connection.close(); return PreflightCheck("continuation_specification",False,"no applicable plan")
+        row=None if "training_plan_continuation_specifications" not in tables else connection.execute(
+            "SELECT payload_json FROM training_plan_continuation_specifications WHERE plan_id=? ORDER BY version DESC,specification_id DESC LIMIT 1",[plan[0]]).fetchone()
+        available=row is not None
+        horizon=7 if row is None else json.loads(row[0])["target_horizon_days"]
+        continuity_target=target_date+timedelta(days=horizon)
+        remaining=(plan[1]-target_date).days
+        required=plan[1]<continuity_target
+        detail=(f"coverage_end={plan[1].isoformat()} target_date={continuity_target.isoformat()} "
+                f"remaining_buffer_days={remaining} spec_available={'yes' if available else 'no'} "
+                f"extension_required={'yes' if required else 'no'}")
+        if not required:
+            connection.close(); return PreflightCheck("continuation_specification",True,
+                detail+("" if available else " future_readiness_warning=unavailable"))
+        connection.close()
+        return PreflightCheck("continuation_specification",available,detail)
+    except Exception as error:return PreflightCheck("continuation_specification",False,f"unreadable: {type(error).__name__}")

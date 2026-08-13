@@ -52,6 +52,7 @@ from production_runtime.coordinator import (
     RuntimePhaseOutcome,
 )
 from production_runtime.ingestion_slice import FitArtifactDiscovery, IngestionRuntimeSlice
+from production_runtime.horizon_continuity import PlanHorizonContinuityAdapter
 from production_runtime.models import RuntimePhase
 from production_runtime.paths import get_default_fit_activity_source_path, get_default_health_db_path
 from production_runtime.paths import PROJECT_ROOT
@@ -280,6 +281,16 @@ def create_production_daily_runtime(
                     expected.append(entry.revision.result_plan_id)
             return tuple(expected) == phase.artifact_ids
 
+        def continuity_resolves(phase):
+            if len(phase.artifact_ids)!=1:return False
+            artifact=phase.artifact_ids[0]
+            parts=artifact.rsplit(":v",1)
+            if len(parts)!=2 or not parts[0].startswith("training-plan:"):return False
+            plan_id=parts[0][len("training-plan:"):]
+            try: version=int(parts[1])
+            except ValueError:return False
+            return plan_repo.get_by_id_version(plan_id,version) is not None
+
         adapters = {
             RuntimePhase.INGESTION: CallablePhaseAdapter(ingestion.ingestion),
             RuntimePhase.ACTIVITY_FACT_SYNCHRONIZATION: CallablePhaseAdapter(ingestion.facts),
@@ -294,6 +305,7 @@ def create_production_daily_runtime(
             RuntimePhase.ASSESSMENT: AssessmentSnapshotAdapter(frozen),
             RuntimePhase.DECISION: CallablePhaseAdapter(run_decision),
             RuntimePhase.PLAN_PRESCRIPTION: CallablePhaseAdapter(run_prescription),
+            RuntimePhase.PLAN_HORIZON_CONTINUITY: PlanHorizonContinuityAdapter(plan_repo,runtime_clock),
             RuntimePhase.PLAN_ADAPTATION: PlanAdaptationRuntimeAdapter(
                 plan_repo, reconciliation_repo, snapshots, adaptation_repo, runtime_clock
             ),
@@ -305,6 +317,7 @@ def create_production_daily_runtime(
                 assessment_resolves,
                 lambda item: reconciliation_repo.get_by_id(item) is not None,
                 adaptation_resolves,
+                continuity_resolves,
             ),
         }
         runtime = ProductionDailyRuntime(

@@ -8,6 +8,9 @@ import json
 from training_plan.builder import BaselineTrainingPlanBuilder
 from training_plan.intent import TrainingIntent, Weekday, WeeklySessionIntent
 from training_plan.models import PlannedSessionKind, TrainingPlan
+from training_plan.continuity import (
+    ContinuationSessionSlot, ContinuationWeekday, TrainingPlanContinuationSpecification,
+)
 
 
 BOOTSTRAP_SCHEMA_VERSION = "1.0"
@@ -38,6 +41,14 @@ class TrainingPlanBootstrapSpecification:
             version=self.version,
             supersedes_plan_id=self.supersedes_plan_id,
         )
+
+    def build_continuation_specification(self, *, specification_id: str, version: int,
+                                         target_horizon_days: int, extension_days: int, created_at: datetime):
+        days=tuple(ContinuationWeekday(item.weekday,(ContinuationSessionSlot(
+            f"{item.weekday.name.lower()}-primary",item.kind,item.session_type,item.duration_minutes,
+            item.target_tss,item.intensity,item.priority,item.rationale),)) for item in self.intent.weekly_sessions)
+        return TrainingPlanContinuationSpecification.create(
+            specification_id,version,self.plan_id,target_horizon_days,extension_days,days,created_at)
 
 
 def parse_bootstrap_specification(payload: str) -> TrainingPlanBootstrapSpecification:

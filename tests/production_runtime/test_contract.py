@@ -62,6 +62,14 @@ def test_historical_completed_record_without_plan_adaptation_remains_readable() 
     assert RuntimePhase.PLAN_ADAPTATION not in tuple(item.phase for item in decoded.phases)
 
 
+def test_stage_296_record_with_adaptation_but_without_continuity_remains_readable() -> None:
+    historical_phases=tuple(RuntimePhaseResult(phase,PhaseStatus.COMPLETED,START,START,False)
+        for phase in RuntimePhase if phase is not RuntimePhase.PLAN_HORIZON_CONTINUITY)
+    historical=running_result(revision=11,status=RuntimeStatus.COMPLETED,completed_at_utc=START,phases=historical_phases)
+    decoded=RuntimeAuditCodec().decode(RuntimeAuditCodec().encode(historical))
+    assert decoded==historical and RuntimePhase.PLAN_ADAPTATION in tuple(x.phase for x in decoded.phases)
+
+
 def test_logical_execution_key_is_stable_and_validated() -> None:
     assert logical_execution_key(TARGET) == "2026-08-11:1.0"
     with pytest.raises(ValueError, match="logical_execution_key"):

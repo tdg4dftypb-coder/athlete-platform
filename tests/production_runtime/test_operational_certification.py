@@ -82,17 +82,17 @@ def fixture_options(tmp_path, provider):
 
 
 def seed_plan(path):
-    session = PlannedSession(
-        "plan-cert:2026-08-11", TARGET, PlannedSessionKind.TRAINING,
+    sessions = tuple(PlannedSession(
+        f"plan-cert:{(TARGET + timedelta(days=offset)).isoformat()}", TARGET + timedelta(days=offset), PlannedSessionKind.TRAINING,
         "ENDURANCE", 60, 50.0, "MODERATE", 3, ("certification",),
-    )
-    plan = TrainingPlan("plan-cert", TARGET, TARGET, 1, NOW, (session,))
+    ) for offset in range(8))
+    plan = TrainingPlan("plan-cert", TARGET, TARGET + timedelta(days=7), 1, NOW, sessions)
     DuckDbTrainingPlanRepository(path).save(plan)
 
 
 def seed_two_day_plan(path):
     closed = TARGET - timedelta(days=1)
-    sessions = (
+    sessions = [
         PlannedSession(
             "plan-cert:closed-ride", closed, PlannedSessionKind.TRAINING,
             "ENDURANCE", 60, 50.0, "MODERATE", 3, ("closed",),
@@ -101,9 +101,13 @@ def seed_two_day_plan(path):
             "plan-cert:today", TARGET, PlannedSessionKind.TRAINING,
             "ENDURANCE", 60, 50.0, "MODERATE", 3, ("today",),
         ),
-    )
+    ]
+    sessions.extend(PlannedSession(
+        f"plan-cert:future-{offset}", TARGET + timedelta(days=offset), PlannedSessionKind.TRAINING,
+        "ENDURANCE", 60, 50.0, "MODERATE", 3, ("future",),
+    ) for offset in range(1,8))
     DuckDbTrainingPlanRepository(path).save(TrainingPlan(
-        "plan-cert-two-day", closed, TARGET, 1, NOW, sessions,
+        "plan-cert-two-day", closed, TARGET + timedelta(days=7), 1, NOW, tuple(sessions),
     ))
 
 

@@ -681,6 +681,21 @@ command. The real specification remains private and outside source control.
 The bootstrap prerequisite was satisfied before live certification; Stage 27
 is 100% CLOSED.
 
+### Training Plan horizon continuity configuration
+
+Daily runtime proactively extends the same logical TrainingPlan before
+adaptation when `D + target_horizon_days` exceeds persisted coverage.
+`target_horizon_days` maintains capacity while independent `extension_days`
+controls full-chunk growth; adaptation itself still requires only D+7.
+Configuration is an explicit, versioned,
+multi-session `TrainingPlanContinuationSpecification` stored with TrainingPlan
+data. The dry-run-first
+`python -m scripts.import_training_plan_continuation --input PATH ...` command
+losslessly maps the existing single-slot bootstrap input into that richer
+contract; `--apply` is required for persistence. Runtime never reconstructs a
+weekly schedule from plan sessions. Routine extension uses the same plan ID and
+the existing revision CAS; new logical plan lineage remains operator-owned.
+
 LaunchAgent remains the preferred durable macOS scheduler. On managed hosts
 where its user directory is not writable, the supported user-cron fallback
 invokes the same scheduled production command through cron's shell at

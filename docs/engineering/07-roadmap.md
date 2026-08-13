@@ -312,6 +312,15 @@ scheduler.
   next-day adaptations. Historical runtime reads remain compatible. No scheduler, cron,
   HTTP, live-runtime, or production database operation is included; Stage 29
   remains open.
+- **Horizon Continuity Contract Foundation (29.7A — IN PROGRESS / Gate A):**
+  training-plan-owned, persisted multi-session continuation specifications and
+  deterministic same-plan N→N+1 horizon extension proactively maintain a
+  configured target buffer while guaranteeing the independent D+7 adaptation
+  minimum. Existing sessions and prior adaptive changes are preserved;
+  full-chunk extension, stable slot/session identity, optimistic concurrency,
+  recovery, read-only preflight, and dry-run-first operator import are covered
+  automatically. Explicit logical-intent plan transitions and live production
+  certification remain outside Phase A. Stage 29 remains open.
 
 ## Planned
 

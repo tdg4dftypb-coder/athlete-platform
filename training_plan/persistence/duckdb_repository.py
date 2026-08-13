@@ -8,7 +8,12 @@ from typing import Union
 
 import duckdb
 
-from training_plan.models import TrainingPlan
+from training_plan.models import PlannedSessionKind, TrainingPlan
+from training_plan.continuity import (
+    ContinuationSessionSlot, ContinuationWeekday, TrainingPlanContinuationSpecification,
+)
+from training_plan.intent import Weekday
+import json
 from training_plan.persistence.codecs import (
     FinalSessionPrescriptionCodec,
     TrainingPlanCodec,
@@ -56,6 +61,10 @@ class DuckDbTrainingPlanRepository(TrainingPlanRepository):
                         payload_json VARCHAR NOT NULL
                     )
                 """)
+                conn.execute("""CREATE TABLE IF NOT EXISTS training_plan_continuation_specifications (
+                    specification_id VARCHAR NOT NULL, version INTEGER NOT NULL, plan_id VARCHAR NOT NULL,
+                    semantic_fingerprint VARCHAR NOT NULL, created_at TIMESTAMP NOT NULL,
+                    payload_json VARCHAR NOT NULL, PRIMARY KEY(specification_id,version))""")
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS training_plan_revisions (
                         plan_id VARCHAR NOT NULL,
@@ -286,6 +295,60 @@ class DuckDbTrainingPlanRepository(TrainingPlanRepository):
                 return tuple(self._codec.decode(r[0]) for r in rows)
             finally:
                 conn.close()
+
+    @staticmethod
+    def _encode_spec(value):
+        return json.dumps({"schema_version":"1.0","specification_id":value.specification_id,"version":value.version,
+            "plan_id":value.plan_id,"target_horizon_days":value.target_horizon_days,"extension_days":value.extension_days,"semantic_fingerprint":value.semantic_fingerprint,
+            "created_at":value.created_at.isoformat(),"weekdays":[{"weekday":d.weekday.name,"slots":[{
+            "slot_id":s.slot_id,"kind":s.kind.value,"session_type":s.session_type,"duration_minutes":s.duration_minutes,
+            "target_tss":s.target_tss,"intensity":s.intensity,"priority":s.priority,"rationale":list(s.rationale)} for s in d.slots]}
+            for d in value.weekdays]},sort_keys=True,separators=(",",":"))
+
+    @staticmethod
+    def _decode_spec(payload):
+        try:
+            d=json.loads(payload)
+            if d["schema_version"]!="1.0": raise ValueError("unsupported schema")
+            days=tuple(ContinuationWeekday(Weekday[x["weekday"]],tuple(ContinuationSessionSlot(
+                s["slot_id"],PlannedSessionKind(s["kind"]),s["session_type"],s["duration_minutes"],s["target_tss"],
+                s["intensity"],s["priority"],tuple(s["rationale"])) for s in x["slots"])) for x in d["weekdays"])
+            return TrainingPlanContinuationSpecification(d["specification_id"],d["version"],d["plan_id"],d["target_horizon_days"],d["extension_days"],
+                days,d["semantic_fingerprint"],datetime.fromisoformat(d["created_at"]))
+        except Exception as e: raise TrainingPlanDataError(f"Failed to decode continuation specification: {e}") from e
+
+    def save_continuation_specification(self,value):
+        payload=self._encode_spec(value)
+        with self._lock:
+            conn=self._get_connection()
+            try:
+                row=conn.execute("SELECT payload_json FROM training_plan_continuation_specifications WHERE specification_id=? AND version=?",
+                    [value.specification_id,value.version]).fetchone()
+                if row:
+                    old=json.loads(row[0]); new=json.loads(payload); old.pop("created_at",None); new.pop("created_at",None)
+                    if old!=new: raise TrainingPlanConflictError("continuation specification collision")
+                    return False
+                conn.execute("INSERT INTO training_plan_continuation_specifications VALUES (?,?,?,?,?,?)",
+                    [value.specification_id,value.version,value.plan_id,value.semantic_fingerprint,
+                     value.created_at.astimezone(timezone.utc).replace(tzinfo=None),payload]); return True
+            finally: conn.close()
+
+    def get_continuation_specification(self,specification_id,version):
+        with self._lock:
+            conn=self._get_connection()
+            try:
+                row=conn.execute("SELECT payload_json FROM training_plan_continuation_specifications WHERE specification_id=? AND version=?",
+                                 [specification_id,version]).fetchone()
+                return None if row is None else self._decode_spec(row[0])
+            finally: conn.close()
+
+    def get_latest_continuation_specification_for_plan(self,plan_id):
+        with self._lock:
+            conn=self._get_connection()
+            try:
+                row=conn.execute("SELECT payload_json FROM training_plan_continuation_specifications WHERE plan_id=? ORDER BY version DESC,specification_id DESC LIMIT 1",[plan_id]).fetchone()
+                return None if row is None else self._decode_spec(row[0])
+            finally: conn.close()
 
 
 class DuckDbFinalSessionPrescriptionRepository(FinalSessionPrescriptionRepository):

@@ -12,6 +12,11 @@ from training_plan.models import (
 )
 from training_plan.ports import TrainingPlanProvider
 from training_plan.selector import MultiplePlannedSessionsError, TrainingPlanSessionSelector
+from training_plan.continuity import (
+    ContinuationSessionSlot, ContinuationWeekday, HorizonExtensionResult,
+    HorizonExtensionStatus, TrainingPlanContinuationSpecification,
+    TrainingPlanHorizonExtensionService,
+)
 
 from training_plan.prescription import (
     FinalSessionPrescription,
@@ -31,4 +36,7 @@ __all__ = [
     "TrainingPlanProvider",
     "PrescriptionDisposition",
     "FinalSessionPrescription",
+    "ContinuationSessionSlot", "ContinuationWeekday", "HorizonExtensionResult",
+    "HorizonExtensionStatus", "TrainingPlanContinuationSpecification",
+    "TrainingPlanHorizonExtensionService",
 ]

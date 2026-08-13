@@ -357,3 +357,58 @@ creation begins only when the adaptation phase accesses its store.
 Stage 29.6 changes neither scheduler cadence nor the runtime entrypoint. It adds
 no HTTP endpoint and performs no Gate B/live run. Production activation and
 later adaptive-planning capabilities remain outside this sprint and Stage 29.7.
+
+## Stage 29.7A — Horizon Continuity Contract Foundation (Gate A)
+
+Routine horizon continuity is not a new logical training plan. It appends only
+future dates to the latest immutable version of the same plan:
+
+```text
+plan-A vN -> plan-A vN+1
+same plan_id, start_date, supersedes_plan_id
+extended end_date, existing sessions unchanged
+```
+
+`TrainingPlanContinuationSpecification` is canonical training-plan-owned
+configuration persisted in `training_plan.duckdb`. It has an ID/version,
+target plan ID, explicit `target_horizon_days` and `extension_days`, seven weekday definitions, semantic
+fingerprint, and audit creation time. Each weekday is exactly one REST slot or
+one-or-more TRAINING slots. Stable `slot_id` permits multi-session days and
+open normalized session types without brick inference. Generated identity is
+`{plan_id}:{spec-version}:{date}:{slot_id}`; timestamps do not participate.
+
+Adaptation and continuity horizons are intentionally distinct. Adaptation still
+mutates only D+1...D+7. Continuity is proactive capacity maintenance: it checks
+`D + target_horizon_days` and advances by the minimum number of complete
+`extension_days` chunks that covers that configured target. The two configured
+values need not be equal. It copies
+all existing sessions byte-for-domain-semantics, including earlier adaptive
+reductions, and generates only dates after the previous end. Persistence uses
+the existing `append_revision(expected_source_version=N)` optimistic-concurrency
+contract: identical N+1 is idempotent and a different competing N+1 fails.
+
+The authoritative order is prescription, `plan_horizon_continuity`, plan
+adaptation, briefing, publication. Successful extension is read back before
+publishing `training-plan:{plan_id}:v{version}`. A crash after plan write is
+recovered because the next attempt resolves sufficient coverage and the exact
+latest version; it does not create N+2. Missing specification is an
+operator-visible failed phase, not inferred from historical sessions.
+
+For the plan ending 2026-09-06, a configured 28-day target and 28-day chunk
+already require proactive extension at D=2026-08-13 (target 2026-09-10) and
+D=2026-08-14 (target 2026-09-11), producing the same plan ID at N+1 ending
+2026-10-04. One canonical
+source plan then covers the complete 2026-09-03...09-09 adaptation window, so
+no composite view or multi-plan transaction is introduced. Adaptation consumes
+N+1 and may independently produce N+2.
+
+An explicit logical-intent transition `plan-A -> plan-B` remains outside v1.
+Continuity refuses a specification for a different plan ID and never joins two
+logical plans into one context. The operator-only continuation import is
+dry-run-first and converts an explicit existing bootstrap specification; it
+never infers private weekly intent from persisted sessions.
+
+Phase A performs only temporary-database automated certification. Registration
+of the real specification, backups, live runtime, and post-run read-only
+certification are separate Gate B work. Scheduler cadence remains unchanged and
+Stage 29 is not closed.
