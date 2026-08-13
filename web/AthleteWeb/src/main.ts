@@ -93,6 +93,7 @@ import { parseAndMapAthleteDashboardToTraining } from "./mappers/training-mapper
 import { parseAndMapAthleteDashboardToProgress } from "./mappers/progress-mapper";
 import { parseAndMapAthleteDashboardToNutrition } from "./mappers/nutrition-mapper";
 import { parseAndMapAthleteDashboardToBody } from "./mappers/body-composition-mapper";
+import { TrainingPlanVisibilityClient } from "./training-plan-visibility/training-plan-visibility";
 
 const scrollPositions = new Map<string, number>();
 
@@ -354,7 +355,16 @@ async function renderExternalSourceView(view: ApplicationView, mode: "live-file"
       appElement = createRecoveryApp(state, openMorningBriefing, retry);
     } else if (view === "training") {
       const state = parseAndMapAthleteDashboardToTraining(rawData, previewMappingContext);
-      appElement = createTrainingApp(state, openMorningBriefing, retry);
+      if (mode === "http" && (state.kind === "ready" || state.kind === "partial" || state.kind === "stale")) {
+        const targetDate = (rawData as { valid_for_date: string }).valid_for_date;
+        const visibility = await new TrainingPlanVisibilityClient().load(
+          targetDate,
+        );
+        const enriched = { ...state, training: { ...state.training, planVisibility: visibility } };
+        appElement = createTrainingApp(enriched, openMorningBriefing, retry);
+      } else {
+        appElement = createTrainingApp(state, openMorningBriefing, retry);
+      }
     } else if (view === "progress") {
       const state = parseAndMapAthleteDashboardToProgress(rawData, previewMappingContext);
       appElement = createProgressApp(state, openMorningBriefing, retry);

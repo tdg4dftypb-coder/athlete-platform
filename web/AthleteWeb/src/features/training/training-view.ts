@@ -11,6 +11,10 @@ import type {
 } from "../../models/training-presentation";
 
 import type { TrainingPresentationState } from "../../models/training-presentation-state";
+import type {
+  TrainingPlanVisibility,
+  VisiblePlannedSession,
+} from "../../training-plan-visibility/training-plan-visibility";
 
 export function renderTrainingExperience(
   state: TrainingPresentationState,
@@ -123,6 +127,140 @@ function appendTrainingBody(
   if (model.technicalDetails) {
     main.append(createTechnicalDetailsSection(model.technicalDetails));
   }
+  if (model.planVisibility) {
+    main.append(createTrainingPlanVisibilitySection(model.planVisibility));
+  }
+}
+
+function createTrainingPlanVisibilitySection(model: TrainingPlanVisibility): HTMLElement {
+  const section = createSection("Training Plan & Runtime", "training-plan-runtime");
+  section.classList.add("training-plan-runtime-section");
+  const card = createCard("training-plan-runtime-card");
+  card.append(
+    createVisibilityGroup("Training Plan", [
+      ["Plan", model.planId ?? "unavailable"],
+      ["Version", model.version === null ? "unavailable" : `v${model.version}`],
+      ["Coverage", model.startDate && model.endDate ? `${model.startDate} → ${model.endDate}` : "unavailable"],
+      ["Future buffer", model.futureBufferDays === null ? "unavailable" : `${model.futureBufferDays} days`],
+      ["Continuity", phaseStatus(model, "plan_horizon_continuity")],
+      ["Plan transition", versionTransition(model.runtime?.continuity ?? null)],
+    ]),
+    createTodayGroup(model),
+    createVisibilityGroup("Adaptation", [
+      ["Status", phaseStatus(model, "plan_adaptation")],
+      ["Outcome", model.runtime?.adaptation?.outcome ?? "unavailable"],
+      ["Source / result version", versionTransition(model.runtime?.adaptation ?? null)],
+    ]),
+    createVisibilityGroup("Production Runtime", [
+      ["Overall", model.runtime ? `${model.runtime.status} · r${model.runtime.revision}` : "unavailable"],
+      ["PLAN_PRESCRIPTION", phaseStatus(model, "plan_prescription")],
+      ["PLAN_HORIZON_CONTINUITY", phaseStatus(model, "plan_horizon_continuity")],
+      ["PLAN_ADAPTATION", phaseStatus(model, "plan_adaptation")],
+      ["MORNING_BRIEFING", phaseStatus(model, "morning_briefing")],
+      ["PUBLICATION", phaseStatus(model, "publication")],
+    ]),
+  );
+  if (model.limitations.length > 0) {
+    const note = document.createElement("p");
+    note.className = "visibility-limitations";
+    note.textContent = model.limitations.join(" ");
+    card.append(note);
+  }
+  section.append(card);
+  return section;
+}
+
+function phaseStatus(
+  model: TrainingPlanVisibility,
+  name: keyof NonNullable<TrainingPlanVisibility["runtime"]>["phases"],
+): string {
+  const phase = model.runtime?.phases[name];
+  if (!phase?.available) return "unavailable";
+  const changed = phase.changedState === null ? "" : ` · changed: ${phase.changedState ? "yes" : "no"}`;
+  const codes = phase.codes.length === 0 ? "" : ` · ${phase.codes.join(", ")}`;
+  return `${phase.status ?? "unavailable"}${changed}${codes}`;
+}
+
+function versionTransition(value: { readonly sourceVersion: number | null; readonly resultVersion: number | null } | null): string {
+  if (value?.sourceVersion === null || value?.sourceVersion === undefined) return "unavailable";
+  return value.resultVersion === null ? `v${value.sourceVersion}` : `v${value.sourceVersion} → v${value.resultVersion}`;
+}
+
+function createTodayGroup(model: TrainingPlanVisibility): HTMLElement {
+  const group = document.createElement("section");
+  group.className = "visibility-group";
+  const title = document.createElement("h3");
+  title.textContent = "Today";
+  group.append(title);
+
+  const sessions = document.createElement("div");
+  sessions.className = "visibility-session-list";
+  if (model.sessions.length === 0) {
+    sessions.textContent = "Sessions: unavailable";
+  } else {
+    model.sessions.forEach((session) => sessions.append(createSessionRow(session)));
+  }
+  group.append(sessions);
+
+  const prescription = document.createElement("p");
+  prescription.className = "visibility-inline-fact";
+  prescription.textContent = model.prescription
+    ? `Prescription: ${model.prescription.sessionType ?? model.prescription.disposition} · ${model.prescription.durationMinutes ?? "—"} min`
+    : "Prescription: unavailable";
+  group.append(prescription);
+
+  if (model.reconciliation.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "visibility-inline-fact";
+    empty.textContent = "Outcome / reconciliation: unavailable";
+    group.append(empty);
+  } else {
+    model.reconciliation.forEach((item) => {
+      const row = document.createElement("p");
+      row.className = "visibility-inline-fact";
+      row.textContent = `Outcome: ${item.plannedSessionId ?? "unplanned activity"} · ${item.matchStatus} · ${item.executionOutcome ?? "unavailable"}`;
+      group.append(row);
+    });
+  }
+  return group;
+}
+
+function createSessionRow(session: VisiblePlannedSession): HTMLElement {
+  const row = document.createElement("article");
+  row.className = "visibility-session";
+  row.dataset.sessionId = session.sessionId;
+  const heading = document.createElement("strong");
+  heading.textContent = session.sessionType ?? session.kind;
+  const details = document.createElement("span");
+  details.textContent = `${session.durationMinutes} min · ${session.targetTss ?? "—"} TSS`;
+  const identity = document.createElement("code");
+  identity.textContent = session.sessionId;
+  row.append(heading, details, identity);
+  return row;
+}
+
+function createVisibilityGroup(
+  titleText: string,
+  rows: readonly (readonly [string, string])[],
+): HTMLElement {
+  const group = document.createElement("section");
+  group.className = "visibility-group";
+  const title = document.createElement("h3");
+  title.textContent = titleText;
+  const list = document.createElement("dl");
+  list.className = "visibility-facts";
+  rows.forEach(([label, value]) => {
+    const row = document.createElement("div");
+    const term = document.createElement("dt");
+    term.textContent = label;
+    const description = document.createElement("dd");
+    description.textContent = value;
+    if (value === "unavailable") description.className = "is-unavailable";
+    row.append(term, description);
+    list.append(row);
+  });
+  group.append(title, list);
+  return group;
 }
 
 function createLoadingContent(message: string, onBack: () => void): HTMLElement {

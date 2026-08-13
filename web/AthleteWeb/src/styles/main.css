@@ -546,6 +546,25 @@ h2 { font-family: var(--font-display); font-size: 1.06rem; font-weight: 650; let
 .technical-row:last-child { border-bottom: none; }
 .technical-row dt { color: var(--color-text-secondary); font-size: 0.82rem; }
 .technical-row dd { font-size: 0.88rem; font-weight: 680; color: var(--color-text-primary); }
+.training-plan-runtime-card { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.visibility-group { min-width: 0; padding: 0.85rem; border: 1px solid var(--color-border); border-radius: 0.85rem; background: var(--color-surface-elevated); }
+.visibility-group h3 { margin-bottom: 0.65rem; font-family: var(--font-display); font-size: 0.82rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-text-primary); }
+.visibility-facts { display: flex; flex-direction: column; gap: 0.5rem; }
+.visibility-facts > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); gap: 0.6rem; align-items: baseline; }
+.visibility-facts dt { color: var(--color-text-secondary); font-size: 0.76rem; }
+.visibility-facts dd { min-width: 0; overflow-wrap: anywhere; text-align: right; font-size: 0.78rem; font-weight: 650; color: var(--color-text-primary); }
+.visibility-facts .is-unavailable, .visibility-limitations { color: var(--color-text-secondary); font-style: italic; font-weight: 500; }
+.visibility-session-list { display: flex; flex-direction: column; gap: 0.5rem; color: var(--color-text-secondary); font-size: 0.78rem; }
+.visibility-session { display: grid; gap: 0.2rem; padding: 0.55rem; border-radius: 0.65rem; background: var(--color-surface); color: var(--color-text-primary); }
+.visibility-session span { color: var(--color-text-secondary); font-size: 0.74rem; }
+.visibility-session code { overflow-wrap: anywhere; color: var(--color-text-secondary); font-size: 0.68rem; }
+.visibility-inline-fact { margin-top: 0.55rem; color: var(--color-text-secondary); font-size: 0.76rem; line-height: 1.4; overflow-wrap: anywhere; }
+.visibility-limitations { grid-column: 1 / -1; font-size: 0.74rem; line-height: 1.45; }
+
+@media (max-width: 30rem) {
+  .training-plan-runtime-card { grid-template-columns: 1fr; }
+  .visibility-facts > div { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
+}
 
 /* Progress Experience Styles */
 .progress-view { display: flex; flex-direction: column; gap: 1rem; }

@@ -1,4 +1,5 @@
 import type { IconName } from "../components/icon";
+import type { TrainingPlanVisibility } from "../training-plan-visibility/training-plan-visibility";
 
 export type TrainingPresentationSource = "preview" | "payload";
 
@@ -44,4 +45,5 @@ export interface TrainingPresentation {
   readonly notes: readonly string[];
   readonly expectedOutcome: string;
   readonly technicalDetails: TechnicalDetailsPresentation | null;
+  readonly planVisibility?: TrainingPlanVisibility;
 }

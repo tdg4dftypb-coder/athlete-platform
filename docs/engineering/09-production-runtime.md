@@ -59,6 +59,19 @@ prescription; it does not ingest or materialize a briefing.
 | `scripts.import_laboratory_pdf` | Biomarker ingestion | KEEP as optional source command |
 | plan builder plus plan repository | Build/persist Training Plans | REVIEW; no production application/CLI creates the required plan |
 | `server.app.create_production_dashboard_wsgi_app` | Production APIs/read models | KEEP, then MIGRATE shared composition; remain read-only |
+
+### Latest runtime visibility
+
+`GET /api/v1/production-runtime/latest` exposes the canonical latest runtime
+attempt/revision selected by `RuntimeOperationalStatusReader`. The versioned
+`1.0` response projects prescription, horizon continuity, adaptation, morning
+briefing, and publication phase diagnostics. Attempts created before a phase
+was introduced report that phase as `available: false`.
+
+The endpoint is observational only. It opens existing runtime and adaptation
+stores read-only, does not initialize schemas, and does not create a missing
+`plan_adaptation.duckdb`. Continuity targets remain null when no persisted
+artifact owns that information; the HTTP layer does not recompute them.
 | `scripts.export_live_dashboard` | Static legacy dashboard JSON | DEPRECATE |
 | `scripts.morning_coach` | Canonical use-case console report | KEEP as diagnostic |
 | `scripts.morning_briefing`, `scripts.morning` | Old direct briefing/FIT flows | DEPRECATE; bypass production provider, one has absolute Zwift path |

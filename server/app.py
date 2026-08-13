@@ -73,6 +73,7 @@ from training_plan.serializers import (
     TrainingPlanHistorySerializer,
     TrainingPlanSerializer,
 )
+from production_runtime.visibility import ProductionRuntimeVisibilityError
 
 
 _CANONICAL_CODE_RE = re.compile(r'^[a-z0-9_\-]+$')
@@ -107,6 +108,11 @@ class EmptyPlannedSessionProvider:
         return ()
 
 
+class EmptyProductionRuntimeVisibilityReader:
+    def get_latest_payload(self):
+        return {"schema_version": "1.0", "runtime": None}
+
+
 def create_dashboard_wsgi_app(
     biomarkers_context: Optional[BiomarkersApplicationContext] = None,
     morning_briefing_provider: Optional[MorningBriefingInputProvider] = None,
@@ -116,6 +122,7 @@ def create_dashboard_wsgi_app(
     training_plan_history_provider: Optional[TrainingPlanHistoryProvider] = None,
     prescription_history_provider: Optional[PrescriptionHistoryProvider] = None,
     activity_calendar_builder: Optional[ActivityCalendarBuilder] = None,
+    production_runtime_visibility_reader=None,
 ) -> Callable[[dict, Callable], list[bytes]]:
 
     """
@@ -167,6 +174,7 @@ def create_dashboard_wsgi_app(
         planned_session_provider=EmptyPlannedSessionProvider(),
     )
     _calendar_serializer = ActivityCalendarSerializer()
+    _runtime_visibility = production_runtime_visibility_reader or EmptyProductionRuntimeVisibilityReader()
 
 
 
@@ -176,6 +184,22 @@ def create_dashboard_wsgi_app(
     def wsgi_app(environ: dict, start_response: Callable) -> list[bytes]:
         path_info = environ.get("PATH_INFO", "")
         request_method = environ.get("REQUEST_METHOD", "GET")
+
+        if path_info == "/api/v1/production-runtime/latest" and request_method == "GET":
+            try:
+                payload = _runtime_visibility.get_latest_payload()
+                status = "200 OK"
+            except ProductionRuntimeVisibilityError:
+                payload = {"error": "Production Runtime visibility data is unavailable."}
+                status = "503 Service Unavailable"
+            except Exception:
+                payload = {"error": "Internal server error fetching Production Runtime visibility."}
+                status = "500 Internal Server Error"
+            response_body = json.dumps(payload, indent=2, ensure_ascii=False).encode("utf-8")
+            headers = [("Content-Type", "application/json; charset=utf-8"),
+                       ("Content-Length", str(len(response_body)))]
+            start_response(status, headers)
+            return [response_body]
 
         # Canonical bounded month/day history projection.
         if path_info == "/api/v1/activity-calendar" and request_method == "GET":
@@ -685,6 +709,8 @@ def create_production_dashboard_wsgi_app(
     health_db_path: Optional[Union[str, Path]] = None,
     training_plan_db_path: Optional[Union[str, Path]] = None,
     activity_reconciliation_db_path: Optional[Union[str, Path]] = None,
+    runtime_audit_db_path: Optional[Union[str, Path]] = None,
+    plan_adaptation_db_path: Optional[Union[str, Path]] = None,
 ) -> Callable[[dict, Callable], list[bytes]]:
     """Production composition root for WSGI app wiring real Athlete Platform sources, DuckDB Decision Repository, and Training Plan Repository."""
     from decision.persistence import DuckDbDecisionAuditRecordRepository
@@ -705,6 +731,14 @@ def create_production_dashboard_wsgi_app(
     from training_plan.persistence.paths import get_default_training_plan_db_path
     from activity_reconciliation.paths import get_default_activity_reconciliation_db_path
     from activity_reconciliation.persistence import DuckDbReconciliationResultRepository
+    from plan_adaptation.paths import get_default_plan_adaptation_db_path
+    from production_runtime.diagnostics_composition import create_runtime_operational_status_reader
+    from production_runtime.persistence import get_default_runtime_audit_db_path
+    from production_runtime.visibility import (
+        DuckDbPlanAdaptationEntryReader,
+        EmptyAdaptationEntryReader,
+        ProductionRuntimeVisibilityReader,
+    )
 
     # 1. Health DB & Morning Coach UseCase
     target_health_path = str(health_db_path) if health_db_path is not None else "data/database/health.duckdb"
@@ -748,6 +782,17 @@ def create_production_dashboard_wsgi_app(
             )
         ),
     )
+    runtime_path = get_default_runtime_audit_db_path(runtime_audit_db_path)
+    adaptation_path = get_default_plan_adaptation_db_path(plan_adaptation_db_path)
+    runtime_visibility = (
+        ProductionRuntimeVisibilityReader(
+            create_runtime_operational_status_reader(runtime_path),
+            tp_repo,
+            DuckDbPlanAdaptationEntryReader(adaptation_path)
+            if adaptation_path.is_file() else EmptyAdaptationEntryReader(),
+        )
+        if runtime_path.is_file() else EmptyProductionRuntimeVisibilityReader()
+    )
 
     return create_dashboard_wsgi_app(
         biomarkers_context=bio_context,
@@ -757,6 +802,7 @@ def create_production_dashboard_wsgi_app(
         training_plan_history_provider=tp_history_provider,
         prescription_history_provider=rx_history_provider,
         activity_calendar_builder=calendar_builder,
+        production_runtime_visibility_reader=runtime_visibility,
     )
 
 
