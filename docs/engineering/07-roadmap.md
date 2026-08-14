@@ -238,7 +238,7 @@ date; Activity Calendar reconciliation projection; live production
 certification; backward compatibility; and preservation of the existing single
 scheduler.
 
-### Roadmap V2 — Stage 29: Adaptive Training Plan v2 — IN PROGRESS
+### Roadmap V2 — Stage 29: Adaptive Training Plan v2 — CLOSED / 100%
 
 - **Adaptive Planning Domain Contract (29.1 — completed):** a dedicated,
   immutable `plan_adaptation/` bounded context defines the canonical D-7...D
@@ -249,7 +249,7 @@ scheduler.
   There is no automatic make-up training and no automatic `MOVE`, `ADD`, or
   `DUPLICATE`. Policy evaluation, evidence loading, source-plan validation,
   plan mutation/version persistence, runtime integration, and production writes
-  remain deferred to later Stage 29 sprints. Stage 29 is not closed.
+  were delivered by the later Stage 29 sprints.
 - **Evidence & Adaptation Context (29.2 — completed):**
   `AdaptationContextBuilder` now assembles an immutable, fingerprinted policy
   input snapshot from canonical TrainingPlan sessions, Stage 28 reconciliation
@@ -260,8 +260,7 @@ scheduler.
   typed missing/partial-source warnings. Missing evidence remains explicit;
   only absence of a source plan covering the complete mutation window prevents
   construction. No adaptation policy, proposal generation, persistence,
-  runtime integration, or production operation is included. Stage 29 remains
-  open.
+  runtime integration, or production operation was included in this sprint.
 - **Deterministic Adaptation Policy (29.3 — completed):** policy v1.0 maps an
   immutable AdaptationContext to PlanAdaptationEvaluation with deterministic
   identity and explicit audit time. Its conservative safety rule reuses the
@@ -274,7 +273,7 @@ scheduler.
   REST, stable session identity, multi-session and open multi-sport semantics
   are preserved. CTL/ATL/TSB thresholds, intensity ordering, downgrade maps,
   proposal construction, plan versioning, persistence, and runtime integration
-  remain deferred. Stage 29 remains open.
+  were delivered by the later Stage 29 sprints.
 - **Proposal Validation & Plan Versioning (29.4 — completed):** deterministic
   proposal construction maps NO_CHANGE to no proposal and CHANGE_PROPOSED to an
   immutable, content-addressed proposal. Typed source-aware validation protects
@@ -284,8 +283,8 @@ scheduler.
   canonical SHORTEN, proportionally reducing target TSS with the shared v1
   contract, preserving untouched same-day and open-sport sessions, retaining
   plan_id, and producing version N+1 with explicit generated_at. Intensity
-  reduction, downgrade, skip, persistence, runtime integration, and production
-  writes remain deferred. Stage 29 remains open.
+  reduction, downgrade, and skip remain outside policy v1; persistence, runtime
+  integration, and production certification were delivered later in Stage 29.
 - **Persistence, History & Read Contracts (29.5 — completed):** a dedicated
   append-only adaptation audit store persists NO_CHANGE/CHANGE_PROPOSED
   evaluations, linked proposals, and deterministic APPLIED/REJECTED revision
@@ -295,10 +294,9 @@ scheduler.
   optimistic concurrency while retaining N and preserving legacy base-plan save
   semantics. Ordered cross-store persistence publishes APPLIED only after the
   exact result plan is resolvable, with deterministic idempotent retry for
-  partial writes and no cross-database ACID claim. Production runtime, HTTP,
-  scheduler integration, and live data operations remain deferred. Stage 29
-  remains open.
-- **Production Runtime Integration (29.6 — implemented, Gate A):** the
+  partial writes and no cross-database ACID claim. Production runtime and live
+  certification were delivered by the later Stage 29 sprints.
+- **Production Runtime Integration (29.6 — completed):** the
   authoritative daily runtime executes a typed `plan_adaptation` phase after
   today's prescription and before morning briefing. It uses the persisted
   assessment snapshot, latest logical plan, D-7...D reconciliation evidence,
@@ -309,18 +307,27 @@ scheduler.
   self-produced vN+1 from cascading to vN+2. The guard follows policy-driving
   assessment semantics rather than unrelated context changes and is
   session-aware within a day, while allowing later genuinely new evidence and
-  next-day adaptations. Historical runtime reads remain compatible. No scheduler, cron,
-  HTTP, live-runtime, or production database operation is included; Stage 29
-  remains open.
-- **Horizon Continuity Contract Foundation (29.7A — IN PROGRESS / Gate A):**
+  next-day adaptations. Historical runtime reads remain compatible. Sprint 29.6
+  itself changed no scheduler or cron; production activation was certified in
+  29.7B.
+- **Horizon Continuity Contract Foundation (29.7A — completed / Gate A):**
   training-plan-owned, persisted multi-session continuation specifications and
   deterministic same-plan N→N+1 horizon extension proactively maintain a
   configured target buffer while guaranteeing the independent D+7 adaptation
   minimum. Existing sessions and prior adaptive changes are preserved;
   full-chunk extension, stable slot/session identity, optimistic concurrency,
   recovery, read-only preflight, and dry-run-first operator import are covered
-  automatically. Explicit logical-intent plan transitions and live production
-  certification remain outside Phase A. Stage 29 remains open.
+  automatically. Explicit logical-intent plan transitions remain outside v1;
+  live production certification was completed in Gate B.
+- **Production Gate B & Stage Closure (29.7B — completed):** the operator-owned
+  continuation specification was persisted with independent 28-day target and
+  extension horizons. A controlled runtime for 2026-08-14 extended
+  `plan-baseline-2026-08-10-v1` from v2 ending 2026-09-06 to v3 ending
+  2026-10-04. Continuity completed with `changed_state=True`; adaptation reused
+  the same-day guard with `changed_state=False`, preserving the existing
+  2026-08-15 SST reduction from 75 to 52 minutes. Briefing, publication, and
+  the overall runtime completed. Gate B passed and Stage 29 is **CLOSED at
+  100%**. Roadmap V2 progress is **30%**.
 
 ## Planned
 

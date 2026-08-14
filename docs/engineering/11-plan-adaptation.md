@@ -1,4 +1,9 @@
-# Stage 29.1 — Adaptive Planning Domain Contract
+# Stage 29 — Adaptive Training Plan v2
+
+Status: **CLOSED / 100%**. Production Gate B passed on 2026-08-14. Roadmap V2
+progress is **30%**.
+
+## Stage 29.1 — Adaptive Planning Domain Contract
 
 ## Purpose and ownership
 
@@ -358,7 +363,7 @@ Stage 29.6 changes neither scheduler cadence nor the runtime entrypoint. It adds
 no HTTP endpoint and performs no Gate B/live run. Production activation and
 later adaptive-planning capabilities remain outside this sprint and Stage 29.7.
 
-## Stage 29.7A — Horizon Continuity Contract Foundation (Gate A)
+## Stage 29.7A — Horizon Continuity Contract Foundation (Gate A, completed)
 
 Routine horizon continuity is not a new logical training plan. It appends only
 future dates to the latest immutable version of the same plan:
@@ -423,7 +428,57 @@ nor runs adaptation/runtime. Reapplying identical semantics is a no-op even if
 is a hard conflict. The repository contains only the synthetic format example
 `docs/examples/training-plan-continuation.example.json`, not production intent.
 
-Phase A performs only temporary-database automated certification. Registration
-of the real specification, backups, live runtime, and post-run read-only
-certification are separate Gate B work. Scheduler cadence remains unchanged and
-Stage 29 is not closed.
+Phase A performed only temporary-database automated certification. Registration
+of the real specification, backups, controlled runtime, and post-run read-only
+certification were completed by Gate B without changing scheduler cadence.
+
+## Stage 29.7B — Production Gate B and closure
+
+Production Gate B **PASSED** on 2026-08-14. The operator-controlled continuation
+specification was persisted with `target_horizon_days=28` and
+`extension_days=28`. The accepted production baseline was
+`plan-baseline-2026-08-10-v1` v2 ending 2026-09-06, including the canonical
+APPLIED adaptation for the 2026-08-15 SST session from 75 to 52 minutes.
+
+The controlled runtime extended the same logical plan from v2 to v3, ending
+2026-10-04. `PLAN_HORIZON_CONTINUITY` completed with `changed_state=True`.
+`PLAN_ADAPTATION` completed with `changed_state=False`; its same-day guard
+prevented a second SHORTEN and preserved the 52-minute SST session. Morning
+briefing, publication, and the overall runtime completed. The certified backup
+reference is `data/database/backups/stage29-gateb-20260814-093955`; database and
+manifest artifacts remain outside Git.
+
+The final production flow is:
+
+```text
+REAL DATA
+-> FACTS
+-> ATHLETE STATE
+-> DECISION
+-> PLAN
+-> HORIZON CONTINUITY
+-> ADAPTATION
+-> MORNING BRIEFING
+-> PUBLICATION
+-> EXECUTION
+-> OUTCOME
+-> LEARNING
+```
+
+Routine continuity proactively maintains its configurable target horizon by
+versioning one logical plan: `plan-A vN -> plan-A vN+1`. It does not implement
+`plan-A -> plan-B`. The production target horizon and extension chunk are both
+28 days, while adaptation retains its separate D+1...D+7 mutation horizon.
+These horizons have distinct semantics and must not be conflated.
+
+Final v1 limitations remain explicit:
+
+- routine continuity does not support an explicit logical transition from
+  `plan-A` to `plan-B`;
+- brick/grouping semantics are not modeled;
+- session types remain open;
+- adaptation v1 actively emits `SHORTEN` under the existing deterministic
+  policy and adds no new policy actions;
+- the continuation specification is operator-controlled persisted intent.
+
+Stage 29 is **CLOSED at 100%**. Stage 30 has not been started.
