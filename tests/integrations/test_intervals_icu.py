@@ -1,4 +1,5 @@
 from datetime import date, datetime, timezone
+import json
 import logging
 
 import duckdb
@@ -216,3 +217,73 @@ def test_source_ownership_is_explicit_and_canonical_tables_untouched(repository)
     assert connection.execute("SELECT * FROM platform_load").fetchall() == [("CTL", 42.0)]
     columns = {row[1] for row in connection.execute("PRAGMA table_info('intervals_icu_activities')").fetchall()}
     assert "intervals_external_tss" in columns and not {"tss", "ctl", "atl", "tsb"} & columns
+
+
+def test_restricted_strava_stub_is_recognized_and_skipped():
+    stub = {
+        "id": "19632806245",
+        "source": "STRAVA",
+        "_note": "STRAVA activities are not available via the API",
+        "start_date_local": "2026-08-06T21:54:26",
+        "icu_athlete_id": "i302943",
+    }
+    assert IntervalsActivity.from_provider(stub) is None
+
+
+def test_restricted_strava_stub_is_not_persisted_in_service(repository):
+    _, repo = repository
+    stub = {
+        "id": "19632806245",
+        "source": "STRAVA",
+        "_note": "STRAVA activities are not available via the API",
+        "start_date_local": "2026-08-06T21:54:26",
+        "icu_athlete_id": "i302943",
+    }
+    client_instance, _, _ = client([response(200, body=f"[{json.dumps(stub)}]".encode())])
+    records = client_instance.list_activities(date.today(), date.today())
+    assert records == ()
+
+
+def test_complete_activity_with_source_strava_is_not_skipped():
+    complete_strava = activity(
+        identifier="strava_full_1",
+        source="STRAVA",
+        start_date="2026-08-16T08:00:00Z",
+        elapsed_time=3600,
+    )
+    parsed = IntervalsActivity.from_provider(complete_strava)
+    assert parsed is not None
+    assert parsed.external_id == "strava_full_1"
+    assert parsed.duration_seconds == 3600
+
+
+def test_missing_start_date_without_restriction_semantics_raises_malformed():
+    invalid_payload = activity(identifier="bad_1")
+    del invalid_payload["start_date"]
+    with pytest.raises(MalformedResponse):
+        IntervalsActivity.from_provider(invalid_payload)
+
+
+def test_mixed_payload_processes_valid_and_skips_restricted_stubs(repository):
+    import json
+    connection, repo = repository
+    valid_act = activity(identifier="valid_1")
+    stub = {
+        "id": "19632806245",
+        "source": "STRAVA",
+        "_note": "STRAVA activities are not available via the API",
+        "start_date_local": "2026-08-06T21:54:26",
+        "icu_athlete_id": "i302943",
+    }
+    payload = json.dumps([valid_act, stub]).encode()
+    client_instance, _, _ = client([response(200, body=payload)])
+    records = client_instance.list_activities(date.today(), date.today())
+    assert len(records) == 1
+    assert records[0].external_id == "valid_1"
+
+    # Persist and verify
+    assert persist(repo, records) == (1, 0, 0, 0)
+    assert connection.execute("SELECT COUNT(*) FROM intervals_icu_activities").fetchone() == (1,)
+    # Idempotent retry
+    assert persist(repo, records, suffix="2", before=NOW, after=NOW) == (0, 0, 1, 0)
+    assert connection.execute("SELECT COUNT(*) FROM intervals_icu_activities").fetchone() == (1,)

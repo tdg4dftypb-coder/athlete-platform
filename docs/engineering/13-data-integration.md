@@ -180,6 +180,15 @@ semantic fingerprint. Unknown optional response fields are ignored and an
 unknown sport maps to `OTHER`. Non-finite, negative, or implausibly unbounded
 numeric values are rejected. Full arbitrary provider JSON is not stored.
 
+### Provider-restricted activity stubs
+
+Intervals.icu API may expose metadata-only provider-restricted activity stubs
+for activities imported from third parties (e.g. `source: "STRAVA"` with
+explicit restriction note `"STRAVA activities are not available via the API"`
+and missing required telemetry). These stubs are deliberately excluded from
+normalized activity ingestion. No synthetic start date or duration is created
+from them. This behavior does not constitute a Strava integration.
+
 ### Ownership and metric names
 
 Intervals activity rows are supplemental source facts prepared for later DIG.5

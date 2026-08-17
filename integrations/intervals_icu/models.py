@@ -79,6 +79,28 @@ class IntervalsConfiguration:
         return self
 
 
+def is_restricted_activity_stub(data: dict) -> bool:
+    """Return True if data represents an explicit provider-restricted activity stub.
+
+    Intervals.icu returns metadata stubs without full activity telemetry (e.g. missing
+    start_date) for third-party imports like Strava due to API terms of service.
+    """
+    if not isinstance(data, dict):
+        return False
+    source = str(data.get("source") or "").upper()
+    note = str(data.get("_note") or "")
+    has_explicit_restriction = (
+        "STRAVA activities are not available via the API" in note
+        or (source == "STRAVA" and "_note" in data)
+    )
+    is_missing_required_telemetry = (
+        data.get("start_date") is None
+        and data.get("elapsed_time") is None
+        and data.get("moving_time") is None
+    )
+    return has_explicit_restriction and is_missing_required_telemetry
+
+
 @dataclass(frozen=True)
 class IntervalsActivity:
     external_id: str
@@ -97,9 +119,11 @@ class IntervalsActivity:
     archived: bool
 
     @classmethod
-    def from_provider(cls, data: dict) -> "IntervalsActivity":
+    def from_provider(cls, data: dict) -> "IntervalsActivity | None":
         if not isinstance(data, dict):
             raise MalformedResponse("activity must be an object")
+        if is_restricted_activity_stub(data):
+            return None
         external_id = data.get("id")
         if not isinstance(external_id, (str, int)) or not str(external_id).strip():
             raise MalformedResponse("activity id is required")
