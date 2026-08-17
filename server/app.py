@@ -828,9 +828,90 @@ def create_production_dashboard_wsgi_app(
         )
         if runtime_path.is_file() else EmptyProductionRuntimeVisibilityReader()
     )
+    healthkit_token = os.environ.get("HEALTHKIT_INGESTION_TOKEN")
+    if not healthkit_token and Path(".env").is_file():
+        for line in Path(".env").read_text().splitlines():
+            line = line.strip()
+            if line.startswith("HEALTHKIT_INGESTION_TOKEN=") and not line.startswith("#"):
+                healthkit_token = line.split("=", 1)[1].strip().strip('"').strip("'")
+                break
+
     healthkit_endpoint = HealthKitIngestionEndpoint(
         HealthKitIngestionService(HealthKitRepository(db)),
-        os.environ.get("HEALTHKIT_INGESTION_TOKEN"),
+        healthkit_token,
+    )
+
+    from activity_identity.models import ProviderFreshness
+    from activity_identity.status import DataSourceStatusReader
+    from datetime import datetime, timezone
+    import duckdb
+
+    def get_healthkit_freshness():
+        try:
+            row = db.connection.execute(
+                "SELECT received_at, accepted, rejected FROM healthkit_ingestion_batches ORDER BY received_at DESC LIMIT 1"
+            ).fetchone()
+            if row is None:
+                return ProviderFreshness("healthkit", None, None, None, "DISABLED", None)
+            return ProviderFreshness(
+                "healthkit",
+                last_attempt_at=row[0].replace(tzinfo=timezone.utc),
+                last_success_at=row[0].replace(tzinfo=timezone.utc) if row[2] == 0 else None,
+                watermark=None,
+                operational_status="READY" if row[2] == 0 else "DEGRADED",
+                last_error_code=None,
+            )
+        except Exception:
+            return ProviderFreshness("healthkit", None, None, None, "DISABLED", None)
+
+    def get_intervals_freshness():
+        intervals_db_path = ROOT / "data" / "database" / "intervals_icu.duckdb"
+        if not intervals_db_path.is_file():
+            return ProviderFreshness("intervals_icu", None, None, None, "DISABLED", None)
+        try:
+            iv_con = duckdb.connect(str(intervals_db_path), read_only=True)
+            row = iv_con.execute(
+                "SELECT watermark, last_attempt_at, last_successful_sync_at, last_error_code FROM intervals_icu_sync_state WHERE provider = 'intervals_icu'"
+            ).fetchone()
+            iv_con.close()
+            if row is None:
+                return ProviderFreshness("intervals_icu", None, None, None, "DISABLED", None)
+            return ProviderFreshness(
+                "intervals_icu",
+                last_attempt_at=row[1].replace(tzinfo=timezone.utc) if row[1] else None,
+                last_success_at=row[2].replace(tzinfo=timezone.utc) if row[2] else None,
+                watermark=row[0].isoformat() if row[0] else None,
+                operational_status="READY" if row[3] is None else "DEGRADED",
+                last_error_code=row[3],
+            )
+        except Exception:
+            return ProviderFreshness("intervals_icu", None, None, None, "DISABLED", None)
+
+    def get_zwift_freshness():
+        try:
+            row = db.connection.execute(
+                "SELECT started_at, completed_at, failed FROM zwift_fit_sync_audit ORDER BY started_at DESC LIMIT 1"
+            ).fetchone()
+            if row is None:
+                return ProviderFreshness("zwift_fit", None, None, None, "DISABLED", None)
+            return ProviderFreshness(
+                "zwift_fit",
+                last_attempt_at=row[0].replace(tzinfo=timezone.utc),
+                last_success_at=row[1].replace(tzinfo=timezone.utc) if row[2] == 0 else None,
+                watermark=None,
+                operational_status="READY" if row[2] == 0 else "DEGRADED",
+                last_error_code=None,
+            )
+        except Exception:
+            return ProviderFreshness("zwift_fit", None, None, None, "DISABLED", None)
+
+    status_reader = DataSourceStatusReader(
+        providers={
+            "healthkit": get_healthkit_freshness,
+            "intervals_icu": get_intervals_freshness,
+            "zwift_fit": get_zwift_freshness,
+        },
+        now=lambda: datetime.now(timezone.utc),
     )
 
     return create_dashboard_wsgi_app(
@@ -843,6 +924,7 @@ def create_production_dashboard_wsgi_app(
         activity_calendar_builder=calendar_builder,
         production_runtime_visibility_reader=runtime_visibility,
         healthkit_ingestion_endpoint=healthkit_endpoint,
+        data_source_status_reader=status_reader,
     )
 
 
