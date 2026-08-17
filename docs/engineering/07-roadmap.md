@@ -329,6 +329,19 @@ scheduler.
   the overall runtime completed. Gate B passed and Stage 29 is **CLOSED at
   100%**. Roadmap V2 progress is **30%**.
 
+### Roadmap V2 — Stage 31: Athlete Context & Memory v2 — CLOSED / 100%
+
+Stage 31 provides typed bounded durable athlete memory, deterministic lifecycle
+persistence and retrieval, a bounded `CoachMemoryContext`, and a stable
+read-only application boundary. Production composition requires explicit
+schema initialization and was certified only on isolated DuckDB files; no
+production memory was seeded or activated. Stage 31 is **CLOSED at 100%** and
+Roadmap V2 progress is **55%**.
+
+The next milestone is the mandatory Data Integration Gate for Apple Health /
+HealthKit, Intervals.icu, and Zwift. It must complete before full Stage 32 Coach
+operation and was not started as part of Stage 31.
+
 ## Planned
 
 Poniższe obszary są udokumentowanym kierunkiem, ale nie są obecnie zaimplementowanymi modułami:

@@ -1,0 +1,101 @@
+"""Typed durable athlete-context memory domain."""
+
+from athlete.context_memory.models import (
+    DEFAULT_SUBJECT_ID,
+    MAX_EVIDENCE_REFS,
+    ForgottenMemoryTombstone,
+    MemoryAttribute,
+    MemoryConfidence,
+    MemoryDomain,
+    MemoryItem,
+    MemoryKind,
+    MemoryOrigin,
+    MemoryProvenance,
+    MemorySensitivity,
+    MemoryStatus,
+    MemoryValue,
+)
+from athlete.context_memory.errors import (
+    ExplicitAuthorizationRequiredError,
+    ForgottenMemoryReplayError,
+    IllegalMemoryLifecycleTransitionError,
+    MemoryCollisionError,
+    MemoryNotFoundError,
+    MemoryPersistenceInvariantError,
+    MemoryWriteRejectedError,
+)
+from athlete.context_memory.persistence import (
+    AthleteContextMemorySchema,
+    DuckDbContextMemoryRepository,
+)
+from athlete.context_memory.policy import (
+    DeterministicMemoryWritePolicy,
+    MemoryLifecycleRequest,
+    MemoryWriteDecision,
+    MemoryWriteMode,
+    MemoryWritePolicyResult,
+    MemoryWriteReason,
+    MemoryWriteRequest,
+)
+from athlete.context_memory.serialization import MemoryItemCodec
+from athlete.context_memory.paths import get_default_context_memory_db_path
+from athlete.context_memory.retrieval import (
+    MAX_RETRIEVAL_ITEMS,
+    CoachMemoryItem,
+    MemoryRetrievalRequest,
+    MemoryRetrievalResult,
+)
+from athlete.context_memory.context import (
+    CATEGORY_LIMITS,
+    MAX_COACH_MEMORY_ITEMS,
+    CoachMemoryContext,
+    CoachMemoryContextBuilder,
+    CoachMemoryContextRequest,
+    CoachMemoryLimitation,
+    ContextMemoryReadPort,
+)
+
+__all__ = [
+    "DEFAULT_SUBJECT_ID",
+    "MAX_EVIDENCE_REFS",
+    "ForgottenMemoryTombstone",
+    "MemoryAttribute",
+    "MemoryConfidence",
+    "MemoryDomain",
+    "MemoryItem",
+    "MemoryKind",
+    "MemoryOrigin",
+    "MemoryProvenance",
+    "MemorySensitivity",
+    "MemoryStatus",
+    "MemoryValue",
+    "ExplicitAuthorizationRequiredError",
+    "ForgottenMemoryReplayError",
+    "IllegalMemoryLifecycleTransitionError",
+    "MemoryCollisionError",
+    "MemoryNotFoundError",
+    "MemoryPersistenceInvariantError",
+    "MemoryWriteRejectedError",
+    "AthleteContextMemorySchema",
+    "DuckDbContextMemoryRepository",
+    "DeterministicMemoryWritePolicy",
+    "MemoryLifecycleRequest",
+    "MemoryWriteDecision",
+    "MemoryWriteMode",
+    "MemoryWritePolicyResult",
+    "MemoryWriteReason",
+    "MemoryWriteRequest",
+    "MemoryItemCodec",
+    "get_default_context_memory_db_path",
+    "MAX_RETRIEVAL_ITEMS",
+    "CoachMemoryItem",
+    "MemoryRetrievalRequest",
+    "MemoryRetrievalResult",
+    "CATEGORY_LIMITS",
+    "MAX_COACH_MEMORY_ITEMS",
+    "CoachMemoryContext",
+    "CoachMemoryContextBuilder",
+    "CoachMemoryContextRequest",
+    "CoachMemoryLimitation",
+    "ContextMemoryReadPort",
+]
