@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import re
 import sys
 import json
@@ -123,6 +124,7 @@ def create_dashboard_wsgi_app(
     prescription_history_provider: Optional[PrescriptionHistoryProvider] = None,
     activity_calendar_builder: Optional[ActivityCalendarBuilder] = None,
     production_runtime_visibility_reader=None,
+    healthkit_ingestion_endpoint=None,
 ) -> Callable[[dict, Callable], list[bytes]]:
 
     """
@@ -184,6 +186,22 @@ def create_dashboard_wsgi_app(
     def wsgi_app(environ: dict, start_response: Callable) -> list[bytes]:
         path_info = environ.get("PATH_INFO", "")
         request_method = environ.get("REQUEST_METHOD", "GET")
+
+        if path_info == "/api/v1/ingestion/healthkit":
+            if request_method != "POST":
+                status, payload = "405 Method Not Allowed", {"error": "method_not_allowed"}
+            elif healthkit_ingestion_endpoint is None:
+                status, payload = "503 Service Unavailable", {"error": "healthkit_ingestion_not_configured"}
+            else:
+                status, payload = healthkit_ingestion_endpoint.handle(environ)
+            response_body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+            headers = [
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Content-Length", str(len(response_body))),
+                ("Cache-Control", "no-store"),
+            ]
+            start_response(status, headers)
+            return [response_body]
 
         if path_info == "/api/v1/production-runtime/latest" and request_method == "GET":
             try:
@@ -739,6 +757,9 @@ def create_production_dashboard_wsgi_app(
         EmptyAdaptationEntryReader,
         ProductionRuntimeVisibilityReader,
     )
+    from health_ingestion.http import HealthKitIngestionEndpoint
+    from health_ingestion.persistence import HealthKitRepository
+    from health_ingestion.service import HealthKitIngestionService
 
     # 1. Health DB & Morning Coach UseCase
     target_health_path = str(health_db_path) if health_db_path is not None else "data/database/health.duckdb"
@@ -793,6 +814,10 @@ def create_production_dashboard_wsgi_app(
         )
         if runtime_path.is_file() else EmptyProductionRuntimeVisibilityReader()
     )
+    healthkit_endpoint = HealthKitIngestionEndpoint(
+        HealthKitIngestionService(HealthKitRepository(db)),
+        os.environ.get("HEALTHKIT_INGESTION_TOKEN"),
+    )
 
     return create_dashboard_wsgi_app(
         biomarkers_context=bio_context,
@@ -803,6 +828,7 @@ def create_production_dashboard_wsgi_app(
         prescription_history_provider=rx_history_provider,
         activity_calendar_builder=calendar_builder,
         production_runtime_visibility_reader=runtime_visibility,
+        healthkit_ingestion_endpoint=healthkit_endpoint,
     )
 
 

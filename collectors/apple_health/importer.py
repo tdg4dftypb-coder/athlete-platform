@@ -1,5 +1,6 @@
 from core.database import Database
 from collectors.apple_health.parser import AppleHealthParser
+from schema.health_schema import HealthSchema
 
 
 class AppleHealthImporter:
@@ -11,7 +12,7 @@ class AppleHealthImporter:
 
     def run(self):
 
-        self.db.initialize()
+        HealthSchema(self.db).create()
 
         connection = self.db.connection
 

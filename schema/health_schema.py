@@ -3,9 +3,9 @@ from core.database import Database
 
 class HealthSchema:
 
-    def __init__(self):
+    def __init__(self, db=None):
 
-        self.db = Database()
+        self.db = db or Database()
 
     def create(self):
 
@@ -27,11 +27,26 @@ class HealthSchema:
 
                 numeric_value DOUBLE,
 
-                text_value VARCHAR
+                text_value VARCHAR,
+
+                provider VARCHAR,
+                external_id VARCHAR,
+                deleted BOOLEAN DEFAULT FALSE,
+                updated_at TIMESTAMP
 
             )
             """
         )
+
+        for definition in (
+            "provider VARCHAR",
+            "external_id VARCHAR",
+            "deleted BOOLEAN DEFAULT FALSE",
+            "updated_at TIMESTAMP",
+        ):
+            self.db.connection.execute(
+                f"ALTER TABLE health_records ADD COLUMN IF NOT EXISTS {definition}"
+            )
 
         self.db.connection.execute(
             """

@@ -338,9 +338,11 @@ schema initialization and was certified only on isolated DuckDB files; no
 production memory was seeded or activated. Stage 31 is **CLOSED at 100%** and
 Roadmap V2 progress is **55%**.
 
-The next milestone is the mandatory Data Integration Gate for Apple Health /
-HealthKit, Intervals.icu, and Zwift. It must complete before full Stage 32 Coach
-operation and was not started as part of Stage 31.
+The Data Integration Gate source implementation for Apple Health / HealthKit,
+Intervals.icu, Zwift, and cross-source identity is complete. Production schema,
+real Intervals, real Zwift-folder, and physical-iPhone operator gates remain
+pending before formal closure. Roadmap V2 remains **55%** and Stage 32 remains
+not started.
 
 ## Planned
 

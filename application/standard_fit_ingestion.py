@@ -47,14 +47,15 @@ class StandardFitWorkoutIngestionService:
         self._activity_factory = activity_factory or ActivityFactory()
         self._analyzer = analyzer or WorkoutAnalyzer()
 
-    def ingest(self, fit_path: Path) -> WorkoutIngestionResult:
-        if self._repository.exists(fit_path.name):
-            return WorkoutIngestionResult(fit_path.name, persisted=False)
+    def ingest(self, fit_path: Path, *, storage_key: str | None = None) -> WorkoutIngestionResult:
+        record_key = storage_key or fit_path.name
+        if self._repository.exists(record_key):
+            return WorkoutIngestionResult(record_key, persisted=False)
         parsed_activity = self._parser.parse(str(fit_path))
         activity = self._activity_factory.create(parsed_activity)
         workout = self._analyzer.analyze(activity)
-        self._repository.save(file_name=fit_path.name, workout=workout)
-        return WorkoutIngestionResult(fit_path.name, persisted=True)
+        self._repository.save(file_name=record_key, workout=workout)
+        return WorkoutIngestionResult(record_key, persisted=True)
 
 
 class StandardActivityFactSynchronizationService:
@@ -70,19 +71,24 @@ class StandardActivityFactSynchronizationService:
         self._writer = writer
         self._identity_factory = identity_factory or FitFileSourceIdentity()
 
-    def synchronize(self, fit_path: Path) -> ActivityFactSynchronizationResult:
-        record = self._workouts.get_persisted_record(fit_path.name)
+    def persisted_record(self, record_key: str):
+        return self._workouts.get_persisted_record(record_key)
+
+    def synchronize(self, fit_path: Path, *, record_key: str | None = None,
+                    identity=None) -> ActivityFactSynchronizationResult:
+        persisted_key = record_key or fit_path.name
+        record = self._workouts.get_persisted_record(persisted_key)
         if record is None:
             raise MissingPersistedWorkoutError(
-                f"Persisted workout '{fit_path.name}' is unavailable for fact synchronization"
+                f"Persisted workout '{persisted_key}' is unavailable for fact synchronization"
             )
-        identity = self._identity_factory.create(fit_path)
+        identity = identity or self._identity_factory.create(fit_path)
         result = self._writer.write(
             recorded_activity_facts_from_persisted(record),
             identity,
         )
         return ActivityFactSynchronizationResult(
-            file_name=fit_path.name,
+            file_name=persisted_key,
             source_type=identity.provider,
             source_key=identity.external_id,
             event_id=result.event.event_id,

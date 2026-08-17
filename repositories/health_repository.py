@@ -15,7 +15,7 @@ class HealthRepository:
         self.db = database if database is not None else Database()
 
         sessions = SleepBuilder().build_sessions(
-            SleepRepository().load_records()
+            SleepRepository(database=self.db).load_records()
         )
 
         self.sleep_sessions = {
@@ -25,8 +25,14 @@ class HealthRepository:
 
     def load_daily(self):
 
+        has_deleted = self.db.connection.execute(
+            "SELECT COUNT(*) FROM information_schema.columns "
+            "WHERE table_name='health_records' AND column_name='deleted'"
+        ).fetchone()[0]
+        active_filter = "AND COALESCE(deleted, FALSE) = FALSE" if has_deleted else ""
+
         rows = self.db.connection.execute(
-            """
+            f"""
             SELECT
 
                 split_part(start_date, ' ', 1) AS date,
@@ -48,6 +54,7 @@ class HealthRepository:
                 'HKQuantityTypeIdentifierAppleSleepingWristTemperature'
 
             )
+            {active_filter}
 
             ORDER BY date
             """
