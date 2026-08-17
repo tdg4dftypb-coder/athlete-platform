@@ -111,7 +111,7 @@ def test_transaction_rollback(repo, monkeypatch):
 @pytest.mark.parametrize("freshness,expected", [
     (ProviderFreshness("x", NOW, NOW, None, "READY", None), FreshnessState.FRESH),
     (ProviderFreshness("x", NOW, NOW-timedelta(hours=7), None, "READY", None), FreshnessState.STALE),
-    (ProviderFreshness("x", None, None, None, "DISABLED", None), FreshnessState.UNAVAILABLE),
+    (ProviderFreshness("x", None, None, None, "DISABLED", None), FreshnessState.NEVER_SYNCED),
     (ProviderFreshness("x", NOW, None, None, "READY", None), FreshnessState.NEVER_SYNCED),
 ])
 def test_freshness_states(freshness, expected):

@@ -94,9 +94,9 @@ class ProviderFreshness:
     last_error_code: str | None
 
     def state(self, now: datetime, target_seconds: int) -> FreshnessState:
-        if self.operational_status == "DISABLED":
-            return FreshnessState.UNAVAILABLE
         if self.last_success_at is None:
             return FreshnessState.NEVER_SYNCED
+        if self.operational_status == "DISABLED":
+            return FreshnessState.UNAVAILABLE
         return (FreshnessState.FRESH if (now - self.last_success_at).total_seconds() <= target_seconds
                 else FreshnessState.STALE)

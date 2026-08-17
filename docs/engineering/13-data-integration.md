@@ -326,3 +326,17 @@ publication. It is not activated in source certification.
 
 Until these pass: **DIG.5 SOURCE CERTIFICATION PASS — OPERATOR GATES PENDING**.
 There is no direct Zwift API, Strava, Stage 32, Coach, or new native feature.
+
+### Read-only source status
+
+`GET /api/v1/data-sources/status` returns exactly HealthKit, Intervals.icu, and
+Zwift operational/freshness state with contract version `1.0`. Fields are
+bounded to provider, typed states, UTC attempt/success times, safe error code,
+and freshness target. It exposes no secrets, athlete ID, health values, raw
+payloads, database paths, or filesystem paths. Provider reads are isolated;
+missing configuration is HTTP 200 with `DISABLED` / `NEVER_SYNCED`.
+
+The native More screen presents these backend-owned facts as three accessible
+text rows and formats the optional UTC success timestamp in the user's locale.
+Endpoint failure affects only this section. Reading status never initializes a
+schema, calls a provider, scans the Zwift folder, triggers sync, or writes data.

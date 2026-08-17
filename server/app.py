@@ -125,6 +125,7 @@ def create_dashboard_wsgi_app(
     activity_calendar_builder: Optional[ActivityCalendarBuilder] = None,
     production_runtime_visibility_reader=None,
     healthkit_ingestion_endpoint=None,
+    data_source_status_reader=None,
 ) -> Callable[[dict, Callable], list[bytes]]:
 
     """
@@ -177,6 +178,9 @@ def create_dashboard_wsgi_app(
     )
     _calendar_serializer = ActivityCalendarSerializer()
     _runtime_visibility = production_runtime_visibility_reader or EmptyProductionRuntimeVisibilityReader()
+    if data_source_status_reader is None:
+        from activity_identity.status import disabled_status_reader
+        data_source_status_reader = disabled_status_reader()
 
 
 
@@ -217,6 +221,16 @@ def create_dashboard_wsgi_app(
             headers = [("Content-Type", "application/json; charset=utf-8"),
                        ("Content-Length", str(len(response_body)))]
             start_response(status, headers)
+            return [response_body]
+
+        if path_info == "/api/v1/data-sources/status" and request_method == "GET":
+            payload = data_source_status_reader.get_payload()
+            response_body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+            start_response("200 OK", [
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Content-Length", str(len(response_body))),
+                ("Cache-Control", "no-store"),
+            ])
             return [response_body]
 
         # Canonical bounded month/day history projection.
