@@ -933,20 +933,64 @@ def create_production_dashboard_wsgi_app(
 dashboard_wsgi_app = create_dashboard_wsgi_app()
 
 
-def run_server(port: int = 8000) -> None:
+def create_production_server(
+    *,
+    host: str = "0.0.0.0",
+    port: int = 8000,
+    health_db_path=None,
+    biomarkers_db_path=None,
+    decision_db_path=None,
+    training_plan_db_path=None,
+    runtime_audit_db_path=None,
+    activity_reconciliation_db_path=None,
+    plan_adaptation_db_path=None,
+    intervals_db_path=None,
+    zwift_source_path=None,
+    environ=None,
+    startup_delay_seconds: float = 1.0,
+):
+    from integrations.scheduler import build_production_data_source_scheduler
+    target_health_path = str(health_db_path) if health_db_path is not None else "data/database/health.duckdb"
+    db = Database(db_path=target_health_path)
+
+    prod_app = create_production_dashboard_wsgi_app(
+        health_db_path=target_health_path,
+        biomarkers_db_path=biomarkers_db_path,
+        decision_db_path=decision_db_path,
+        training_plan_db_path=training_plan_db_path,
+        runtime_audit_db_path=runtime_audit_db_path,
+        activity_reconciliation_db_path=activity_reconciliation_db_path,
+        plan_adaptation_db_path=plan_adaptation_db_path,
+    )
+
+    scheduler = build_production_data_source_scheduler(
+        db,
+        zwift_source_path=zwift_source_path,
+        intervals_db_path=intervals_db_path,
+        environ=environ,
+        startup_delay_seconds=startup_delay_seconds,
+    )
+    return prod_app, scheduler
+
+
+def run_server(host: str = "0.0.0.0", port: int = 8000) -> None:
     from wsgiref.simple_server import make_server
-    prod_app = create_production_dashboard_wsgi_app()
+    prod_app, scheduler = create_production_server(host=host, port=port)
+    scheduler.start()
     print(
         f"Starting AthletePlatform HTTP Server on "
-        f"http://127.0.0.1:{port}/api/v1/dashboard "
-        f"& /api/v1/biomarkers "
-        f"& /api/v1/biomarkers/history/{{canonical_code}}"
+        f"http://{host}:{port}/api/v1/dashboard "
+        f"& /api/v1/data-sources/status "
+        f"(Automatic Sync: Zwift FIT 10m, Intervals.icu 4h)"
     )
-    httpd = make_server("127.0.0.1", port, prod_app)
+    httpd = make_server(host, port, prod_app)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        print("\nServer stopped.")
+        print("\nStopping AthletePlatform server and data source scheduler...")
+    finally:
+        scheduler.stop()
+        print("Server stopped.")
 
 
 if __name__ == "__main__":
