@@ -50,7 +50,6 @@ class HealthKitRepository:
             {
                 "batch_id": batch.batch_id,
                 "device_id": batch.device_id,
-                "created": batch.client_created_at.isoformat(),
                 "records": [record.__dict__ | {
                     "start_at": None if record.start_at is None else record.start_at.isoformat(),
                     "end_at": None if record.end_at is None else record.end_at.isoformat(),

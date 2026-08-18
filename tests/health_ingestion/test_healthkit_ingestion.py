@@ -275,3 +275,70 @@ def test_missing_required_fields_and_invalid_units_are_rejected(context):
     assert ack.rejected == 3
     assert ack.safe_to_advance_anchor is False
     assert set(ack.rejected_external_ids) == {"rec-no-val", "rec-bad-unit", "rec-bad-type"}
+
+
+def test_batch_identity_ignores_ephemeral_client_created_at_mutation(context):
+    _, database, service = context
+    # A. First sync with client_created_at = T1
+    b1 = batch(batch_id="batch-id-1", records=[record(external_id="rec-1")])
+    b1["client_created_at"] = "2026-08-18T13:00:00+00:00"
+    ack1 = service.ingest(b1)
+    assert ack1.accepted == 1
+
+    # Retry with same batch_id, device_id, and records, but client_created_at = T2
+    b2 = batch(batch_id="batch-id-1", records=[record(external_id="rec-1")])
+    b2["client_created_at"] = "2026-08-18T13:05:00+00:00"
+    ack2 = service.ingest(b2)
+    assert ack2.batch_id == "batch-id-1"
+    assert ack2.accepted == 0
+    assert ack2.duplicate == 1
+    assert ack2.rejected == 0
+    assert ack2.safe_to_advance_anchor is True
+
+
+def test_same_batch_id_with_different_records_triggers_collision_error(context):
+    _, database, service = context
+    # B. First sync with batch-collision-1
+    b1 = batch(batch_id="batch-collision-1", records=[record(external_id="rec-alpha", value=50.0)])
+    service.ingest(b1)
+
+    # Different records submitted under same batch_id
+    b2 = batch(batch_id="batch-collision-1", records=[record(external_id="rec-beta", value=75.0)])
+    with pytest.raises(HealthKitBatchCollisionError):
+        service.ingest(b2)
+
+
+def test_endpoint_returns_200_on_retried_batch_and_409_on_actual_collision(context):
+    _, database, service = context
+    endpoint = HealthKitIngestionEndpoint(service, "test-token")
+
+    def call_endpoint(payload):
+        from io import BytesIO
+        raw = json.dumps(payload).encode("utf-8")
+        env = {
+            "REQUEST_METHOD": "POST",
+            "HTTP_AUTHORIZATION": "Bearer test-token",
+            "CONTENT_LENGTH": str(len(raw)),
+            "wsgi.input": BytesIO(raw),
+        }
+        return endpoint.handle(env)
+
+    # Ingest b1
+    b1 = batch(batch_id="batch-ep-1", records=[record(external_id="rec-ep-1")])
+    b1["client_created_at"] = "2026-08-18T13:00:00+00:00"
+    status1, ack1 = call_endpoint(b1)
+    assert status1 == "200 OK"
+    assert ack1["accepted"] == 1
+
+    # Retry b1 with different client_created_at -> 200 OK
+    b1_retry = batch(batch_id="batch-ep-1", records=[record(external_id="rec-ep-1")])
+    b1_retry["client_created_at"] = "2026-08-18T13:10:00+00:00"
+    status2, ack2 = call_endpoint(b1_retry)
+    assert status2 == "200 OK"
+    assert ack2["duplicate"] == 1
+
+    # Same batch_id with different records -> 409 Conflict
+    b1_tampered = batch(batch_id="batch-ep-1", records=[record(external_id="rec-ep-2")])
+    status3, ack3 = call_endpoint(b1_tampered)
+    assert status3 == "409 Conflict"
+    assert ack3 == {"error": "batch_identity_collision"}
