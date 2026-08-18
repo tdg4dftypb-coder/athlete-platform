@@ -68,9 +68,38 @@ class HealthKitRepository:
         ).fetchone()
         if row is None:
             return None
-        if row[0] != self.payload_hash(batch):
-            raise HealthKitBatchCollisionError("batch identity collision")
-        return row
+        if row[0] == self.payload_hash(batch) or self._is_legacy_match(batch, row):
+            return row
+        raise HealthKitBatchCollisionError("batch identity collision")
+
+    def _is_legacy_match(self, batch: HealthKitBatch, row: tuple) -> bool:
+        if row[3] > 0 or not batch.records:
+            return False
+        if row[1] + row[2] != len(batch.records):
+            return False
+        connection = self._database.connection
+        for record in batch.records:
+            stored = connection.execute(
+                "SELECT record_type, source_name, unit, start_date, end_date, numeric_value, text_value, deleted, updated_at "
+                "FROM health_records WHERE provider = 'healthkit' AND external_id = ?",
+                [record.external_id],
+            ).fetchone()
+            if stored is None:
+                return False
+            expected = (
+                record.sample_type,
+                record.source_name,
+                record.unit,
+                self._date_text(record.start_at),
+                self._date_text(record.end_at),
+                record.value,
+                record.workout_sport,
+                record.deleted,
+                record.updated_at.astimezone(timezone.utc).replace(tzinfo=None),
+            )
+            if stored != expected:
+                return False
+        return True
 
     def persist(self, batch: HealthKitBatch, received_at, rejected_ids=()) -> tuple[int, int]:
         connection = self._database.connection

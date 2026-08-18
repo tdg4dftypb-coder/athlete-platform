@@ -342,3 +342,72 @@ def test_endpoint_returns_200_on_retried_batch_and_409_on_actual_collision(conte
     status3, ack3 = call_endpoint(b1_tampered)
     assert status3 == "409 Conflict"
     assert ack3 == {"error": "batch_identity_collision"}
+
+
+def test_legacy_hashed_batch_is_idempotently_accepted_without_db_mutation(context):
+    _, database, service = context
+    endpoint = HealthKitIngestionEndpoint(service, "test-token")
+
+    def call_endpoint(payload):
+        from io import BytesIO
+        raw = json.dumps(payload).encode("utf-8")
+        env = {
+            "REQUEST_METHOD": "POST",
+            "HTTP_AUTHORIZATION": "Bearer test-token",
+            "CONTENT_LENGTH": str(len(raw)),
+            "wsgi.input": BytesIO(raw),
+        }
+        return endpoint.handle(env)
+
+    # 1. Ingest initial batch
+    rec = record(external_id="legacy-rec-1", value=62.0)
+    b_init = batch(batch_id="batch-legacy-1", records=[rec])
+    b_init["client_created_at"] = "2026-08-18T12:00:00+00:00"
+    status1, ack1 = call_endpoint(b_init)
+    assert status1 == "200 OK"
+    assert ack1["accepted"] == 1
+
+    # 2. Simulate stored legacy hash that used client_created_at in its digest
+    legacy_hash = "sha256:legacy-pre-dd10006-hash"
+    database.connection.execute(
+        "UPDATE healthkit_ingestion_batches SET payload_hash = ? WHERE batch_id = ?",
+        [legacy_hash, "batch-legacy-1"],
+    )
+
+    records_count_before = database.connection.execute("SELECT COUNT(*) FROM health_records").fetchone()[0]
+
+    # A. Recreate same semantic batch with different client_created_at
+    b_retry = batch(batch_id="batch-legacy-1", records=[rec])
+    b_retry["client_created_at"] = "2026-08-18T13:45:00+00:00"
+    status2, ack2 = call_endpoint(b_retry)
+    assert status2 == "200 OK"
+    assert ack2["batch_id"] == "batch-legacy-1"
+    assert ack2["accepted"] == 0
+    assert ack2["duplicate"] == 1
+    assert ack2["rejected"] == 0
+    assert ack2["safe_to_advance_anchor"] is True
+
+    # Zero new health_records inserted
+    records_count_after = database.connection.execute("SELECT COUNT(*) FROM health_records").fetchone()[0]
+    assert records_count_after == records_count_before
+
+    # Stored legacy payload_hash remains 100% unchanged (read-only compatibility path)
+    stored_hash_after = database.connection.execute(
+        "SELECT payload_hash FROM healthkit_ingestion_batches WHERE batch_id = ?",
+        ["batch-legacy-1"],
+    ).fetchone()[0]
+    assert stored_hash_after == legacy_hash
+
+    # B. Legacy batch with same external_id but changed semantic value -> 409
+    rec_tampered_val = record(external_id="legacy-rec-1", value=99.0)
+    b_tampered_val = batch(batch_id="batch-legacy-1", records=[rec_tampered_val])
+    status3, ack3 = call_endpoint(b_tampered_val)
+    assert status3 == "409 Conflict"
+    assert ack3 == {"error": "batch_identity_collision"}
+
+    # C. Legacy batch with changed timestamp / metadata -> 409
+    rec_tampered_time = record(external_id="legacy-rec-1", value=62.0, start_at="2026-08-18T10:00:00+00:00")
+    b_tampered_time = batch(batch_id="batch-legacy-1", records=[rec_tampered_time])
+    status4, ack4 = call_endpoint(b_tampered_time)
+    assert status4 == "409 Conflict"
+    assert ack4 == {"error": "batch_identity_collision"}
