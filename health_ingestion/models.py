@@ -70,13 +70,15 @@ class HealthKitSourceRecord:
     def from_dict(cls, data: dict) -> "HealthKitSourceRecord":
         if not isinstance(data, dict):
             raise ValueError("record must be an object")
-        required = {
+        allowed = {
             "external_id", "sample_type", "start_at", "end_at", "value", "unit",
             "source_name", "source_bundle_id", "device_model", "source_timezone",
-            "deleted", "updated_at",
+            "workout_sport", "deleted", "updated_at",
         }
-        if not required <= set(data) or set(data) - required > {"workout_sport"}:
+        if not set(data) <= allowed:
             raise ValueError("record fields do not match contract")
+        if not {"external_id", "sample_type", "deleted", "updated_at"} <= set(data):
+            raise ValueError("record missing required identity fields")
         external_id = _text("external_id", data["external_id"], pattern=True)
         sample_type = _text("sample_type", data["sample_type"], pattern=True)
         if sample_type not in SUPPORTED_UNITS:
@@ -86,10 +88,12 @@ class HealthKitSourceRecord:
             raise ValueError("deleted must be bool")
         updated_at = _utc("updated_at", data["updated_at"])
         if deleted:
-            if any(data[name] is not None for name in ("start_at", "end_at", "value", "unit")):
+            if any(data.get(name) is not None for name in ("start_at", "end_at", "value", "unit")):
                 raise ValueError("deletion must not include sample value fields")
             start_at = end_at = value = unit = None
         else:
+            if not {"start_at", "end_at", "value", "unit"} <= set(data):
+                raise ValueError("active sample missing required value fields")
             start_at = _utc("start_at", data["start_at"])
             end_at = _utc("end_at", data["end_at"])
             if end_at < start_at:
@@ -103,7 +107,7 @@ class HealthKitSourceRecord:
                 raise ValueError("unsupported unit for sample_type")
         metadata = []
         for name in ("source_name", "source_bundle_id", "device_model", "source_timezone"):
-            raw = data[name]
+            raw = data.get(name)
             metadata.append(None if raw is None else _text(name, raw))
         workout_sport = data.get("workout_sport")
         if workout_sport is not None:

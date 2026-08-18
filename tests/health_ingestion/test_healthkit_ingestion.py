@@ -229,3 +229,49 @@ def test_schema_preserves_legacy_rows(context):
     assert database.connection.execute(
         "SELECT record_type, numeric_value FROM health_records WHERE provider IS NULL"
     ).fetchone() == ("legacy", 1.0)
+
+
+def test_optional_fields_present_null_or_omitted_are_accepted(context):
+    _, database, service = context
+    # A. Optional fields present with values
+    rec_full = record(external_id="rec-full", device_model="iPhone14,3", source_timezone="Europe/Warsaw")
+    # B. Optional fields explicitly null
+    rec_nulls = record(external_id="rec-nulls", device_model=None, source_timezone=None, source_name=None)
+    # C. Optional fields omitted by Swift JSONEncoder
+    rec_omitted = {
+        "external_id": "rec-omitted",
+        "sample_type": "HKQuantityTypeIdentifierStepCount",
+        "start_at": NOW,
+        "end_at": NOW,
+        "value": 150.0,
+        "unit": "count",
+        "deleted": False,
+        "updated_at": NOW,
+    }
+    ack = service.ingest(batch(records=[rec_full, rec_nulls, rec_omitted]))
+    assert ack.accepted == 3
+    assert ack.rejected == 0
+    assert ack.safe_to_advance_anchor is True
+
+
+def test_missing_required_fields_and_invalid_units_are_rejected(context):
+    _, database, service = context
+    # D. Missing required value field on active record
+    rec_no_val = {
+        "external_id": "rec-no-val",
+        "sample_type": "HKQuantityTypeIdentifierStepCount",
+        "start_at": NOW,
+        "end_at": NOW,
+        "unit": "count",
+        "deleted": False,
+        "updated_at": NOW,
+    }
+    # E. Invalid units/types remain rejected
+    rec_bad_unit = record(external_id="rec-bad-unit", sample_type="HKQuantityTypeIdentifierStepCount", unit="ms")
+    rec_bad_type = record(external_id="rec-bad-type", sample_type="HKQuantityTypeUnknown")
+
+    ack = service.ingest(batch(records=[rec_no_val, rec_bad_unit, rec_bad_type]))
+    assert ack.accepted == 0
+    assert ack.rejected == 3
+    assert ack.safe_to_advance_anchor is False
+    assert set(ack.rejected_external_ids) == {"rec-no-val", "rec-bad-unit", "rec-bad-type"}
