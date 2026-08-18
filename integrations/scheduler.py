@@ -132,13 +132,12 @@ def create_production_zwift_sync_fn(
 ) -> Callable[[], object]:
     from integrations.zwift_fit.composition import build_zwift_fit_sync_service
 
-    resolved_path = Path(
-        zwift_source_path
-        or os.environ.get("ZWIFT_ACTIVITY_SOURCE_PATH", "data/zwift_activities")
-    )
-    service = build_zwift_fit_sync_service(database, resolved_path)
-
     def run_zwift():
+        resolved_path = Path(
+            zwift_source_path
+            or os.environ.get("ZWIFT_ACTIVITY_SOURCE_PATH", "data/zwift_activities")
+        )
+        service = build_zwift_fit_sync_service(database, resolved_path)
         now = datetime.now(timezone.utc)
         return service.sync(started_at=now)
 

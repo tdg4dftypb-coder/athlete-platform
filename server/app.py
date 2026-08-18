@@ -949,6 +949,13 @@ def create_production_server(
     environ=None,
     startup_delay_seconds: float = 1.0,
 ):
+    if environ is None and Path(".env").is_file():
+        for line in Path(".env").read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+
     from integrations.scheduler import build_production_data_source_scheduler
     target_health_path = str(health_db_path) if health_db_path is not None else "data/database/health.duckdb"
     db = Database(db_path=target_health_path)
