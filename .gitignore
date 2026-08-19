@@ -236,3 +236,6 @@ data/reports/
 
 # Nested local database backups
 data/database/**/*.duckdb
+
+# DuckDB write-ahead logs
+data/database/**/*.wal
